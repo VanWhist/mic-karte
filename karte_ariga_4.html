@@ -1,0 +1,1396 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Mic Karte App Draft",
+  "schemaVersion": 1,
+  "description": "MIC選手カルテ ドラフト版。将来ビジョン・シーズン目標・マンダラチャート要約・自己分析・生活習慣を選手ごとに表示。マンダラチャートは中心目標＋8要素の要約とマスの記入進捗を表示し、全81マスは元のGoogleスプレッドシートへのリンクから確認。",
+  "mcpTools": [],
+  "mcpServerNames": []
+}
+</script>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MIC選手カルテ - 有賀睦人</title>
+<style>
+  :root {
+    --surface-1: #ffffff;
+    --page: #f4f5f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #55575c;
+    --text-muted: #8a8d93;
+    --gridline: #e7e8ec;
+    --border: rgba(11,11,11,0.08);
+    --blue-450: #2a78d6;
+    --blue-250: #86b6ef;
+    --blue-350: #5598e7;
+    --blue-550: #1c5cab;
+    --blue-650: #104281;
+    --accent-soft: #eaf2fc;
+    --gold-soft: #fbf3df;
+    --gold-line: #d79b00;
+    --gold-text: #8a6400;
+    --green-soft: #eaf7ef;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* App chrome */
+  .app-header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    padding: calc(var(--safe-top) + 10px) 16px 10px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .app-title {
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 10px;
+    letter-spacing: 0.01em;
+  }
+  .segmented {
+    display: flex;
+    background: var(--page);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .segmented button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 8px 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    font-family: inherit;
+  }
+  .segmented button.active {
+    background: var(--surface-1);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(11,11,11,0.12);
+  }
+  .updated-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  .app-body {
+    padding: 12px 12px calc(var(--safe-bottom) + 28px);
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: var(--surface-1);
+    border-radius: 14px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(11,11,11,0.05);
+    border: 1px solid var(--border);
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 8px;
+  }
+  .card-head .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--blue-450);
+    flex: none;
+  }
+  .card-head.gold .dot { background: var(--gold-line); }
+  .card-head.green .dot { background: #1f9d55; }
+  .card-head h2 {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+  }
+  .card-body { padding: 0 14px 14px; }
+
+  .field { padding: 8px 0; border-top: 1px solid var(--gridline); }
+  .field:first-child { border-top: none; padding-top: 0; }
+  .field .k { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+  .field .v { font-size: 14px; line-height: 1.55; color: var(--text-primary); }
+  .field.clickable { cursor: pointer; transition: opacity 0.08s ease; }
+  .field.clickable:active { opacity: 0.6; }
+  .field .chev { font-size: 10px; color: var(--text-muted); font-weight: 400; }
+  .field .chev { font-size: 17px; color: var(--blue-450); font-weight: 700; opacity: 0.7; vertical-align: -2px; }
+  .field.sub {
+    background: var(--gold-soft);
+    border-top: none;
+    border-radius: 8px;
+    padding: 9px 10px;
+    margin: 2px 0 4px;
+  }
+  .field.sub .k { color: var(--gold-text); }
+
+  .goal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .goal-tile {
+    background: var(--accent-soft);
+    border-radius: 10px;
+    padding: 9px 10px;
+  }
+  .goal-tile .k { font-size: 10.5px; color: var(--blue-450); font-weight: 700; margin-bottom: 3px; }
+  .goal-tile .v { font-size: 12.5px; line-height: 1.5; color: var(--text-primary); }
+  .goal-tile.clickable { cursor: pointer; transition: transform 0.08s ease; }
+  .goal-tile.clickable:active { transform: scale(0.97); }
+  .goal-tile.clickable { position: relative; padding-right: 30px; }
+  .goal-tile.clickable::after {
+    content: "\203A";
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--blue-450);
+    opacity: 0.6;
+  }
+  .goal-tile.muted { background: var(--page); opacity: 0.7; }
+
+  /* self-assessment bars */
+  .bars { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; }
+  .bar-row .name { font-size: 11px; color: var(--text-secondary); text-align: right; white-space: nowrap; }
+  .bar-track { position: relative; height: 16px; background: var(--page); border-radius: 4px; }
+  .bar-fill { position: absolute; left: 0; top: 0; height: 16px; border-radius: 4px; display: flex; align-items: center; }
+  .bar-fill span { color: #fff; font-size: 10px; font-weight: 700; margin-left: auto; margin-right: 5px; }
+  .bar-row .val { font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .focus-chip {
+    display: inline-block;
+    font-size: 9.5px;
+    background: var(--gold-soft);
+    color: var(--gold-text);
+    border: 1px solid var(--gold-line);
+    border-radius: 999px;
+    padding: 1px 6px;
+    margin-left: 4px;
+  }
+  .focus-note { font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+
+  .life-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .life-tile { background: var(--page); border-radius: 10px; padding: 8px 4px; text-align: center; }
+  .life-tile .k { font-size: 9.5px; color: var(--text-muted); margin-bottom: 3px; }
+  .life-tile .v { font-size: 12px; font-weight: 700; }
+
+  .message-box {
+    background: var(--gold-soft);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-top: 10px;
+  }
+  .message-box .k { font-size: 10.5px; color: var(--gold-text); font-weight: 700; margin-bottom: 4px; }
+
+  .mandala-3x3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .mandala-cell {
+    border-radius: 10px;
+    padding: 8px 4px;
+    text-align: center;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .mandala-cell.center {
+    background: var(--gold-soft);
+    border: 1px solid var(--gold-line);
+  }
+  .mandala-cell.center .g {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--gold-text);
+    line-height: 1.4;
+  }
+  .mandala-cell.elem {
+    background: var(--page);
+    opacity: 0.7;
+  }
+  .mandala-cell.elem.started {
+    background: var(--accent-soft);
+    border: 1px solid var(--blue-250);
+    opacity: 1;
+  }
+  .mandala-cell.elem .n {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--blue-550);
+    margin-bottom: 2px;
+    line-height: 1.3;
+  }
+  .mandala-cell.elem .p {
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+  .mandala-cell.elem.started .p { color: var(--blue-450); font-weight: 700; }
+  .mandala-cell.clickable { cursor: pointer; transition: transform 0.08s ease; }
+  .mandala-cell.clickable:active { transform: scale(0.95); }
+  .mandala-cell.clickable { position: relative; }
+  .mandala-cell.elem.clickable::after {
+    content: "\203A";
+    position: absolute;
+    top: 0px;
+    right: 3px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--blue-450);
+    opacity: 0.6;
+  }
+  .mandala-cell.center.sub {
+    background: var(--accent-soft);
+    border: 1px solid var(--blue-350);
+  }
+  .mandala-cell.center.sub .g { color: var(--blue-550); }
+  .mandala-cell.action {
+    background: var(--page);
+    padding: 6px 4px;
+  }
+  .mandala-cell.action.filled {
+    background: var(--surface-1);
+    border: 1px solid var(--gridline);
+  }
+  .mandala-cell.action .a {
+    font-size: 9.5px;
+    line-height: 1.35;
+    color: var(--text-primary);
+  }
+  .mandala-cell.action .a.muted {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .mandala-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .mandala-link {
+    color: var(--blue-450);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .mandala-empty {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    padding: 4px 2px 10px;
+  }
+
+  #selector { display: none !important; }
+  .draft-banner {
+    max-width: 480px;
+    margin: 10px auto 0;
+    padding: 10px 14px;
+    background: #fff8e6;
+    border: 1px solid #f0d488;
+    border-radius: 10px;
+    font-size: 11.5px;
+    color: #8a6400;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <p class="app-title">MIC選手カルテ - 有賀睦人</p>
+  <div class="segmented" id="selector"></div>
+  <div class="updated-row" id="updatedRow"></div>
+</div>
+
+<div class="app-body" id="appBody"></div>
+
+<div class="draft-banner">
+  これは有賀睦人選手専用のカルテです。ここに表示される情報は有賀睦人選手本人のものだけです。各データはApps Script経由でスプレッドシート/フォームの回答からライブに取得しているため、回答が更新されると次回表示時に自動的に反映されます。
+</div>
+
+<script>
+const ATHLETES = {
+  "有賀睦人": {
+    updated: null,
+    vision: null,
+    season: null,
+    selfAssessment: null,
+    life: null,
+    support: null,
+    message: null,
+    seasonApi: {
+      apiUrl: "https://script.google.com/macros/s/AKfycbwMiFwmaf-Y0s7Jsu5kSwljHdxKQ4RXj7BVVVjlgNGSQScSMFtKhOMuP_mtNa597TlcMg/exec",
+      token: "eff5597f39d1ec82bf7780ee", // 睦人専用トークン
+      sheetUrl: null /* 全選手共通シートのため選手専用ファイルでは非公開(8-3の教訓) */
+    },
+    training: null, // まだトレーニングログアプリが未構築
+    shortTermGoal: {
+      apiUrl: "https://script.google.com/macros/s/AKfycbx0QMlnk7dC1nJxV0Et-fqSh--Vo06nOchEOZGYVPp-ODE_tmt6BlRLn3pdt_kUxUVU/exec",
+      token: "e328eceea6c59e783b326a36", // 睦人専用トークン
+      updated: null,
+      formUrl: "https://forms.gle/t8SKiK1soGFctgyf6",
+      sheetUrl: null /* 全選手共通シートのため選手専用ファイルでは非公開(8-3の教訓) */,
+      categories: {
+        "ウォータージャンプ": null,
+        "トランポリン": null,
+        "トレーニング（フィジカル）": null
+      },
+      plan: null
+    },
+    mandalaApi: {
+      apiUrl: "https://script.google.com/macros/s/AKfycbxzrgZf1C3vqfGwbeS3hUr1P9U3txbuVfiRBvxWzlAeKdnfIp7QaJ0C1MhE-drLwk31/exec",
+      token: "e31bd19258dd7fc1e5de8d90", // 睦人専用トークン
+      sheetUrl: "https://docs.google.com/spreadsheets/d/1rooPH4zeFzRG04mF_tea4QRXRvWZAw1sAUwj1Q8DQBg/edit"
+    },
+    airLog: {
+      apiUrl: "https://script.google.com/macros/s/AKfycbyH7nX_nhgJ4z7W_QCLGnZqwLp8GkCdRzof2RaaR3fLK2gKVpeF8P0lATS2uzzKJhP0ag/exec",
+      appUrl: "https://vanwhist.github.io/mic-air-log/",
+      matchName: "有賀睦人"
+    }
+  }
+};;
+
+const stepByValue = { 1: "#86b6ef", 2: "#5598e7", 3: "#2a78d6", 4: "#1c5cab", 5: "#104281" };
+
+let current = "有賀睦人";
+let mandalaDrill = null; // 現在ドリルダウン中の要素名（nullなら全体表示）
+let visionExpanded = { goal: false, ultimate: false }; // 将来ビジョンの各項目が開いているか
+let trainingDrill = null; // 現在ドリルダウン中の種目名（nullなら全体表示）
+const trainingCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', records, error }
+let stgDrill = null; // 短期目標(フォームA)で現在ドリルダウン中のカテゴリ名（nullなら全体表示）
+const stgCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', data, error }
+const seasonCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', data, error }（将来ビジョン/シーズン目標/自己分析/生活習慣・サポート共通）
+const mandalaCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', data, error }
+let airLogDrill = null; // MICエアlogで現在ドリルダウン中のカテゴリ("water"|"trampoline"、nullなら全体表示)
+const airLogCache = {}; // apiUrl -> { status: 'loading'|'loaded'|'error', records, error }（全選手共通APIのためathlete名ではなくapiUrlをキーにする）
+
+function renderSelector() {
+  const el = document.getElementById("selector");
+  el.innerHTML = "";
+  Object.keys(ATHLETES).forEach(name => {
+    const btn = document.createElement("button");
+    btn.textContent = name;
+    btn.className = name === current ? "active" : "";
+    btn.onclick = () => {
+      current = name;
+      mandalaDrill = null;
+      trainingDrill = null;
+      stgDrill = null;
+      airLogDrill = null;
+      visionExpanded = { goal: false, ultimate: false };
+      render();
+    };
+    el.appendChild(btn);
+  });
+}
+
+window.toggleVision = function(key) {
+  visionExpanded[key] = !visionExpanded[key];
+  render();
+};
+
+window.selectMandalaElement = function(name) {
+  mandalaDrill = name;
+  render();
+};
+window.mandalaBack = function() {
+  mandalaDrill = null;
+  render();
+};
+
+window.selectTraining = function(exercise) {
+  trainingDrill = exercise;
+  render();
+};
+window.trainingBack = function() {
+  trainingDrill = null;
+  render();
+};
+window.retryTraining = function(athleteKey) {
+  delete trainingCache[athleteKey];
+  render();
+};
+
+window.selectStg = function(category) {
+  stgDrill = category;
+  render();
+};
+window.stgBack = function() {
+  stgDrill = null;
+  render();
+};
+window.retryStg = function(athleteKey) {
+  delete stgCache[athleteKey];
+  render();
+};
+window.retrySeason = function(athleteKey) {
+  delete seasonCache[athleteKey];
+  render();
+};
+window.retryMandala = function(athleteKey) {
+  delete mandalaCache[athleteKey];
+  render();
+};
+
+window.selectAirLogCategory = function(category) {
+  airLogDrill = category;
+  render();
+};
+window.airLogBack = function() {
+  airLogDrill = null;
+  render();
+};
+window.retryAirLog = function(apiUrl) {
+  delete airLogCache[apiUrl];
+  render();
+};
+
+// 目標設定シート（回答）に紐づくApps Script Web Appから直接フェッチ
+// （将来ビジョン/シーズン目標/自己分析/生活習慣・サポートの4カード共通のデータソース。
+// 該当行がまだ無ければ全項目nullのJSONが返る＝未回答扱い）
+function loadSeasonData(athleteKey, apiUrl, token) {
+  if (seasonCache[athleteKey]) return; // 読み込み中 or 読み込み済み
+  seasonCache[athleteKey] = { status: "loading" };
+  fetch(apiUrl + "?token=" + encodeURIComponent(token))
+    .then(res => res.json())
+    .then(data => {
+      seasonCache[athleteKey] = { status: "loaded", data: data };
+      render();
+    })
+    .catch(err => {
+      seasonCache[athleteKey] = { status: "error", error: String(err) };
+      render();
+    });
+}
+
+// マンダラチャート(選手ごとに別ファイルのGoogleスプレッドシート)に紐づくApps Script Web Appから
+// 直接フェッチ（中心目標+8要素[各8アクション]のJSONが返る。まだ未着手ならgoal/gridがnull）
+function loadMandalaData(athleteKey, apiUrl, token) {
+  if (mandalaCache[athleteKey]) return; // 読み込み中 or 読み込み済み
+  mandalaCache[athleteKey] = { status: "loading" };
+  fetch(apiUrl + "?token=" + encodeURIComponent(token))
+    .then(res => res.json())
+    .then(data => {
+      mandalaCache[athleteKey] = { status: "loaded", data: data };
+      render();
+    })
+    .catch(err => {
+      mandalaCache[athleteKey] = { status: "error", error: String(err) };
+      render();
+    });
+}
+
+// フォームAの回答スプレッドシートに紐づくApps Script Web Appから直接フェッチ
+// （name=athleteKeyで検索。該当行がまだ無ければ全項目nullのJSONが返る＝未回答扱い）
+function loadShortTermGoal(athleteKey, apiUrl, token) {
+  if (stgCache[athleteKey]) return; // 読み込み中 or 読み込み済み
+  stgCache[athleteKey] = { status: "loading" };
+  fetch(apiUrl + "?token=" + encodeURIComponent(token))
+    .then(res => res.json())
+    .then(data => {
+      stgCache[athleteKey] = { status: "loaded", data: data };
+      render();
+    })
+    .catch(err => {
+      stgCache[athleteKey] = { status: "error", error: String(err) };
+      render();
+    });
+}
+
+// Apps Script Web App から直接フェッチ（トレーニングログアプリと同じ公開APIを利用）
+function loadTraining(athleteKey, apiUrl) {
+  if (trainingCache[athleteKey]) return; // 読み込み中 or 読み込み済み
+  trainingCache[athleteKey] = { status: "loading" };
+  fetch(apiUrl)
+    .then(res => res.json())
+    .then(data => {
+      trainingCache[athleteKey] = { status: "loaded", records: data.records || [] };
+      render();
+    })
+    .catch(err => {
+      trainingCache[athleteKey] = { status: "error", error: String(err) };
+      render();
+    });
+}
+
+// MICエアlog(ウォータージャンプ・トランポリン記録アプリ)から直接フェッチ。
+// 全選手共通のAPIで1回のGETに全選手分のrecordsが含まれるため、apiUrlをキーに1回だけ取得・キャッシュし、
+// 選手を切り替えても再フェッチしない。画面表示はathleteName一致でクライアント側フィルタする(8-9参照)。
+function loadAirLog(apiUrl) {
+  if (airLogCache[apiUrl]) return; // 読み込み中 or 読み込み済み
+  airLogCache[apiUrl] = { status: "loading" };
+  fetch(apiUrl)
+    .then(res => res.json())
+    .then(data => {
+      airLogCache[apiUrl] = { status: "loaded", records: data.records || [] };
+      render();
+    })
+    .catch(err => {
+      airLogCache[apiUrl] = { status: "error", error: String(err) };
+      render();
+    });
+}
+
+function epley1RM(weight, reps) {
+  if (!weight || !reps) return null;
+  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+}
+
+// 種目ごとに { 日付: [セット, ...] } へグルーピング（セット番号順）
+function groupTrainingByExercise(records) {
+  const byExercise = {};
+  records.forEach(r => {
+    if (!byExercise[r.exercise]) byExercise[r.exercise] = {};
+    if (!byExercise[r.exercise][r.date]) byExercise[r.exercise][r.date] = [];
+    byExercise[r.exercise][r.date].push(r);
+  });
+  Object.values(byExercise).forEach(byDate => {
+    Object.values(byDate).forEach(sets => sets.sort((a, b) => a.setNumber - b.setNumber));
+  });
+  return byExercise;
+}
+
+function latestSession(byDate) {
+  const dates = Object.keys(byDate).sort().reverse();
+  if (!dates.length) return null;
+  return { date: dates[0], sets: byDate[dates[0]] };
+}
+
+// トレーニングログアプリと同じ進捗ロジック（引き継ぎメモ準拠）
+// 全セット12回以上&平均RPE<9 → +2.5kg（デッドリフトのみ+5kg）／セット未達 or 高RPE → 同重量維持／それ以外 → 同重量で回数アップ
+function nextTarget(exercise, sets) {
+  const weighted = sets.filter(s => s.weight);
+  if (!weighted.length) return null; // 自重種目(腹筋など)は対象外
+  const topWeight = Math.max(...weighted.map(s => s.weight));
+  const avgRpe = sets.reduce((sum, s) => sum + (s.rpe || 0), 0) / sets.length;
+  const allTwelve = sets.every(s => s.reps >= 12);
+  const anyLow = sets.some(s => s.reps < 8);
+  if (allTwelve && avgRpe < 9) {
+    const inc = exercise === "デッドリフト" ? 5 : 2.5;
+    return { weight: topWeight + inc, note: `全セット12回以上・平均RPE${avgRpe.toFixed(1)}だったので、+${inc}kgに挑戦してみよう。` };
+  } else if (anyLow || avgRpe >= 9) {
+    return { weight: topWeight, note: "8回に届かない、またはきつい(RPE高め)セットがありました。同じ重量でフォームと回数の安定を優先しましょう。" };
+  } else {
+    return { weight: topWeight, note: "同じ重量で回数アップを狙おう。" };
+  }
+}
+
+// 目標設定シート（回答）に紐づくApps Script Web Appの読み込み状態を取得（無ければ読み込み開始）
+function getSeasonState(a, athleteKey) {
+  if (!a.seasonApi) return null;
+  loadSeasonData(athleteKey, a.seasonApi.apiUrl, a.seasonApi.token); // 既に読み込み中/済みなら何もしない
+  return seasonCache[athleteKey] || { status: "loading" };
+}
+
+// マンダラチャートAPIの読み込み状態を取得（無ければ読み込み開始）
+function getMandalaState(a, athleteKey) {
+  if (!a.mandalaApi) return null;
+  loadMandalaData(athleteKey, a.mandalaApi.apiUrl, a.mandalaApi.token); // 既に読み込み中/済みなら何もしない
+  return mandalaCache[athleteKey] || { status: "loading" };
+}
+
+// seasonStateがまだ使える状態でなければ読み込み中/エラー表示をcbodyに描画してtrueを返す。
+// 読み込み済みならfalseを返す（呼び出し側でseasonState.dataを使って描画を続ける）。
+function renderSeasonPlaceholder(cbody, seasonState, seasonApi, athleteKey) {
+  if (!seasonState) {
+    cbody.innerHTML = `<div class="mandala-empty">まだシーズン開始シートの回答がありません。</div>`;
+    return true;
+  }
+  if (seasonState.status === "loading") {
+    cbody.innerHTML = `<div class="mandala-empty">読み込み中…</div>`;
+    return true;
+  }
+  if (seasonState.status === "error") {
+    cbody.innerHTML = `
+      <div class="mandala-empty">データを取得できませんでした（${seasonState.error}）。</div>
+      <div class="mandala-summary">
+        <a class="mandala-link" href="javascript:void(0)" onclick="retrySeason('${athleteKey}')">再読み込み →</a>
+        ${seasonApi && seasonApi.sheetUrl ? `<a class="mandala-link" href="${seasonApi.sheetUrl}" target="_blank" rel="noopener">シートを見る →</a>` : ""}
+      </div>
+    `;
+    return true;
+  }
+  return false;
+}
+
+function render() {
+  renderSelector();
+  const a = ATHLETES[current];
+  const seasonState = getSeasonState(a, current);
+  const seasonUpdated = seasonState && seasonState.status === "loaded" ? seasonState.data.updated : null;
+  document.getElementById("updatedRow").textContent = "中長期目標 更新日: " + (seasonUpdated || "まだシーズン開始シートの回答がありません");
+
+  const body = document.getElementById("appBody");
+  body.innerHTML = "";
+
+  // Vision card (2026/07/15よりApps Script Web App経由でライブ取得)
+  body.appendChild(makeVisionCard(a, seasonState, current));
+
+  // Season goals card
+  const seasonCard = makeCard("今年のシーズン目標", "blue", "");
+  const seasonCardBody = seasonCard.querySelector(".card-body");
+  if (!renderSeasonPlaceholder(seasonCardBody, seasonState, a.seasonApi, current)) {
+    const seasonData = seasonState.data.season;
+    if (seasonData) {
+      const seasonGrid = document.createElement("div");
+      seasonGrid.className = "goal-grid";
+      Object.entries(seasonData).forEach(([k, v]) => {
+        const tile = document.createElement("div");
+        tile.className = "goal-tile";
+        tile.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+        seasonGrid.appendChild(tile);
+      });
+      seasonCardBody.appendChild(seasonGrid);
+    } else {
+      seasonCardBody.innerHTML = `<div class="mandala-empty">まだシーズン開始シートの回答がありません。</div>`;
+    }
+  }
+  body.appendChild(seasonCard);
+
+  // Mandala chart card (2026/07/15よりApps Script Web App経由でライブ取得。summary: center goal + 8 elements only. Full 81マス is in the linked sheet)
+  const mandalaState = getMandalaState(a, current);
+  const mandalaObj = (mandalaState && mandalaState.status === "loaded") ? mandalaState.data : null;
+  body.appendChild(makeMandalaCard(mandalaObj, mandalaState, a.mandalaApi, current));
+
+  // Short-term goal card (2026/07/14よりApps Script Web App経由でライブ取得)
+  body.appendChild(makeShortTermGoalCard(a.shortTermGoal, current));
+
+  // Self-assessment card
+  const selfCard = makeCard("自己分析(1〜5段階評価)", "blue", "");
+  const selfBody = selfCard.querySelector(".card-body");
+  if (!renderSeasonPlaceholder(selfBody, seasonState, a.seasonApi, current)) {
+    const selfAssessment = seasonState.data.selfAssessment;
+    if (selfAssessment && selfAssessment.length) {
+      const barsWrap = document.createElement("div");
+      barsWrap.className = "bars";
+      selfAssessment.forEach(d => {
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        row.innerHTML = `
+          <div class="name">${d.name}${d.focus ? '<span class="focus-chip">★</span>' : ''}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${(d.value/5*100)}%; background:${stepByValue[d.value]};"><span>${d.value}</span></div>
+          </div>
+        `;
+        barsWrap.appendChild(row);
+      });
+      const focusNames = selfAssessment.filter(d => d.focus).map(d => d.name).join("・");
+      const note = document.createElement("div");
+      note.className = "focus-note";
+      note.innerHTML = `<span class="focus-chip">★</span> 今年特に伸ばしたい項目: ${focusNames}`;
+      selfBody.appendChild(barsWrap);
+      selfBody.appendChild(note);
+    } else {
+      selfBody.innerHTML = `<div class="mandala-empty">まだシーズン開始シートの回答がありません。</div>`;
+    }
+  }
+  body.appendChild(selfCard);
+
+  // MICエアlog card (live fetch, water jump / trampoline records) — カード内に短期目標のWJ/トランポリン「挑戦したい技」を表示するため、短期目標カードのstgCacheが埋まった後に配置
+  body.appendChild(makeAirLogCard(a, current));
+
+  // Weight training card (live fetch from the training log app's Apps Script API)
+  body.appendChild(makeTrainingCard(a, current));
+
+  // Life habits + support card
+  const supportCard = makeCard("生活習慣・サポート", "green", "");
+  const scBody = supportCard.querySelector(".card-body");
+  if (!renderSeasonPlaceholder(scBody, seasonState, a.seasonApi, current)) {
+    const life = seasonState.data.life;
+    const support = seasonState.data.support;
+    const message = seasonState.data.message;
+    if (life || support || message) {
+      if (life) {
+        const lifeGrid = document.createElement("div");
+        lifeGrid.className = "life-grid";
+        Object.entries(life).forEach(([k, v]) => {
+          const tile = document.createElement("div");
+          tile.className = "life-tile";
+          tile.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+          lifeGrid.appendChild(tile);
+        });
+        scBody.appendChild(lifeGrid);
+      }
+      if (support) {
+        Object.entries(support).forEach(([k, v]) => {
+          const f = document.createElement("div");
+          f.className = "field";
+          f.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+          scBody.appendChild(f);
+        });
+      }
+      if (message) {
+        const msg = document.createElement("div");
+        msg.className = "message-box";
+        msg.innerHTML = `<div class="k">自分へのメッセージ</div>${message}`;
+        scBody.appendChild(msg);
+      }
+    } else {
+      scBody.innerHTML = `<div class="mandala-empty">まだシーズン開始シートの回答がありません。</div>`;
+    }
+  }
+  body.appendChild(supportCard);
+}
+
+const STG_CATEGORIES = ["ウォータージャンプ", "トランポリン", "トレーニング（フィジカル）"];
+
+// 短期目標カードのラベル(8-10参照)。ウォータージャンプ/トランポリンは技名が入るため「技」表記のまま、
+// トレーニング(フィジカル)は筋力・部位などの回答になるため「技」を使わない専用ラベルを用意し、
+// getStgFieldLabels/getStgWantLabelでカテゴリごとに出し分ける。
+const STG_FIELD_LABELS_DEFAULT = [
+  ["canDo", "今できる技"],
+  ["wantToDo", "これから挑戦したい技"],
+  ["practice", "練習で意識すること"],
+  ["criteria", "達成基準"],
+  ["worry", "不安なこと"]
+];
+const STG_FIELD_LABELS_BY_CATEGORY = {
+  "トレーニング（フィジカル）": [
+    ["canDo", "今できること"],
+    ["wantToDo", "これから取り組みたいこと"],
+    ["practice", "トレーニングで意識すること"],
+    ["criteria", "達成基準"],
+    ["worry", "不安なこと"]
+  ]
+};
+const STG_WANT_LABEL_BY_CATEGORY = {
+  "トレーニング（フィジカル）": "取り組みたいこと:"
+};
+function getStgFieldLabels(category) {
+  return STG_FIELD_LABELS_BY_CATEGORY[category] || STG_FIELD_LABELS_DEFAULT;
+}
+function getStgWantLabel(category) {
+  return STG_WANT_LABEL_BY_CATEGORY[category] || "挑戦したい技:";
+}
+
+function makeShortTermGoalCard(stg, athleteKey) {
+  const card = makeCard("短期目標（〜7月末）", "blue", "");
+  const cbody = card.querySelector(".card-body");
+
+  if (!stg) {
+    cbody.innerHTML = `<div class="mandala-empty">短期目標フォームがまだありません。</div>`;
+    return card;
+  }
+
+  // ライブ連携: apiUrlがあればフォームAの回答シートに紐づくApps Script Web Appから直接フェッチする。
+  // カテゴリ/計画/更新日はキャッシュ読み込み後の値に差し替え、formUrl/sheetUrlは常に静的な値のまま。
+  let categories = stg.categories;
+  let plan = stg.plan;
+  let updated = stg.updated;
+
+  if (stg.apiUrl) {
+    loadShortTermGoal(athleteKey, stg.apiUrl, stg.token); // 既に読み込み中/済みなら何もしない
+    const cache = stgCache[athleteKey];
+    if (!cache || cache.status === "loading") {
+      cbody.innerHTML = `<div class="mandala-empty">読み込み中…</div>`;
+      return card;
+    }
+    if (cache.status === "error") {
+      cbody.innerHTML = `
+        <div class="mandala-empty">データを取得できませんでした（${cache.error}）。</div>
+        <div class="mandala-summary">
+          <a class="mandala-link" href="javascript:void(0)" onclick="retryStg('${athleteKey}')">再読み込み →</a>
+          <a class="mandala-link" href="${stg.formUrl}" target="_blank" rel="noopener">フォームを開く →</a>
+        </div>
+      `;
+      return card;
+    }
+    categories = cache.data.categories;
+    plan = cache.data.plan;
+    updated = cache.data.updated;
+  }
+
+  const drillCat = stgDrill && categories[stgDrill] ? stgDrill : null;
+
+  if (drillCat) {
+    // Detail view: 選んだカテゴリの5問をすべて表示
+    const c = categories[drillCat];
+    const header = document.createElement("div");
+    header.className = "mandala-summary";
+    header.style.marginTop = "0";
+    header.style.marginBottom = "8px";
+    header.innerHTML = `<a class="mandala-link" href="javascript:void(0)" onclick="stgBack()">← 全体に戻る</a><span>${drillCat}</span>`;
+    cbody.appendChild(header);
+
+    getStgFieldLabels(drillCat).forEach(([key, label]) => {
+      const f = document.createElement("div");
+      f.className = "field";
+      f.innerHTML = `<div class="k">${label}</div><div class="v">${c[key] || "（回答なし）"}</div>`;
+      cbody.appendChild(f);
+    });
+
+    const footer = document.createElement("div");
+    footer.className = "mandala-summary";
+    footer.innerHTML = stg.sheetUrl ? `<span></span><a class="mandala-link" href="${stg.sheetUrl}" target="_blank" rel="noopener">全回答をシートで見る →</a>` : `<span></span>`;
+    cbody.appendChild(footer);
+    return card;
+  }
+
+  // Overview: 3カテゴリのタイル（タップで5問に展開）+ 練習計画は常時簡易表示
+  const grid = document.createElement("div");
+  grid.className = "goal-grid";
+  STG_CATEGORIES.forEach(cat => {
+    const c = categories[cat];
+    const tile = document.createElement("div");
+    tile.className = "goal-tile" + (c ? " clickable" : " muted");
+    if (c) {
+      tile.innerHTML = `<div class="k">${cat}</div><div class="v">${getStgWantLabel(cat)} ${c.wantToDo}</div>`;
+      tile.onclick = () => selectStg(cat);
+    } else {
+      tile.innerHTML = `<div class="k">${cat}</div><div class="v" style="color:var(--text-muted);">まだ回答がありません</div>`;
+    }
+    grid.appendChild(tile);
+  });
+  cbody.appendChild(grid);
+
+  const planTitle = document.createElement("div");
+  planTitle.style.cssText = "font-size:11px;color:var(--text-muted);font-weight:700;margin:12px 0 6px;";
+  planTitle.textContent = "練習計画";
+  cbody.appendChild(planTitle);
+
+  if (plan) {
+    const p = plan;
+    const planGrid = document.createElement("div");
+    planGrid.className = "goal-grid";
+    planGrid.innerHTML = `
+      <div class="goal-tile"><div class="k">練習頻度・時間</div><div class="v">${p.frequency}</div></div>
+      <div class="goal-tile"><div class="k">サポートしてほしいこと</div><div class="v">${p.support}</div></div>
+    `;
+    cbody.appendChild(planGrid);
+    if (p.wish || p.message) {
+      const f = document.createElement("div");
+      f.className = "field";
+      f.innerHTML = `
+        ${p.wish ? `<div class="k">モーグルの楽しさを広めたいこと</div><div class="v">${p.wish}</div>` : ""}
+        ${p.message ? `<div class="k" style="margin-top:8px;">最後にひとこと</div><div class="v">${p.message}</div>` : ""}
+      `;
+      cbody.appendChild(f);
+    }
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "mandala-empty";
+    empty.style.paddingTop = "0";
+    empty.textContent = "まだ回答がありません。";
+    cbody.appendChild(empty);
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "mandala-summary";
+  footer.innerHTML = `
+    <span>${updated ? "更新日 " + updated : "まだ回答がありません"}</span>
+    <span>
+      <a class="mandala-link" href="${stg.formUrl}" target="_blank" rel="noopener">フォームを開く →</a>
+      ${stg.sheetUrl ? `&nbsp;&nbsp;<a class="mandala-link" href="${stg.sheetUrl}" target="_blank" rel="noopener">全回答を見る →</a>` : ""}
+    </span>
+  `;
+  cbody.appendChild(footer);
+
+  return card;
+}
+
+const MAIN_EXERCISES = ["スクワット", "ベンチプレス", "懸垂", "デッドリフト", "ベントオーバーバーベルロー", "腹筋種目"];
+
+function makeTrainingCard(a, athleteKey) {
+  const card = makeCard("ウエイトトレーニング", "blue", "");
+  const cbody = card.querySelector(".card-body");
+
+  if (!a.training) {
+    cbody.innerHTML = `<div class="mandala-empty">まだトレーニングログアプリが作られていません。</div>`;
+    return card;
+  }
+
+  loadTraining(athleteKey, a.training.apiUrl); // 既に読み込み中/済みなら何もしない
+  const cache = trainingCache[athleteKey];
+
+  if (!cache || cache.status === "loading") {
+    cbody.innerHTML = `<div class="mandala-empty">読み込み中…</div>`;
+    return card;
+  }
+  if (cache.status === "error") {
+    cbody.innerHTML = `
+      <div class="mandala-empty">データを取得できませんでした（${cache.error}）。</div>
+      <div class="mandala-summary">
+        <a class="mandala-link" href="javascript:void(0)" onclick="retryTraining('${athleteKey}')">再読み込み →</a>
+        <a class="mandala-link" href="${a.training.appUrl}" target="_blank" rel="noopener">アプリを開く →</a>
+      </div>
+    `;
+    return card;
+  }
+
+  const byExercise = groupTrainingByExercise(cache.records);
+
+  if (trainingDrill && byExercise[trainingDrill]) {
+    // Detail view: 選んだ種目の直近セッション履歴 + 次回の目標
+    const byDate = byExercise[trainingDrill];
+    const dates = Object.keys(byDate).sort().reverse().slice(0, 3); // 直近3セッション
+
+    const header = document.createElement("div");
+    header.className = "mandala-summary";
+    header.style.marginTop = "0";
+    header.style.marginBottom = "8px";
+    header.innerHTML = `<a class="mandala-link" href="javascript:void(0)" onclick="trainingBack()">← 全体に戻る</a><span>${trainingDrill}</span>`;
+    cbody.appendChild(header);
+
+    dates.forEach(date => {
+      // 同じ日に複数のサブ種目(note違い、例:腹筋のアブローラー/オリジナル腹筋)が混在する場合は分けて表示
+      const groups = [];
+      const groupIndex = {};
+      byDate[date].forEach(s => {
+        const key = s.note || "";
+        if (!(key in groupIndex)) { groupIndex[key] = groups.length; groups.push({ note: key, sets: [] }); }
+        groups[groupIndex[key]].sets.push(s);
+      });
+      groups.forEach(g => {
+        const setsText = g.sets.map(s => {
+          const w = s.weight ? `${s.weight}kg×` : "";
+          return `${w}${s.reps}回(RPE${s.rpe ?? "-"})`;
+        }).join(" / ");
+        const topEpley = Math.max(0, ...g.sets.filter(s => s.weight).map(s => epley1RM(s.weight, s.reps) || 0));
+        const f = document.createElement("div");
+        f.className = "field";
+        f.innerHTML = `
+          <div class="k">${date}${g.note ? "・" + g.note : ""}</div>
+          <div class="v">${setsText}${topEpley > 0 ? `<br><span style="color:var(--text-muted);font-size:11.5px;">推定1RM ${topEpley}kg</span>` : ""}</div>
+        `;
+        cbody.appendChild(f);
+      });
+    });
+
+    const nt = nextTarget(trainingDrill, byDate[dates[0]]);
+    if (nt) {
+      const box = document.createElement("div");
+      box.className = "message-box";
+      box.innerHTML = `<div class="k">次回の目標</div>${nt.weight}kg × 8〜12回 × 3セット<br><span style="font-weight:400;">${nt.note}</span>`;
+      cbody.appendChild(box);
+    }
+
+    const footer = document.createElement("div");
+    footer.className = "mandala-summary";
+    footer.innerHTML = `<span></span><a class="mandala-link" href="${a.training.appUrl}" target="_blank" rel="noopener">アプリで全履歴・グラフを見る →</a>`;
+    cbody.appendChild(footer);
+    return card;
+  }
+
+  // Overview: 種目ごとのタイル（タップで直近セッション履歴にドリルダウン）
+  const grid = document.createElement("div");
+  grid.className = "goal-grid";
+  MAIN_EXERCISES.forEach(ex => {
+    const byDate = byExercise[ex];
+    const latest = byDate ? latestSession(byDate) : null;
+    const tile = document.createElement("div");
+    tile.className = "goal-tile clickable" + (latest ? "" : " muted");
+    if (!latest) { tile.className = tile.className.replace(" clickable", ""); }
+    if (latest) {
+      const topSet = latest.sets.reduce((max, s) => (s.weight || 0) > (max.weight || 0) ? s : max, latest.sets[0]);
+      const epley = epley1RM(topSet.weight, topSet.reps);
+      const valueText = topSet.weight
+        ? `${latest.date}・推定1RM ${epley}kg`
+        : `${latest.date}・${latest.sets.reduce((sum, s) => sum + s.reps, 0)}回`;
+      tile.innerHTML = `<div class="k">${ex}</div><div class="v">${valueText}</div>`;
+      tile.onclick = () => selectTraining(ex);
+    } else {
+      tile.innerHTML = `<div class="k">${ex}</div><div class="v" style="color:var(--text-muted);">まだ記録なし</div>`;
+    }
+    grid.appendChild(tile);
+  });
+  cbody.appendChild(grid);
+
+  const footer = document.createElement("div");
+  footer.className = "mandala-summary";
+  footer.innerHTML = `<span></span><a class="mandala-link" href="${a.training.appUrl}" target="_blank" rel="noopener">アプリを開く →</a>`;
+  cbody.appendChild(footer);
+  const hint = document.createElement("div");
+  hint.style.cssText = "font-size:10.5px;color:var(--text-muted);margin-top:4px;text-align:center;";
+  hint.textContent = "記録のある種目をタップすると、直近の履歴を見られます";
+  cbody.appendChild(hint);
+
+  return card;
+}
+
+// MICエアlog(ウォータージャンプ・トランポリン記録アプリ)関連ヘルパー
+const AIR_LOG_CATEGORIES = [
+  ["water", "ウォータージャンプ"],
+  ["trampoline", "トランポリン"]
+];
+
+function groupAirLogByCategory(records, matchName) {
+  const mine = (records || []).filter(r => r.athleteName === matchName);
+  const byCat = { water: [], trampoline: [] };
+  mine.forEach(r => {
+    if (byCat[r.category]) byCat[r.category].push(r);
+  });
+  return byCat;
+}
+
+function airLogRowStats(rows) {
+  let success = 0, total = 0;
+  rows.forEach(r => {
+    total++;
+    if (r.success) success++;
+  });
+  return { success, total };
+}
+
+function airLogSessionsStats(rows) {
+  const byDate = {};
+  rows.forEach(r => {
+    const key = r.date || "";
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(r);
+  });
+  const dates = Object.keys(byDate).sort().reverse();
+  return dates.map(date => {
+    const dayRows = byDate[date];
+    const stats = airLogRowStats(dayRows);
+    const facility = dayRows[0] && dayRows[0].facility ? dayRows[0].facility : "";
+    const tricks = {};
+    dayRows.forEach(r => {
+      const t = r.trick || "(技名未記入)";
+      if (!tricks[t]) tricks[t] = { success: 0, total: 0 };
+      tricks[t].total++;
+      if (r.success) tricks[t].success++;
+    });
+    const notes = dayRows.map(r => r.note).filter(Boolean);
+    return { date, facility, stats, tricks, notes };
+  });
+}
+
+// 短期目標(フォームA)の「挑戦したい技」をMICエアlogカードに表示するためのヘルパー。
+// stgCacheが未読み込み(loading)・エラー・短期目標フォーム自体が無い場合はnullを返し、
+// その場合エアlog側は「挑戦したい技」の表示を省略する(エアlogカード自体の表示はブロックしない)。
+function getStgCategoriesForAirLog(a, athleteKey) {
+  const stg = a.shortTermGoal;
+  if (!stg) return null;
+  if (stg.apiUrl) {
+    const cache = stgCache[athleteKey];
+    if (cache && cache.status === "loaded") return cache.data.categories;
+    return null;
+  }
+  return stg.categories || null;
+}
+
+function makeAirLogCard(a, athleteKey) {
+  const card = makeCard("MICエアlog", "blue", "");
+  const cbody = card.querySelector(".card-body");
+  const airLog = a.airLog;
+  if (!airLog || !airLog.apiUrl) {
+    cbody.innerHTML = `<div class="mandala-empty">MICエアlogは未連携です</div>`;
+    return card;
+  }
+
+  const stgCategories = getStgCategoriesForAirLog(a, athleteKey);
+  loadAirLog(airLog.apiUrl);
+  const cache = airLogCache[airLog.apiUrl];
+
+  if (!cache || cache.status === "loading") {
+    cbody.innerHTML = `<div class="mandala-empty">読み込み中...</div>`;
+    return card;
+  }
+  if (cache.status === "error") {
+    cbody.innerHTML = "";
+    const summary = document.createElement("div");
+    summary.className = "mandala-summary";
+    summary.innerHTML = `<span>読み込みに失敗しました</span><a class="mandala-link" href="javascript:void(0)" onclick="window.retryAirLog('${airLog.apiUrl}')">再読み込み →</a>`;
+    cbody.appendChild(summary);
+    const footer = document.createElement("div");
+    footer.className = "mandala-summary";
+    footer.innerHTML = `<span></span><a class="mandala-link" href="${airLog.appUrl}" target="_blank" rel="noopener">アプリを開く →</a>`;
+    cbody.appendChild(footer);
+    return card;
+  }
+
+  const byCat = groupAirLogByCategory(cache.records, airLog.matchName);
+
+  if (airLogDrill && (airLogDrill === "water" || airLogDrill === "trampoline")) {
+    const catLabel = AIR_LOG_CATEGORIES.find(c => c[0] === airLogDrill)[1];
+    const rows = byCat[airLogDrill];
+    const back = document.createElement("div");
+    back.style.cssText = "margin-bottom:8px;";
+    back.innerHTML = `<a class="mandala-link" href="javascript:void(0)" onclick="window.airLogBack()">← 全体に戻る</a>`;
+    cbody.appendChild(back);
+
+    const drillStgCat = stgCategories && stgCategories[catLabel];
+    if (drillStgCat && drillStgCat.wantToDo) {
+      const wantBox = document.createElement("div");
+      wantBox.className = "field sub";
+      wantBox.innerHTML = `<div class="k">挑戦したい技(短期目標より)</div><div class="v">${drillStgCat.wantToDo}</div>`;
+      cbody.appendChild(wantBox);
+    }
+
+    if (!rows.length) {
+      cbody.innerHTML += `<div class="mandala-empty">${catLabel}の記録はまだありません</div>`;
+    } else {
+      const sessions = airLogSessionsStats(rows).slice(0, 5);
+      sessions.forEach(s => {
+        const sess = document.createElement("div");
+        sess.className = "field";
+        const trickLines = Object.keys(s.tricks).map(t => {
+          const ts = s.tricks[t];
+          return `${t}: ${ts.success}/${ts.total}`;
+        }).join("<br>");
+        const noteLine = s.notes.length ? `<div style="margin-top:4px;color:var(--text-muted);font-size:11px;">${s.notes.join(" / ")}</div>` : "";
+        sess.innerHTML = `<div class="k">${s.date}${s.facility ? " ・ " + s.facility : ""}</div><div class="v">${trickLines}${noteLine}</div>`;
+        cbody.appendChild(sess);
+      });
+    }
+
+    const footer = document.createElement("div");
+    footer.className = "mandala-summary";
+    footer.innerHTML = `<span></span><a class="mandala-link" href="${airLog.appUrl}" target="_blank" rel="noopener">アプリで全履歴を見る →</a>`;
+    cbody.appendChild(footer);
+    return card;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "goal-grid";
+  AIR_LOG_CATEGORIES.forEach(([key, label]) => {
+    const rows = byCat[key];
+    const tile = document.createElement("div");
+    const tileStgCat = stgCategories && stgCategories[label];
+    const wantHtml = tileStgCat && tileStgCat.wantToDo
+      ? `<div style="font-size:10.5px;color:var(--blue-450);font-weight:700;margin-bottom:3px;">挑戦したい技: ${tileStgCat.wantToDo}</div>`
+      : "";
+    if (rows.length) {
+      const stats = airLogRowStats(rows);
+      const latestDate = rows.map(r => r.date).sort().reverse()[0];
+      tile.className = "goal-tile clickable";
+      tile.onclick = () => window.selectAirLogCategory(key);
+      tile.innerHTML = `<div class="k">${label}</div>${wantHtml}<div class="v">最新: ${latestDate}<br>${stats.success}/${stats.total} 成功</div>`;
+    } else {
+      tile.className = "goal-tile muted";
+      tile.innerHTML = `<div class="k">${label}</div>${wantHtml}<div class="v" style="color:var(--text-muted);">まだ記録なし</div>`;
+    }
+    grid.appendChild(tile);
+  });
+  cbody.appendChild(grid);
+
+  const footer = document.createElement("div");
+  footer.className = "mandala-summary";
+  footer.innerHTML = `<span></span><a class="mandala-link" href="${airLog.appUrl}" target="_blank" rel="noopener">アプリを開く →</a>`;
+  cbody.appendChild(footer);
+
+  return card;
+}
+
+function makeVisionCard(a, seasonState, athleteKey) {
+  const card = makeCard("将来ビジョン", "gold", "");
+  const cbody = card.querySelector(".card-body");
+
+  if (renderSeasonPlaceholder(cbody, seasonState, a.seasonApi, athleteKey)) return card;
+
+  const v = seasonState.data.vision;
+
+  if (!v) {
+    cbody.innerHTML = `<div class="mandala-empty">まだシーズン開始シートの回答がありません。</div>`;
+    return card;
+  }
+
+  // Item 1: 3〜5年後の目標 → タップで「その理由」
+  const goalOpen = visionExpanded.goal;
+  const goalField = document.createElement("div");
+  goalField.className = "field clickable";
+  goalField.innerHTML = `
+    <div class="k">3〜5年後の目標 <span class="chev">${goalOpen ? '▾' : '▸'}</span></div>
+    <div class="v">${v.goal}</div>
+  `;
+  goalField.onclick = () => toggleVision('goal');
+  cbody.appendChild(goalField);
+  if (goalOpen) {
+    const sub = document.createElement("div");
+    sub.className = "field sub";
+    sub.innerHTML = `<div class="k">その理由</div><div class="v">${v.reason}</div>`;
+    cbody.appendChild(sub);
+  }
+
+  // Item 2: 競技人生の最終到達点 → タップで M/N/O(必要なこと・自分の気持ち・周りの気持ち)
+  const ultOpen = visionExpanded.ultimate;
+  const ultField = document.createElement("div");
+  ultField.className = "field clickable";
+  ultField.innerHTML = `
+    <div class="k">競技人生の最終到達点 <span class="chev">${ultOpen ? '▾' : '▸'}</span></div>
+    <div class="v">${v.ultimate}</div>
+  `;
+  ultField.onclick = () => toggleVision('ultimate');
+  cbody.appendChild(ultField);
+  if (ultOpen) {
+    const sub = document.createElement("div");
+    sub.className = "field sub";
+    sub.innerHTML = `
+      <div class="k">目標達成のために必要なこと</div><div class="v">${v.needed}</div>
+      <div class="k" style="margin-top:8px;">達成できたとき、自分はどんな気持ちか</div><div class="v">${v.selfFeeling}</div>
+      <div class="k" style="margin-top:8px;">達成したとき、周りはどんな気持ちか</div><div class="v">${v.othersFeeling}</div>
+    `;
+    cbody.appendChild(sub);
+  }
+
+  return card;
+}
+
+function countDone(actions) {
+  return actions ? actions.filter(Boolean).length : 0;
+}
+
+// Google スプレッドシートが無く紙(写真)だけのケースもあるので、sheetUrlが無ければ
+// リンクの代わりに一言メモ(photoNote)を出す。両方無ければリンクは出さない。
+function mandalaSourceLink(m, label) {
+  if (m && m.sheetUrl) {
+    return `<a class="mandala-link" href="${m.sheetUrl}" target="_blank" rel="noopener">${label} →</a>`;
+  }
+  if (m && m.photoNote) {
+    return `<span style="color:var(--text-muted); font-weight:400; font-size:11.5px;">${m.photoNote}</span>`;
+  }
+  return "";
+}
+
+function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
+  const card = makeCard("マンダラチャート（目標達成シート）", "gold", "");
+  const cbody = card.querySelector(".card-body");
+
+  if (mandalaState && mandalaState.status === "loading") {
+    cbody.innerHTML = `<div class="mandala-empty">読み込み中…</div>`;
+    return card;
+  }
+  if (mandalaState && mandalaState.status === "error") {
+    cbody.innerHTML = `
+      <div class="mandala-empty">データを取得できませんでした（${mandalaState.error}）。</div>
+      <div class="mandala-summary">
+        <a class="mandala-link" href="javascript:void(0)" onclick="retryMandala('${athleteKey}')">再読み込み →</a>
+        ${mandalaSourceLink(mandalaApi, "シートを開く")}
+      </div>
+    `;
+    return card;
+  }
+
+  if (!m || !m.goal) {
+    cbody.innerHTML = `
+      <div class="mandala-empty">まだ着手前です。「マンダラチャート(記入用)」シートの中心マス(目標)から書き始めてもらいましょう。</div>
+      <div class="mandala-summary">
+        <span></span>
+        ${mandalaSourceLink(mandalaApi, "シートを開く")}
+      </div>
+    `;
+    return card;
+  }
+
+  const drillCell = mandalaDrill ? m.grid.find(c => c && c.name === mandalaDrill) : null;
+
+  if (drillCell) {
+    // Detail view: drillCell.name を中心に、その8マスの具体的な行動を表示
+    const header = document.createElement("div");
+    header.className = "mandala-summary";
+    header.style.marginTop = "0";
+    header.style.marginBottom = "8px";
+    header.innerHTML = `
+      <a class="mandala-link" href="javascript:void(0)" onclick="mandalaBack()">← 全体に戻る</a>
+      <span>${countDone(drillCell.actions)}/8 記入済み</span>
+    `;
+    cbody.appendChild(header);
+
+    const actions = drillCell.actions || new Array(8).fill(null);
+    // actions の並び: [左上,上,右上,左,右,左下,下,右下]
+    const cells9 = [
+      actions[0], actions[1], actions[2],
+      actions[3], "__CENTER__", actions[4],
+      actions[5], actions[6], actions[7]
+    ];
+    const grid = document.createElement("div");
+    grid.className = "mandala-3x3";
+    cells9.forEach(v => {
+      if (v === "__CENTER__") {
+        grid.innerHTML += `<div class="mandala-cell center sub"><div class="g">${drillCell.name}</div></div>`;
+      } else if (v) {
+        grid.innerHTML += `<div class="mandala-cell action filled"><div class="a">${v}</div></div>`;
+      } else {
+        grid.innerHTML += `<div class="mandala-cell action"><div class="a muted">（未記入）</div></div>`;
+      }
+    });
+    cbody.appendChild(grid);
+
+    const footer = document.createElement("div");
+    footer.className = "mandala-summary";
+    footer.innerHTML = `
+      <span></span>
+      ${mandalaSourceLink(mandalaApi, "シートで編集する")}
+    `;
+    cbody.appendChild(footer);
+    return card;
+  }
+
+  // Overview: 中心目標 + 8要素（タップで各要素の8マスにドリルダウン）
+  const grid = document.createElement("div");
+  grid.className = "mandala-3x3";
+  let doneTotal = 0, cellTotal = 0;
+  m.grid.forEach(cell => {
+    if (cell === null) {
+      grid.innerHTML += `<div class="mandala-cell center"><div class="g">${m.goal}</div></div>`;
+      return;
+    }
+    const done = countDone(cell.actions);
+    doneTotal += done;
+    cellTotal += 8;
+    const started = done > 0;
+    grid.innerHTML += `
+      <div class="mandala-cell elem clickable ${started ? 'started' : ''}" onclick="selectMandalaElement('${cell.name}')">
+        <div class="n">${cell.name}</div>
+        <div class="p">${done}/8${started ? '' : '・未着手'}</div>
+      </div>
+    `;
+  });
+  cbody.appendChild(grid);
+
+  const summary = document.createElement("div");
+  summary.className = "mandala-summary";
+  summary.innerHTML = `
+    <span>行動レベル ${doneTotal}/${cellTotal}マス記入済み・更新日 ${m.updated}</span>
+    ${mandalaSourceLink(mandalaApi, "全81マスを見る")}
+  `;
+  cbody.appendChild(summary);
+  const hint = document.createElement("div");
+  hint.style.cssText = "font-size:10.5px;color:var(--text-muted);margin-top:4px;text-align:center;";
+  hint.textContent = "各要素をタップすると、その8マスの内容を見られます";
+  cbody.appendChild(hint);
+
+  return card;
+}
+
+function makeCard(title, tone, innerHTML) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="card-head ${tone}"><span class="dot"></span><h2>${title}</h2></div>
+    <div class="card-body">${innerHTML}</div>
+  `;
+  return card;
+}
+
+render();
+</script>
+
+</body>
+</html>
