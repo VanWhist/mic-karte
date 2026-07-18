@@ -309,6 +309,14 @@
     color: #8a6400;
     line-height: 1.6;
   }
+.coachnote-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .coachnote-item { padding: 8px 10px; border-radius: 8px; background: var(--page); border: 1px solid var(--gridline); }
+  .coachnote-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+  .coachnote-text { font-size: 13px; color: var(--text-primary); white-space: pre-wrap; }
+  .coachnote-input { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 6px; }
+  .coachnote-btn { border: none; background: var(--blue-450); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .coachnote-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .coachnote-status { font-size: 11px; color: var(--text-muted); margin-top: 6px; min-height: 14px; }
 </style>
 </head>
 <body>
@@ -633,7 +641,7 @@ function loadAirLog(apiUrl) {
   fetch(apiUrl)
     .then(res => res.json())
     .then(data => {
-      airLogCache[apiUrl] = { status: "loaded", records: data.records || [] };
+      airLogCache[apiUrl] = { status: "loaded", records: data.records || [], athletes: data.athletes || [], coachNotes: data.coachNotes || [] };
       render();
     })
     .catch(err => {
@@ -799,6 +807,7 @@ function render() {
 
   // MICエアlog card (live fetch, water jump / trampoline records) — カード内に短期目標のWJ/トランポリン「挑戦したい技」を表示するため、短期目標カードのstgCacheが埋まった後に配置
   body.appendChild(makeAirLogCard(a, current));
+  body.appendChild(makeCoachNotesCard(a, current));
 
   // Weight training card (live fetch from the training log app's Apps Script API)
   body.appendChild(makeTrainingCard(a, current));
@@ -1343,6 +1352,79 @@ function makeAirLogCard(a, athleteKey) {
   cbody.appendChild(footer);
 
   return card;
+}
+
+function escHtml(str) {
+  return String(str == null ? "" : str).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+function makeCoachNotesCard(a, athleteKey) {
+  const card = makeCard("コーチへ共有", "gold", "");
+  const cbody = card.querySelector(".card-body");
+  const airLog = a.airLog;
+  if (!airLog || !airLog.apiUrl) {
+    cbody.innerHTML = '<div class="mandala-empty">MICエアlogは未連携です</div>';
+    return card;
+  }
+  loadAirLog(airLog.apiUrl);
+  const cache = airLogCache[airLog.apiUrl];
+  if (!cache || cache.status === "loading") {
+    cbody.innerHTML = '<div class="mandala-empty">読み込み中...</div>';
+    return card;
+  }
+  if (cache.status === "error") {
+    cbody.innerHTML = '<div class="mandala-empty">読み込みに失敗しました</div>';
+    return card;
+  }
+  const athleteRec = (cache.athletes || []).find(function (x) { return x.name === airLog.matchName; });
+  const athleteId = athleteRec ? athleteRec.id : "";
+  const notes = (cache.coachNotes || []).filter(function (n) { return athleteId && n.athleteId === athleteId; });
+
+  let listHtml;
+  if (!notes.length) {
+    listHtml = '<div class="mandala-empty">共有メモはまだありません</div>';
+  } else {
+    listHtml = '<div class="coachnote-list">' + notes.map(function (n) {
+      const who = n.source === "athlete" ? "選手" : "コーチ";
+      return '<div class="coachnote-item"><div class="coachnote-meta">' + escHtml(who) + ' ・ ' + escHtml(n.createdAt || "") + '</div><div class="coachnote-text">' + escHtml(n.text || "") + '</div></div>';
+    }).join("") + '</div>';
+  }
+
+  cbody.innerHTML = listHtml +
+    '<textarea class="coachnote-input" id="coachNoteInput_' + athleteKey + '" rows="2" placeholder="コーチからの補足メモ"></textarea>' +
+    '<button class="coachnote-btn" onclick="submitCoachNote(\'' + athleteKey + "','" + athleteId + '\')">追加する</button>' +
+    '<div class="coachnote-status" id="coachNoteStatus_' + athleteKey + '"></div>';
+
+  if (!athleteId) {
+    const btn = cbody.querySelector(".coachnote-btn");
+    if (btn) btn.disabled = true;
+  }
+
+  return card;
+}
+
+function submitCoachNote(athleteKey, athleteId) {
+  if (!athleteId) return;
+  const a = ATHLETES[athleteKey];
+  const apiUrl = a && a.airLog && a.airLog.apiUrl;
+  if (!apiUrl) return;
+  const input = document.getElementById("coachNoteInput_" + athleteKey);
+  const statusEl = document.getElementById("coachNoteStatus_" + athleteKey);
+  const text = (input && input.value ? input.value : "").trim();
+  if (!text) return;
+  if (statusEl) statusEl.textContent = "送信中...";
+  fetch(apiUrl, { method: "POST", body: JSON.stringify({ type: "addCoachNote", athleteId: athleteId, source: "coach", text: text }) })
+    .then(function (res) { return res.json(); })
+    .then(function (result) {
+      if (result.status !== "ok") throw new Error(result.message || "failed");
+      delete airLogCache[apiUrl];
+      render();
+    })
+    .catch(function () {
+      if (statusEl) statusEl.textContent = "送信に失敗しました。もう一度お試しください。";
+    });
 }
 
 function makeVisionCard(a, seasonState, athleteKey) {
