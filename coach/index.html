@@ -1384,7 +1384,12 @@ function makeCoachNotesCard(a, athleteKey) {
     threadMap[key].items.push(n);
   });
   threadOrder.forEach(function (key) {
-    threadMap[key].items.sort(function (x, y) { return (x.createdAt || "") < (y.createdAt || "") ? -1 : 1; });
+    threadMap[key].items.sort(function (x, y) {
+      const ca = x.createdAt || "", cb = y.createdAt || "";
+      if (ca < cb) return -1;
+      if (ca > cb) return 1;
+      return 0;
+    });
   });
   // スレッドは最新メッセージが新しい順。「その他の伝言」(rowId無し)は末尾固定。
   threadOrder.sort(function (k1, k2) {
@@ -1393,7 +1398,9 @@ function makeCoachNotesCard(a, athleteKey) {
     if (t1.rowId && !t2.rowId) return -1;
     const last1 = t1.items[t1.items.length - 1].createdAt || "";
     const last2 = t2.items[t2.items.length - 1].createdAt || "";
-    return last1 < last2 ? 1 : -1;
+    if (last1 < last2) return 1;
+    if (last1 > last2) return -1;
+    return 0;
   });
 
   let bodyHtml = "";
