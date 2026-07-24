@@ -206,6 +206,24 @@
   .coachnote-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .coachnote-status { font-size: 11px; color: var(--text-muted); margin-top: 6px; min-height: 14px; }
 
+  .coachnote-thread { border: 1px solid var(--gridline); border-radius: 10px; padding: 10px; margin-bottom: 10px; background: #fff; }
+  .coachnote-thread-header { font-size: 12px; color: var(--text-primary); font-weight: 700; margin-bottom: 2px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .coachnote-thread-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+  .coachnote-best-badge { font-size: 10.5px; color: var(--gold-text); background: var(--gold-soft); border: 1px solid var(--gold-line); border-radius: 10px; padding: 1px 8px; font-weight: 700; }
+  .coachnote-video-links { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .coachnote-video-link { font-size: 11px; color: var(--blue-450); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; text-decoration: none; }
+  .coachnote-bubbles { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .coachnote-bubble { max-width: 88%; border-radius: 10px; padding: 6px 10px; font-size: 12.5px; }
+  .coachnote-bubble.athlete { align-self: flex-start; background: #eaf1fb; border: 1px solid rgba(42,120,214,0.2); }
+  .coachnote-bubble.coach { align-self: flex-end; background: var(--gold-soft); border: 1px solid var(--gold-line); }
+  .coachnote-bubble .who { font-size: 10px; color: var(--text-muted); margin-bottom: 2px; }
+  .coachnote-bubble .txt { white-space: pre-wrap; color: var(--text-primary); }
+  .coachnote-reply-row { display: flex; gap: 6px; align-items: flex-start; }
+  .coachnote-reply-input { flex: 1; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; font-size: 12.5px; font-family: inherit; resize: vertical; min-height: 32px; }
+  .coachnote-reply-btn { border: none; background: var(--blue-450); color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .coachnote-reply-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .coachnote-general-heading { font-size: 11.5px; color: var(--text-muted); font-weight: 700; margin: 4px 0 6px; }
+
   .mandala-3x3 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -367,6 +385,9 @@ const TRAINING_APPS = {
 };
 
 let ATHLETES = {};
+// "player": トークンが選手本人に解決された(選手専用モード) / "coach": それ以外(コーチ用・全選手表示)。
+// コーチへ共有スレッドへの返信を誰(選手 or コーチ)として送信するかの判定に使う。
+var VIEW_MODE = "coach";
 
 // 名簿リゾルバAPIが返す1名分のデータ(person)から、既存の描画ロジックがそのまま使える
 // ATHLETESエントリ形式を組み立てる。showSharedSheetUrlsがtrueの場合のみ、全選手共通の
@@ -586,7 +607,13 @@ function loadAirLog(apiUrl) {
   fetch(apiUrl)
     .then(res => res.json())
     .then(data => {
-      airLogCache[apiUrl] = { status: "loaded", records: data.records || [] };
+      airLogCache[apiUrl] = {
+        status: "loaded",
+        records: data.records || [],
+        athletes: data.athletes || [],
+        videos: data.videos || [],
+        coachNotes: data.coachNotes || [],
+      };
       render();
     })
     .catch(err => {
@@ -1305,8 +1332,27 @@ function escHtml(str) {
   });
 }
 
-// コーチへ共有(コーチ用メモ)カード。MICエアlog APIのcoachNotesを流用し、選手⇔コーチ間の
-// 短いメモをその場で追加できる。MICエアlog未連携の選手では非表示相当のメッセージを出す。
+// linkedEntryId/linkedRowIdから、元になった技行(トリック・本数など)をrecordsの中から探す。
+function airLogFindRecordRow(records, entryId, rowId) {
+  if (!entryId || !rowId) return null;
+  const rec = (records || []).find(function (r) { return r.id === entryId; });
+  if (!rec) return null;
+  const row = (rec.rows || []).find(function (rw) { return rw.rowId === rowId; });
+  if (!row) return null;
+  return { rec: rec, row: row };
+}
+
+// entryId+rowIdに紐づく動画(success/fail/singleいずれの種別も)をすべて集める。リンクのみ表示(サムネイルなし)。
+function airLogVideosForRow(videos, entryId, rowId) {
+  if (!entryId || !rowId) return [];
+  const typeLabel = { success: "成功", fail: "失敗", single: "動画" };
+  return (videos || []).filter(function (v) { return v.entryId === entryId && v.rowId === rowId; })
+    .map(function (v, i) { return { url: v.sharedUrl, label: (typeLabel[v.type] || "動画") + (i > 0 ? (i + 1) : "") }; });
+}
+
+// コーチへ共有カード。MICエアlogのダッシュボードから選手が共有した技行ごとに、
+// 動画リンク・今日のベストバッジ・選手⇔コーチのチャット形式のやりとりをスレッド表示する。
+// スレッドに紐づかない伝言(linkedRowIdなし)は末尾に別枠でまとめて表示する。
 function makeCoachNotesCard(a, athleteKey) {
   const card = makeCard("コーチへ共有", "gold", "");
   const cbody = card.querySelector(".card-body");
@@ -1329,19 +1375,71 @@ function makeCoachNotesCard(a, athleteKey) {
   const athleteId = athleteRec ? athleteRec.id : "";
   const notes = (cache.coachNotes || []).filter(function (n) { return athleteId && n.athleteId === athleteId; });
 
-  let listHtml;
-  if (!notes.length) {
-    listHtml = '<div class="mandala-empty">共有メモはまだありません</div>';
+  // linkedEntryId+linkedRowId単位でスレッド化。両方空のものは「その他の伝言」スレッドにまとめる。
+  const threadOrder = [];
+  const threadMap = {};
+  notes.forEach(function (n) {
+    const key = (n.linkedEntryId || "") + "|" + (n.linkedRowId || "");
+    if (!threadMap[key]) { threadMap[key] = { entryId: n.linkedEntryId || "", rowId: n.linkedRowId || "", items: [] }; threadOrder.push(key); }
+    threadMap[key].items.push(n);
+  });
+  threadOrder.forEach(function (key) {
+    threadMap[key].items.sort(function (x, y) { return (x.createdAt || "") < (y.createdAt || "") ? -1 : 1; });
+  });
+  // スレッドは最新メッセージが新しい順。「その他の伝言」(rowId無し)は末尾固定。
+  threadOrder.sort(function (k1, k2) {
+    const t1 = threadMap[k1], t2 = threadMap[k2];
+    if (!t1.rowId && t2.rowId) return 1;
+    if (t1.rowId && !t2.rowId) return -1;
+    const last1 = t1.items[t1.items.length - 1].createdAt || "";
+    const last2 = t2.items[t2.items.length - 1].createdAt || "";
+    return last1 < last2 ? 1 : -1;
+  });
+
+  let bodyHtml = "";
+  if (!threadOrder.length) {
+    bodyHtml = '<div class="mandala-empty">共有メモはまだありません</div>';
   } else {
-    listHtml = '<div class="coachnote-list">' + notes.map(function (n) {
-      const who = n.source === "athlete" ? "選手" : "コーチ";
-      return '<div class="coachnote-item"><div class="coachnote-meta">' + escHtml(who) + ' ・ ' + escHtml(n.createdAt || "") + '</div><div class="coachnote-text">' + escHtml(n.text || "") + '</div></div>';
-    }).join("") + '</div>';
+    bodyHtml = threadOrder.map(function (key, ti) {
+      const t = threadMap[key];
+      const isGeneral = !t.rowId;
+      const found = !isGeneral ? airLogFindRecordRow(cache.records, t.entryId, t.rowId) : null;
+      const bestNote = t.items.find(function (n) { return n.isBestOfDay; });
+      let headerHtml, subHtml = "", videoLinksHtml = "";
+      if (isGeneral) {
+        headerHtml = '<div class="coachnote-general-heading">その他の伝言</div>';
+      } else {
+        const trickLabel = found ? escHtml(airLogTrickName(found.row)) : "(記録が見つかりません)";
+        const honInfo = found ? airLogHon(found.row) : null;
+        const honLabel = honInfo ? (honInfo.hasSuccess ? (honInfo.success + "/" + honInfo.hon + "本") : (honInfo.hon + "本")) : "";
+        headerHtml = '<div class="coachnote-thread-header">' + trickLabel + (bestNote ? '<span class="coachnote-best-badge">★ 今日のベスト</span>' : '') + '</div>';
+        subHtml = '<div class="coachnote-thread-sub">' + (found ? escHtml(found.rec.date || "") + (honLabel ? " ・ " + honLabel : "") : "") + '</div>';
+        const vids = airLogVideosForRow(cache.videos, t.entryId, t.rowId);
+        if (vids.length) {
+          videoLinksHtml = '<div class="coachnote-video-links">' + vids.map(function (v) {
+            return '<a class="coachnote-video-link" href="' + escHtml(v.url) + '" target="_blank" rel="noopener noreferrer">▶ ' + escHtml(v.label) + 'を見る</a>';
+          }).join("") + '</div>';
+        }
+      }
+      const bubblesHtml = '<div class="coachnote-bubbles">' + t.items.map(function (n) {
+        const isCoach = n.source === "coach";
+        const who = isCoach ? "コーチ" : "選手";
+        const text = n.text ? escHtml(n.text) : '<em>(コメントなし)</em>';
+        return '<div class="coachnote-bubble ' + (isCoach ? "coach" : "athlete") + '"><div class="who">' + escHtml(who) + ' ・ ' + escHtml(n.createdAt || "") + '</div><div class="txt">' + text + '</div></div>';
+      }).join("") + '</div>';
+      const threadKey = athleteKey + "_" + ti;
+      const replyHtml = '<div class="coachnote-reply-row">' +
+        '<textarea class="coachnote-reply-input" id="coachReplyInput_' + threadKey + '" rows="1" placeholder="返信する"></textarea>' +
+        '<button class="coachnote-reply-btn" id="coachReplyBtn_' + threadKey + '" onclick="submitCoachReply(\'' + athleteKey + "','" + athleteId + "','" + escAttrJs(t.entryId) + "','" + escAttrJs(t.rowId) + "','" + threadKey + '\')">送信</button>' +
+        '</div><div class="coachnote-status" id="coachReplyStatus_' + threadKey + '"></div>';
+      return '<div class="coachnote-thread">' + headerHtml + subHtml + videoLinksHtml + bubblesHtml + replyHtml + '</div>';
+    }).join("");
   }
 
-  cbody.innerHTML = listHtml +
-    '<textarea class="coachnote-input" id="coachNoteInput_' + athleteKey + '" rows="2" placeholder="コーチからの補足メモ"></textarea>' +
-    '<button class="coachnote-btn" onclick="submitCoachNote(\'' + athleteKey + "','" + athleteId + '\')">追加する</button>' +
+  cbody.innerHTML = bodyHtml +
+    '<div class="coachnote-general-heading">新しい伝言を送る</div>' +
+    '<textarea class="coachnote-input" id="coachNoteInput_' + athleteKey + '" rows="2" placeholder="特定の技に紐づかない伝言はこちらから"></textarea>' +
+    '<button class="coachnote-btn" onclick="submitCoachNote(\'' + athleteKey + "','" + athleteId + '\')">送信する</button>' +
     '<div class="coachnote-status" id="coachNoteStatus_' + athleteKey + '"></div>';
 
   if (!athleteId) {
@@ -1350,6 +1448,11 @@ function makeCoachNotesCard(a, athleteKey) {
   }
 
   return card;
+}
+
+// onclick文字列に安全に埋め込むための簡易エスケープ(シングルクォート/バックスラッシュのみ)。
+function escAttrJs(str) {
+  return String(str == null ? "" : str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 function submitCoachNote(athleteKey, athleteId) {
@@ -1362,7 +1465,8 @@ function submitCoachNote(athleteKey, athleteId) {
   const text = (input && input.value ? input.value : "").trim();
   if (!text) return;
   if (statusEl) statusEl.textContent = "送信中...";
-  fetch(apiUrl, { method: "POST", body: JSON.stringify({ type: "addCoachNote", athleteId: athleteId, source: "coach", text: text }) })
+  const source = VIEW_MODE === "player" ? "athlete" : "coach";
+  fetch(apiUrl, { method: "POST", body: JSON.stringify({ type: "addCoachNote", athleteId: athleteId, source: source, kind: "share", text: text }) })
     .then(function (res) { return res.json(); })
     .then(function (result) {
       if (result.status !== "ok") throw new Error(result.message || "failed");
@@ -1370,6 +1474,36 @@ function submitCoachNote(athleteKey, athleteId) {
       render();
     })
     .catch(function () {
+      if (statusEl) statusEl.textContent = "送信に失敗しました。もう一度お試しください。";
+    });
+}
+
+// 技行スレッドへの返信。選手専用モード(自分のカルテ)なら選手として、コーチ用モードならコーチとして送信する。
+function submitCoachReply(athleteKey, athleteId, linkedEntryId, linkedRowId, threadKey) {
+  if (!athleteId) return;
+  const a = ATHLETES[athleteKey];
+  const apiUrl = a && a.airLog && a.airLog.apiUrl;
+  if (!apiUrl) return;
+  const input = document.getElementById("coachReplyInput_" + threadKey);
+  const statusEl = document.getElementById("coachReplyStatus_" + threadKey);
+  const btn = document.getElementById("coachReplyBtn_" + threadKey);
+  const text = (input && input.value ? input.value : "").trim();
+  if (!text) return;
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.textContent = "送信中...";
+  const source = VIEW_MODE === "player" ? "athlete" : "coach";
+  fetch(apiUrl, {
+    method: "POST",
+    body: JSON.stringify({ type: "addCoachNote", athleteId: athleteId, source: source, kind: "reply", text: text, linkedEntryId: linkedEntryId || "", linkedRowId: linkedRowId || "" }),
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (result) {
+      if (result.status !== "ok") throw new Error(result.message || "failed");
+      delete airLogCache[apiUrl];
+      render();
+    })
+    .catch(function () {
+      if (btn) btn.disabled = false;
       if (statusEl) statusEl.textContent = "送信に失敗しました。もう一度お試しください。";
     });
 }
@@ -1606,6 +1740,7 @@ async function initApp() {
       }
       // data.type === "coach" の場合は下の「全選手取得」にそのままフォールスルーする
     }
+    VIEW_MODE = singlePerson ? "player" : "coach";
 
     if (singlePerson) {
       ATHLETES = { [singlePerson.name]: buildAthleteEntry(singlePerson, false) };
