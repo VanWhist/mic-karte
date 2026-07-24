@@ -746,6 +746,10 @@ function render() {
   // Short-term goal card (2026/07/14よりApps Script Web App経由でライブ取得)
   body.appendChild(makeShortTermGoalCard(a.shortTermGoal, current));
 
+  // 振り返りカード(2026/07/24〜: フォームB[月次更新]の回答が採用された場合のみ、短期目標カードの直後に表示)
+  const reflectionCard = makeReflectionCard(a.shortTermGoal, current);
+  if (reflectionCard) body.appendChild(reflectionCard);
+
   // Self-assessment card
   const selfCard = makeCard("自己分析(1〜5段階評価)", "blue", "");
   const selfBody = selfCard.querySelector(".card-body");
@@ -975,6 +979,58 @@ function makeShortTermGoalCard(stg, athleteKey) {
       ${stg.sheetUrl ? `&nbsp;&nbsp;<a class="mandala-link" href="${stg.sheetUrl}" target="_blank" rel="noopener">全回答を見る →</a>` : ""}
     </span>
   `;
+  cbody.appendChild(footer);
+
+  return card;
+}
+
+// 振り返りカード: 短期目標フォームA APIのレスポンスに reflection オブジェクトがある場合のみ表示する。
+// reflectionは「フォームB（月次更新）」の回答が採用された時だけAPI側が付与するため、
+// フォームAのみの選手（reflectionが無い/nullの選手）では常にnullを返し、カード自体を描画しない。
+function makeReflectionCard(stg, athleteKey) {
+  if (!stg || !stg.apiUrl) return null;
+  const cache = stgCache[athleteKey];
+  if (!cache || cache.status !== "loaded" || !cache.data || !cache.data.reflection) return null;
+  const r = cache.data.reflection;
+
+  const card = makeCard("前回の振り返り（フォームB）", "blue", "");
+  const cbody = card.querySelector(".card-body");
+
+  const grid = document.createElement("div");
+  grid.className = "goal-grid";
+  grid.innerHTML = `
+    <div class="goal-tile"><div class="k">達成度</div><div class="v">${r.achievement || "（回答なし）"}</div></div>
+  `;
+  cbody.appendChild(grid);
+
+  const textFields = [
+    ["できるようになったこと・成長", r.growth],
+    ["難しかったこと", r.difficulty],
+    ["学んだこと", r.learning]
+  ];
+  textFields.forEach(([label, val]) => {
+    const f = document.createElement("div");
+    f.className = "field";
+    f.innerHTML = `<div class="k">${label}</div><div class="v">${val || "（回答なし）"}</div>`;
+    cbody.appendChild(f);
+  });
+
+  if (r.airSenseFeedback) {
+    const f = document.createElement("div");
+    f.className = "field";
+    f.innerHTML = `<div class="k">空中感覚づくり教材の感想</div><div class="v">${r.airSenseFeedback}</div>`;
+    cbody.appendChild(f);
+  }
+  if (r.extraPhysicalEffort) {
+    const f = document.createElement("div");
+    f.className = "field";
+    f.innerHTML = `<div class="k">フィジカル面で自分からプラスして取り組んだこと</div><div class="v">${r.extraPhysicalEffort}</div>`;
+    cbody.appendChild(f);
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "mandala-summary";
+  footer.innerHTML = `<span>記入日 ${r.filledDate || "-"}</span><span></span>`;
   cbody.appendChild(footer);
 
   return card;
