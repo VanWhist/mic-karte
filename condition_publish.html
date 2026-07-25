@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>コンディション管理 ワイヤーフレーム</title>
+<style>
+  :root{
+    --accent:#4F5FD9;
+    --accent-dark:#3C4AB8;
+    --accent-soft:#EEF0FD;
+    --rose:#C97C97;
+    --rose-soft:#FCF1F5;
+    --surface:#FFFFFF;
+    --page:#F6F7F9;
+    --text-primary:#15171D;
+    --text-secondary:#6B6F7A;
+    --text-muted:#9BA0AC;
+    --border:rgba(20,22,27,0.05);
+    --good:#0ca30c;
+    --good-soft:#E7F7E9;
+    --warning:#e6a100;
+    --warning-soft:#FDF3DC;
+    --serious:#ec835a;
+    --critical:#d03b3b;
+    --critical-soft:#FBEAEA;
+    --series-1:#2a78d6; /* 疲労感 */
+    --series-2:#eb6834; /* 気分 */
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--page); color:var(--text-primary);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  @keyframes fadeUp{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+  @keyframes popIn{from{opacity:0; transform:scale(.9);} to{opacity:1; transform:scale(1);}}
+  @keyframes pulse{0%{transform:scale(1);} 40%{transform:scale(1.09);} 100%{transform:scale(1.04);}}
+  @keyframes pulseFlat{0%{transform:scale(1);} 40%{transform:scale(1.06);} 100%{transform:scale(1);}}
+  button, .chip, .tile, .btn, .hotspot, .mood-btn, nav.tabbar button{
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), background-color .15s ease, border-color .15s ease, box-shadow .15s ease, opacity .15s ease;
+  }
+  .chip:active, .tile:active, .btn:active, .hotspot:active{transform:scale(.95);}
+  .mood-btn:active{transform:scale(.97);}
+  .mood-btn.sel.pulse{animation:pulse .32s cubic-bezier(.34,1.56,.64,1);}
+  .chip.sel.pulse, .tile.logged.pulse{animation:pulseFlat .28s cubic-bezier(.34,1.56,.64,1);}
+  .proto-bar{
+    background:#1F1B24; color:#fff; font-size:12px; padding:8px 12px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .proto-bar select{
+    font-size:12px; padding:4px 6px; border-radius:6px; border:none;
+  }
+  .proto-bar b{font-weight:600;}
+  .phone{
+    max-width:390px; margin:0 auto; min-height:100vh; background:var(--page);
+    display:flex; flex-direction:column;
+  }
+  header.app-header{
+    padding:16px 16px 10px; background:var(--surface); border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:5;
+  }
+  header.app-header .who{font-size:12px; color:var(--text-muted);}
+  header.app-header h1{font-size:18px; margin:2px 0 0; font-weight:700;}
+  main{flex:1; padding:16px 16px 96px;}
+  .screen{display:none;}
+  .screen.active{display:block; animation:fadeUp .28s ease;}
+
+  .card{
+    background:var(--surface); border-radius:20px; padding:22px;
+    margin-bottom:18px; border:none;
+    box-shadow:0 1px 3px rgba(20,22,27,0.05), 0 6px 20px rgba(20,22,27,0.04);
+  }
+  .card h2{font-size:16px; margin:0 0 15px; font-weight:700; display:flex; align-items:center; gap:6px; letter-spacing:-.01em;}
+  .card h2 .tag{
+    font-size:10px; font-weight:600; padding:3px 8px; border-radius:100px;
+    background:var(--accent-soft); color:var(--accent-dark);
+  }
+  .card h2 .tag.female{background:var(--rose-soft); color:#9C5570;}
+  .card h2 svg{width:17px; height:17px; stroke:var(--accent); flex-shrink:0;}
+
+  /* --- 情報の優先順位: 副次的なカードは控えめに(視覚的な重みを下げる) --- */
+  .card.quiet{padding:16px 18px; box-shadow:0 1px 2px rgba(20,22,27,0.04);}
+  .card.quiet h2{font-size:13px; color:var(--text-secondary); margin-bottom:10px;}
+
+  /* --- Heroカード（記録画面いちばん上・挨拶＋要約） --- */
+  .hero-card{
+    background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; border-radius:24px;
+    padding:22px; margin-bottom:18px; box-shadow:0 8px 24px rgba(79,95,217,0.28);
+  }
+  .hero-card .greeting{font-size:19px; font-weight:800; letter-spacing:-.01em; margin-bottom:6px;}
+  .hero-card .msg{font-size:13.5px; line-height:1.6; opacity:.94;}
+  .hero-card .msg b{font-weight:800;}
+
+  /* --- 今日のコンディション（総合評価・5段階） --- */
+  .mood-picker{display:flex; justify-content:space-between; gap:6px;}
+  .mood-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:10px 2px 8px; border-radius:16px; background:var(--page); border:1.5px solid transparent;
+    cursor:pointer; user-select:none;
+  }
+  .mood-btn .ic{font-size:26px; line-height:1;}
+  .mood-btn .lb{font-size:9.5px; color:var(--text-muted); text-align:center; line-height:1.2; font-weight:600;}
+  .mood-btn.sel{background:var(--accent-soft); border-color:var(--accent); transform:scale(1.04);}
+  .mood-btn.sel .lb{color:var(--accent-dark);}
+
+  /* --- コンディション サマリー（ダッシュボード①） --- */
+  .summary-tile.wide{
+    display:flex; align-items:center; gap:12px; text-align:left; padding:14px 16px;
+    background:var(--accent-soft); border-radius:16px; margin-bottom:10px;
+  }
+  .summary-tile.wide .ic{font-size:30px; flex-shrink:0;}
+  .summary-tile.wide .v{font-size:14px; font-weight:800; color:var(--accent-dark);}
+  .summary-tile.wide .l{font-size:10px; color:var(--text-secondary); margin-top:1px; font-weight:600;}
+  .summary-strip{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; -webkit-overflow-scrolling:touch;}
+  .summary-strip::-webkit-scrollbar{display:none;}
+  .summary-pill{
+    flex:0 0 auto; background:var(--page); border-radius:12px; padding:8px 12px;
+    display:flex; align-items:center; gap:7px; white-space:nowrap;
+  }
+  .summary-pill svg{width:15px; height:15px; stroke:var(--text-secondary); flex-shrink:0;}
+  .summary-pill .v{font-size:11.5px; font-weight:700; color:var(--text-primary);}
+  .summary-pill .l{font-size:9px; color:var(--text-muted); font-weight:600;}
+
+  /* --- ステータスピル（🟢良好 🟡注意 🔴要確認） --- */
+  .status-pill{
+    display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700;
+    padding:4px 10px 4px 8px; border-radius:100px;
+  }
+  .status-pill .dot{width:8px; height:8px; border-radius:50%;}
+  .status-pill.good{background:var(--good-soft); color:#166B1A;}
+  .status-pill.good .dot{background:var(--good);}
+  .status-pill.warning{background:var(--warning-soft); color:#8A6200;}
+  .status-pill.warning .dot{background:var(--warning);}
+  .status-pill.critical{background:var(--critical-soft); color:#A32A2A;}
+  .status-pill.critical .dot{background:var(--critical);}
+
+  /* --- 記録画面: ワンタップタイル --- */
+  .tile-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .tile{
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:12px 4px; border-radius:14px; background:var(--page);
+    border:1.5px solid transparent; cursor:pointer; user-select:none;
+  }
+  .tile .ic{font-size:22px;}
+  .tile .lb{font-size:10.5px; color:var(--text-secondary); text-align:center; line-height:1.2;}
+  .tile.logged{background:var(--accent-soft); border-color:var(--accent);}
+  .tile.logged .lb{color:var(--accent-dark); font-weight:700;}
+
+  .chip-row{display:flex; gap:7px; flex-wrap:wrap; margin-top:10px;}
+  .chip{
+    font-size:12.5px; padding:8px 14px; border-radius:100px; border:1.5px solid transparent;
+    background:var(--page); color:var(--text-secondary); cursor:pointer; font-weight:600;
+  }
+  .chip.sel{background:var(--accent); color:#fff;}
+  .chip.sel.female{background:var(--rose); color:#fff;}
+
+  .field-label{font-size:12px; color:var(--text-secondary); margin:16px 0 8px; font-weight:700;}
+  textarea{
+    width:100%; border-radius:14px; border:1.5px solid var(--border); padding:12px;
+    font-family:inherit; font-size:13px; resize:vertical; min-height:56px; background:var(--page);
+  }
+
+  .body-view-toggle{display:flex; gap:6px; margin-bottom:12px;}
+  .body-view-toggle button{
+    flex:1; padding:8px; border-radius:100px; border:1.5px solid var(--border); background:var(--page);
+    color:var(--text-secondary); font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  .body-view-toggle button.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .body-map{display:flex; gap:14px; align-items:center;}
+  .body-view{display:none; flex-shrink:0;}
+  .body-view.active{display:block;}
+  .body-view svg{width:84px;}
+  .hotspot{cursor:pointer;}
+  .hotspot circle{transition:fill .15s ease, r .15s ease;}
+  .hotspot.active circle{fill:var(--rose);}
+  .selected-part-label{font-size:11.5px; color:var(--text-muted); margin-top:4px;}
+  .selected-part-label b{color:var(--rose); font-weight:700;}
+  .body-parts{display:flex; flex-wrap:wrap; gap:6px;}
+  .body-parts[hidden]{display:none;}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:13px 14px; border-radius:14px; border:none; font-size:13.5px; font-weight:700;
+    background:var(--accent); color:#fff; cursor:pointer; width:100%;
+  }
+  .btn.female{background:var(--rose);}
+  .btn.ghost{background:var(--page); color:var(--text-secondary); border:1.5px solid var(--border);}
+  .btn.small{width:auto; padding:8px 12px; font-size:12px;}
+
+  .period-card{background:linear-gradient(180deg,var(--rose-soft),var(--surface) 65%);}
+  .phase-badge{
+    display:inline-flex; align-items:center; gap:6px; background:var(--rose); color:#fff;
+    font-size:12px; font-weight:700; padding:7px 13px; border-radius:100px; margin-bottom:10px;
+  }
+  .symptom-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:10px;}
+  .symptom{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; padding:9px 11px;
+    border-radius:12px; border:1.5px solid var(--border); background:var(--page); cursor:pointer;
+  }
+  .symptom input{accent-color:var(--rose);}
+
+  .slider-row{display:flex; align-items:center; gap:10px; margin-top:8px;}
+  .slider-row input[type=range]{flex:1; accent-color:var(--rose);}
+  .slider-row .val{font-size:12px; color:var(--text-secondary); width:56px; text-align:right;}
+
+  /* --- ダッシュボード --- */
+  .advice-banner{
+    background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; border-radius:20px;
+    padding:18px; margin-bottom:16px;
+  }
+  .advice-banner .k{font-size:11px; opacity:.85; margin-bottom:5px; display:flex; align-items:center; gap:5px;}
+  .advice-banner .msg{font-size:14px; line-height:1.55; font-weight:500;}
+
+  .cycle-track{position:relative; height:34px; border-radius:100px; overflow:hidden; display:flex; margin:8px 0 6px;}
+  .cycle-seg{height:100%; display:flex; align-items:center; justify-content:center; font-size:9.5px; color:#fff; font-weight:600;}
+  .cycle-today{
+    position:absolute; top:-4px; width:2px; height:42px; background:var(--text-primary);
+  }
+  .cycle-today::after{
+    content:"今日"; position:absolute; top:-16px; left:50%; transform:translateX(-50%);
+    font-size:9px; color:var(--text-primary); white-space:nowrap; font-weight:700;
+  }
+  .cycle-legend{display:flex; gap:10px; flex-wrap:wrap; font-size:10.5px; color:var(--text-secondary); margin-top:4px;}
+  .cycle-legend span{display:inline-flex; align-items:center; gap:4px;}
+  .dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+
+  .calendar{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px;}
+  .cal-dow{font-size:10px; color:var(--text-muted); text-align:center; padding-bottom:4px; font-weight:600;}
+  .cal-day{
+    aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; font-size:11px; position:relative; cursor:pointer; color:var(--text-secondary);
+    border:1.5px solid transparent; gap:1px;
+  }
+  .cal-day.empty{visibility:hidden;}
+  .cal-day .n{font-weight:700;}
+  .cal-day .ic{font-size:9px; line-height:1;}
+  .cal-day .marks{display:flex; gap:2px; position:absolute; top:3px; right:3px;}
+  .cal-day .marks .m{width:5px; height:5px; border-radius:50%; box-shadow:0 0 0 1px #fff;}
+  .cal-day.sel{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
+  .cal-day.good{background:var(--good-soft);}
+  .cal-day.mid{background:var(--warning-soft);}
+  .cal-day.low{background:var(--critical-soft);}
+
+  .day-detail{margin-top:10px; padding:12px 14px; border-radius:14px; background:var(--page); font-size:12px; color:var(--text-secondary); line-height:1.6;}
+  .day-detail b{color:var(--text-primary);}
+
+  .stat-row{display:flex; gap:10px;}
+  .stat-tile{flex:1; background:var(--page); border-radius:14px; padding:12px 10px; text-align:center;}
+  .stat-tile .v{font-size:20px; font-weight:700;}
+  .stat-tile .l{font-size:10.5px; color:var(--text-muted); margin-top:2px; font-weight:600;}
+
+  .legend-row{display:flex; gap:14px; margin-top:6px; font-size:11px; color:var(--text-secondary);}
+  .legend-row span{display:inline-flex; align-items:center; gap:5px;}
+
+  /* --- 共有設定 --- */
+  .coach-row{
+    display:flex; align-items:center; justify-content:space-between; padding:10px 4px;
+    border-bottom:1px solid var(--border);
+  }
+  .coach-row:last-child{border-bottom:none;}
+  .coach-name{display:flex; align-items:center; gap:10px; font-size:13.5px;}
+  .avatar{
+    width:34px; height:34px; border-radius:50%; background:var(--accent-soft); color:var(--accent);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;
+  }
+  .coach-sub{font-size:10.5px; color:var(--text-muted);}
+  .switch{position:relative; width:42px; height:24px; flex-shrink:0;}
+  .switch input{opacity:0; width:100%; height:100%; margin:0; cursor:pointer; position:absolute; z-index:1;}
+  .switch .track{
+    position:absolute; inset:0; background:#D9D6DE; border-radius:100px; transition:.15s;
+  }
+  .switch .thumb{
+    position:absolute; top:2px; left:2px; width:20px; height:20px; background:#fff; border-radius:50%;
+    transition:.15s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+  }
+  .switch input:checked ~ .track{background:var(--rose);}
+  .switch input:checked ~ .track ~ .thumb{left:20px;}
+
+  .notice{
+    font-size:11.5px; color:var(--text-secondary); background:var(--accent-soft); border-radius:14px;
+    padding:12px 14px; line-height:1.6; margin-bottom:16px;
+  }
+  .notice b{color:var(--accent-dark);}
+
+  .empty-state{
+    text-align:center; padding:40px 20px; color:var(--text-muted); font-size:13px; line-height:1.7;
+  }
+  .empty-state .ic{font-size:32px; margin-bottom:8px;}
+
+  /* --- コーチ用: 選手一覧 --- */
+  .athlete-card{border-radius:20px;}
+  .athlete-top{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .athlete-top .avatar{background:var(--accent-soft); color:var(--accent-dark);}
+  .athlete-top .nm{font-weight:700; font-size:14.5px;}
+  .athlete-top .meta{font-size:10.5px; color:var(--text-muted); margin-top:1px;}
+  .athlete-top .info{flex:1;}
+  .suggestion{
+    display:flex; gap:8px; align-items:flex-start; background:var(--rose-soft); border-radius:14px;
+    padding:12px 13px; margin-top:10px; font-size:12px; color:#7A3B57; line-height:1.5;
+  }
+  .suggestion .ic{font-size:15px;}
+
+  nav.tabbar{
+    position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:390px;
+    background:rgba(255,255,255,.92); backdrop-filter:blur(10px); border-top:1px solid var(--border); display:flex; z-index:10;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .tab-indicator{
+    position:absolute; top:6px; height:34px; border-radius:14px; background:var(--accent-soft);
+    transition:left .28s cubic-bezier(.34,1.56,.64,1), width .28s cubic-bezier(.34,1.56,.64,1);
+    z-index:0;
+  }
+  nav.tabbar button{
+    position:relative; z-index:1; flex:1; background:none; border:none; padding:11px 4px 8px; display:flex; flex-direction:column;
+    align-items:center; gap:3px; color:var(--text-muted); font-size:10.5px; cursor:pointer; font-family:inherit;
+  }
+  nav.tabbar button svg{width:21px; height:21px;}
+  nav.tabbar button.active{color:var(--accent); font-weight:700;}
+  nav.tabbar button.active svg{stroke:var(--accent);}
+
+  h3.section-title{font-size:12px; color:var(--text-muted); margin:18px 4px 10px; font-weight:700; letter-spacing:.02em;}
+
+  .toast{
+    position:fixed; left:50%; bottom:82px; transform:translateX(-50%) translateY(10px) scale(.92);
+    background:#15171D; color:#fff; font-size:12.5px; padding:10px 18px; border-radius:100px;
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .28s cubic-bezier(.34,1.56,.64,1); z-index:30; white-space:nowrap;
+    box-shadow:0 8px 20px rgba(0,0,0,.22);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0) scale(1);}
+  .cal-day.today{box-shadow:0 0 0 2px var(--accent) inset;}
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <b>🔧 プロトタイプ確認用</b>
+  <span>役割:</span>
+  <select id="roleSelect" onchange="onRoleChange()">
+    <option value="female_self">女子選手として見る（本人）</option>
+    <option value="male_self">男子選手として見る（本人）</option>
+    <option value="coach_shared">コーチとして見る（この選手から共有あり）</option>
+    <option value="coach_unshared">コーチとして見る（共有なし）</option>
+  </select>
+</div>
+
+<div class="phone">
+  <header class="app-header">
+    <div class="who" id="whoLabel">選手本人ビュー</div>
+    <h1 id="headerTitle">コンディション</h1>
+  </header>
+
+  <main>
+
+    <!-- ============ 記録画面 ============ -->
+    <section class="screen active" id="screen-record">
+
+      <div class="hero-card" id="heroCard">
+        <div class="greeting" id="heroGreeting">おはよう！</div>
+        <div class="msg" id="heroMsg">今日の調子を記録して、コンディションを整えましょう。</div>
+      </div>
+
+      <div class="card">
+        <h2>今日のコンディション</h2>
+        <div class="mood-picker" id="overallMoodRow">
+          <div class="mood-btn" data-val="5" onclick="selectOverall(this)"><div class="ic">😀</div><div class="lb">絶好調</div></div>
+          <div class="mood-btn" data-val="4" onclick="selectOverall(this)"><div class="ic">🙂</div><div class="lb">良い</div></div>
+          <div class="mood-btn sel" data-val="3" onclick="selectOverall(this)"><div class="ic">😐</div><div class="lb">普通</div></div>
+          <div class="mood-btn" data-val="2" onclick="selectOverall(this)"><div class="ic">😞</div><div class="lb">少し疲れた</div></div>
+          <div class="mood-btn" data-val="1" onclick="selectOverall(this)"><div class="ic">😫</div><div class="lb">とても疲れた</div></div>
+        </div>
+      </div>
+
+      <div class="card" id="commonRecordCard">
+        <h2>今日の記録 <span class="tag">全員共通・任意</span></h2>
+
+        <div class="field-label">睡眠</div>
+        <div class="tile-grid">
+          <div class="tile logged" onclick="toggleTile(this)"><div class="ic">😴</div><div class="lb">よく眠れた</div></div>
+          <div class="tile" onclick="toggleTile(this)"><div class="ic">🙂</div><div class="lb">まあまあ</div></div>
+          <div class="tile" onclick="toggleTile(this)"><div class="ic">😪</div><div class="lb">眠れなかった</div></div>
+          <div class="tile" onclick="toggleTile(this)"><div class="ic">⏱️</div><div class="lb">時間を入力</div></div>
+        </div>
+
+        <div class="field-label">疲労感</div>
+        <div class="chip-row" id="fatigueRow">
+          <span class="chip" data-val="2" onclick="selectSingle(this)">低い</span>
+          <span class="chip sel" data-val="3" onclick="selectSingle(this)">普通</span>
+          <span class="chip" data-val="5" onclick="selectSingle(this)">高い</span>
+        </div>
+        <div class="field-label">気分</div>
+        <div class="chip-row" id="moodRow">
+          <span class="chip" data-val="2" onclick="selectSingle(this)">低い</span>
+          <span class="chip" data-val="3" onclick="selectSingle(this)">普通</span>
+          <span class="chip sel" data-val="4" onclick="selectSingle(this)">良い</span>
+        </div>
+        <div class="field-label">食欲</div>
+        <div class="chip-row" id="appetiteRow">
+          <span class="chip" data-val="2" onclick="selectSingle(this)">ない</span>
+          <span class="chip sel" data-val="3" onclick="selectSingle(this)">普通</span>
+          <span class="chip" data-val="4" onclick="selectSingle(this)">ある</span>
+        </div>
+
+        <div class="field-label">筋肉痛・張り（部位）</div>
+        <div class="chip-row" id="muscleRow">
+          <span class="chip" onclick="toggleChip(this)">太もも前</span>
+          <span class="chip sel" onclick="toggleChip(this)">ふくらはぎ</span>
+          <span class="chip" onclick="toggleChip(this)">腰</span>
+          <span class="chip" onclick="toggleChip(this)">肩</span>
+          <span class="chip" onclick="toggleChip(this)">＋追加</span>
+        </div>
+
+        <div class="field-label">自由メモ（任意）</div>
+        <textarea id="commonMemo" placeholder="気になることがあれば自由に書いてください" onblur="maybeSaveLiveRecord()">今日は少し脚が重い感じがした。</textarea>
+      </div>
+
+      <div class="card period-card" id="periodCard">
+        <h2>生理・周期 <span class="tag female">女子選手向け・任意</span></h2>
+        <div class="phase-badge" id="phaseBadge">🌙 黄体期 3日目（予測）</div>
+        <button class="btn female" id="periodStartBtn" onclick="logPeriodStart()" style="margin-bottom:10px;">生理が始まった日を記録する</button>
+        <div class="field-label">今日の症状（あれば）</div>
+        <div class="symptom-grid" id="symptomGrid">
+          <label class="symptom"><input type="checkbox" checked> 腹痛</label>
+          <label class="symptom"><input type="checkbox"> 頭痛</label>
+          <label class="symptom"><input type="checkbox" checked> イライラ</label>
+          <label class="symptom"><input type="checkbox"> だるさ</label>
+          <label class="symptom"><input type="checkbox"> 眠気</label>
+          <label class="symptom"><input type="checkbox"> むくみ</label>
+        </div>
+        <div class="field-label">つらさの強さ</div>
+        <div class="slider-row">
+          <input type="range" min="1" max="5" value="2" id="periodSeverity"
+            oninput="updateSliderLabel(this,['','とても軽い','軽い','普通','つらい','とてもつらい'])">
+          <span class="val" id="periodSeverityVal">軽い</span>
+        </div>
+        <div class="notice" style="margin-top:12px; margin-bottom:0;">
+          この項目は選手本人が「共有設定」で選んだコーチにだけ、加工されたアドバイスとして伝わります。誰にも共有しない設定も可能です。
+        </div>
+      </div>
+
+      <div class="card" id="injuryCard">
+        <h2>ケガ・違和感 <span class="tag">男女共通・都度記録</span></h2>
+
+        <div class="body-view-toggle">
+          <button type="button" class="active" id="frontViewBtn" onclick="toggleBodyView('front')">前面</button>
+          <button type="button" id="backViewBtn" onclick="toggleBodyView('back')">背面</button>
+        </div>
+
+        <div class="body-map">
+          <div class="body-view active" id="frontView">
+            <svg viewBox="0 0 60 140" fill="none">
+              <circle cx="30" cy="14" r="10" fill="#E9E7ED"/>
+              <circle cx="26" cy="12" r="1.4" fill="#C7C4CE"/><circle cx="34" cy="12" r="1.4" fill="#C7C4CE"/>
+              <rect x="18" y="26" width="24" height="38" rx="8" fill="#E9E7ED"/>
+              <rect x="6" y="30" width="10" height="34" rx="5" fill="#E9E7ED"/>
+              <rect x="44" y="30" width="10" height="34" rx="5" fill="#E9E7ED"/>
+              <rect x="18" y="66" width="10" height="40" rx="5" fill="#E9E7ED"/>
+              <rect x="32" y="66" width="10" height="40" rx="5" fill="#E9E7ED"/>
+              <g class="hotspot" data-label="首" onclick="selectHotspot(this)"><circle cx="30" cy="24" r="5" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="肩" onclick="selectHotspot(this)"><circle cx="44" cy="30" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="手首" onclick="selectHotspot(this)"><circle cx="11" cy="63" r="5" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="股関節" onclick="selectHotspot(this)"><circle cx="30" cy="65" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="太もも前" onclick="selectHotspot(this)"><circle cx="23" cy="78" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="左ひざ" onclick="selectHotspot(this)"><circle cx="23" cy="108" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="右ひざ" onclick="selectHotspot(this)"><circle cx="37" cy="108" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="すね" onclick="selectHotspot(this)"><circle cx="30" cy="125" r="6" fill="#DAD7E2"/></g>
+            </svg>
+          </div>
+          <div class="body-view" id="backView">
+            <svg viewBox="0 0 60 140" fill="none">
+              <circle cx="30" cy="14" r="10" fill="#E9E7ED"/>
+              <rect x="18" y="26" width="24" height="38" rx="8" fill="#E9E7ED"/>
+              <rect x="6" y="30" width="10" height="34" rx="5" fill="#E9E7ED"/>
+              <rect x="44" y="30" width="10" height="34" rx="5" fill="#E9E7ED"/>
+              <rect x="18" y="66" width="10" height="40" rx="5" fill="#E9E7ED"/>
+              <rect x="32" y="66" width="10" height="40" rx="5" fill="#E9E7ED"/>
+              <g class="hotspot" data-label="首" onclick="selectHotspot(this)"><circle cx="30" cy="24" r="5" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="背中" onclick="selectHotspot(this)"><circle cx="30" cy="45" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="腰" onclick="selectHotspot(this)"><circle cx="30" cy="65" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="臀部" onclick="selectHotspot(this)"><circle cx="30" cy="77" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="太もも裏" onclick="selectHotspot(this)"><circle cx="30" cy="90" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="ふくらはぎ" onclick="selectHotspot(this)"><circle cx="30" cy="115" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="左足首" onclick="selectHotspot(this)"><circle cx="23" cy="133" r="6" fill="#DAD7E2"/></g>
+              <g class="hotspot" data-label="右足首" onclick="selectHotspot(this)"><circle cx="37" cy="133" r="6" fill="#DAD7E2"/></g>
+            </svg>
+          </div>
+
+          <div style="flex:1;">
+            <div class="body-parts active-row" id="frontChips">
+              <span class="chip" onclick="selectBodyChip(this)">首</span>
+              <span class="chip" onclick="selectBodyChip(this)">肩</span>
+              <span class="chip" onclick="selectBodyChip(this)">手首</span>
+              <span class="chip" onclick="selectBodyChip(this)">股関節</span>
+              <span class="chip" onclick="selectBodyChip(this)">太もも前</span>
+              <span class="chip sel" onclick="selectBodyChip(this)">左ひざ</span>
+              <span class="chip" onclick="selectBodyChip(this)">右ひざ</span>
+              <span class="chip" onclick="selectBodyChip(this)">すね</span>
+            </div>
+            <div class="body-parts" id="backChips" hidden>
+              <span class="chip" onclick="selectBodyChip(this)">首</span>
+              <span class="chip" onclick="selectBodyChip(this)">背中</span>
+              <span class="chip sel" onclick="selectBodyChip(this)">腰</span>
+              <span class="chip" onclick="selectBodyChip(this)">臀部</span>
+              <span class="chip" onclick="selectBodyChip(this)">太もも裏</span>
+              <span class="chip" onclick="selectBodyChip(this)">ふくらはぎ</span>
+              <span class="chip" onclick="selectBodyChip(this)">左足首</span>
+              <span class="chip" onclick="selectBodyChip(this)">右足首</span>
+            </div>
+            <div class="selected-part-label">選択中の部位：<b id="selectedPartLabel">左ひざ</b></div>
+          </div>
+        </div>
+
+        <div class="field-label">痛みの強さ</div>
+        <div class="slider-row">
+          <input type="range" min="1" max="5" value="3" id="injurySeverity"
+            oninput="updateSliderLabel(this,['','軽い','やや軽い','中くらい','強い','かなり強い'])">
+          <span class="val" id="injurySeverityVal">中くらい</span>
+        </div>
+        <div class="field-label">発生状況</div>
+        <div class="chip-row" id="occurrenceRow">
+          <span class="chip sel" onclick="selectSingle(this)">練習中</span>
+          <span class="chip" onclick="selectSingle(this)">試合中</span>
+          <span class="chip" onclick="selectSingle(this)">日常生活</span>
+          <span class="chip" onclick="selectSingle(this)">学校</span>
+        </div>
+        <button class="btn ghost" id="saveInjuryBtn" onclick="saveInjury()" style="margin-top:12px;">＋ この記録を保存</button>
+        <div id="injuryLog"></div>
+      </div>
+
+    </section>
+
+    <!-- ============ ダッシュボード ============ -->
+    <section class="screen" id="screen-dashboard">
+
+      <div class="card" id="summaryCard">
+        <h2>今日のコンディション</h2>
+        <div class="summary-tile wide">
+          <div class="ic" id="summaryOverallIcon">😐</div>
+          <div><div class="v" id="summaryOverallLabel">普通</div><div class="l">総合コンディション</div></div>
+        </div>
+        <div class="summary-strip">
+          <div class="summary-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 1 0 9 9 9 9 0 1 1-9-9Z"/></svg><span class="v" id="summarySleep">よく眠れた</span><span class="l">睡眠</span></div>
+          <div class="summary-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg><span class="v" id="summaryFatigue">普通</span><span class="l">疲労感</span></div>
+          <div class="summary-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg><span class="v" id="summaryMood">良い</span><span class="l">気分</span></div>
+          <div class="summary-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 0 16 0Z"/><path d="M4 12c0-1 8-2 8-2s8 1 8 2"/></svg><span class="v" id="summaryAppetite">普通</span><span class="l">食欲</span></div>
+          <div class="summary-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5c3-3 8-3 11 0s3 8 0 11c-1 1-2.5 1-3.5 0l-.5-.5M9 15l-2.5 2.5M6 12l-2.5 2.5M9 9 6.5 6.5"/></svg><span class="v" id="summaryMuscle">なし</span><span class="l">筋肉痛</span></div>
+        </div>
+      </div>
+
+      <div class="advice-banner" id="adviceBanner">
+        <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 20l1-5.6a8.4 8.4 0 0 1-.9-3.9A8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z"/></svg> 今日のひとこと</div>
+        <div class="msg">黄体期は疲労やイライラを感じやすい時期です。強度よりフォーム確認を重視した練習が向いています。</div>
+      </div>
+
+      <div class="card quiet" id="cycleCard">
+        <h2>周期</h2>
+        <div class="cycle-track">
+          <div class="cycle-seg" style="width:18%; background:#D03B3B;">月経期</div>
+          <div class="cycle-seg" style="width:32%; background:#EDA100;">卵胞期</div>
+          <div class="cycle-seg" style="width:14%; background:#1BAF7A;">排卵期</div>
+          <div class="cycle-seg" style="width:36%; background:#7C5CBF;">黄体期</div>
+          <div class="cycle-today" style="left:82%;"></div>
+        </div>
+        <div class="cycle-legend">
+          <span><span class="dot" style="background:#D03B3B;"></span>月経期</span>
+          <span><span class="dot" style="background:#EDA100;"></span>卵胞期</span>
+          <span><span class="dot" style="background:#1BAF7A;"></span>排卵期</span>
+          <span><span class="dot" style="background:#7C5CBF;"></span>黄体期</span>
+        </div>
+        <div class="stat-row" style="margin-top:12px;">
+          <div class="stat-tile"><div class="v">27日</div><div class="l">平均周期(直近3回)</div></div>
+          <div class="stat-tile"><div class="v">3日目</div><div class="l">現在のフェーズ日数</div></div>
+          <div class="stat-tile"><div class="v">±3日</div><div class="l">周期のばらつき</div></div>
+        </div>
+        <div class="notice" style="margin-top:10px; margin-bottom:0;">
+          記録された日数から自動計算した「予測」です。中高生は周期が安定しないこともあるため、目安としてご覧ください。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>体調の波（直近14日）</h2>
+        <div id="waveChart" aria-label="疲労感と気分の推移の折れ線グラフ" role="img"></div>
+        <div class="legend-row">
+          <span><span class="dot" style="background:var(--series-1);"></span>疲労感</span>
+          <span><span class="dot" style="background:var(--series-2);"></span>気分</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>カレンダー</h2>
+        <div class="calendar" id="calendarGrid"></div>
+        <div class="legend-row" style="margin-top:10px; flex-wrap:wrap; row-gap:6px;">
+          <span>🙂 好調</span>
+          <span>😐 普通</span>
+          <span>😣 不調</span>
+          <span id="periodLegendItem"><span class="dot" style="background:#D03B3B;"></span>生理</span>
+          <span><span class="dot" style="background:var(--accent);"></span>ケガ記録</span>
+        </div>
+        <div class="day-detail" id="dayDetail">日付をタップすると、その日の記録が表示されます。</div>
+      </div>
+
+    </section>
+
+    <!-- ============ コーチ用ダッシュボード（コーチロール時のみ表示） ============ -->
+    <section class="screen" id="screen-coach">
+      <h3 class="section-title">選手一覧（抜粋）</h3>
+
+      <div class="card athlete-card">
+        <div class="athlete-top">
+          <div class="avatar">匠</div>
+          <div class="info">
+            <div class="nm">濵田匠真</div>
+            <div class="meta">直近7日: 疲労感 普通 / ケガ記録なし</div>
+          </div>
+          <span class="status-pill good"><span class="dot"></span>良好</span>
+        </div>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="v">7/7</div><div class="l">記録日数</div></div>
+          <div class="stat-tile"><div class="v">なし</div><div class="l">ケガ・違和感</div></div>
+        </div>
+      </div>
+
+      <div class="card athlete-card" id="mutsuhitoCard">
+        <div class="athlete-top">
+          <div class="avatar">伶</div>
+          <div class="info">
+            <div class="nm">鈴木伶菜</div>
+            <div class="meta" id="mutsuhitoMeta">直近7日: 疲労感 やや高い / 左ひざに違和感（軽度）</div>
+          </div>
+          <span class="status-pill warning" id="mutsuhitoStatusPill"><span class="dot"></span>注意</span>
+        </div>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="v">6/7</div><div class="l">記録日数</div></div>
+          <div class="stat-tile"><div class="v">1件</div><div class="l">ケガ・違和感</div></div>
+        </div>
+        <div class="suggestion" id="mutsuhitoSuggestion">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.5.4.9 1 1 1.6l.2.5h4.6l.2-.5c.1-.6.5-1.2 1-1.6A6 6 0 0 0 12 3Z"/></svg></div>
+          <div>現在は体調が低調な可能性があるため、運動量の調整を検討してください。</div>
+        </div>
+      </div>
+
+      <div class="notice" style="margin-top:4px;">
+        コーチ画面には生理関連の生データは一切表示されません。選手本人が共有を選んだコーチにのみ、加工された提案文だけが届きます。共有されていない選手の欄には、この項目自体が表示されません。
+      </div>
+    </section>
+
+    <!-- ============ 共有設定（女子選手のみ） ============ -->
+    <section class="screen" id="screen-share">
+      <div class="notice">
+        生理・周期に関する記録を見られる<b>コーチを個別に選べます</b>。デフォルトは「誰にも共有しない」です。共有すると、コーチにはあなたの記録そのものではなく、加工された一言アドバイスだけが伝わります。いつでも変更できます。
+      </div>
+
+      <div class="card">
+        <h2>共有するコーチを選ぶ</h2>
+        <div id="coachList"></div>
+      </div>
+
+      <button class="btn female">この設定を保存する</button>
+    </section>
+
+    <div class="empty-state" id="noAccessState" style="display:none;">
+      <div class="ic">🚫</div>
+      この画面はこの役割では表示されません（男子選手には②の項目自体が存在しません）
+    </div>
+
+  </main>
+
+  <nav class="tabbar">
+    <div class="tab-indicator" id="tabIndicator"></div>
+    <button class="active" data-tab="record" onclick="switchTab('record')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      記録
+    </button>
+    <button data-tab="dashboard" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="5" height="8" rx="1.2"/><rect x="10" y="7" width="5" height="13" rx="1.2"/><rect x="17" y="3" width="5" height="17" rx="1.2"/></svg>
+      ダッシュボード
+    </button>
+    <button data-tab="share" id="shareTabBtn" onclick="switchTab('share')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+      共有設定
+    </button>
+  </nav>
+</div>
+
+<script>
+// ============================================================
+// 実データ連携（バックエンド: Google Apps Script Web App）
+// URLに ?token=... が付いている場合はライブモードで動作し、
+// 付いていない場合は従来どおりプロトタイプバー(役割セレクト)によるデモモードのまま動作する。
+// ============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbz3zl7u2qkUswG3KOGq8IJe9tDXOyr8YKe9PnF5aZwaQsBY_lrKtAkGMV43A2jK83gT4g/exec';
+const LIVE_TOKEN = new URLSearchParams(location.search).get('token');
+const DEMO_MODE = !LIVE_TOKEN;
+let LIVE = null; // {type:'athlete'|'coach', data:{...}}
+
+function todayStrLocal(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+async function apiGet(action){
+  const params = new URLSearchParams({ action, token: LIVE_TOKEN });
+  const res = await fetch(API_URL + '?' + params.toString());
+  return res.json();
+}
+async function apiPost(action, payload){
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CORSプリフライトを避けるため text/plain で送る
+    body: JSON.stringify({ action, token: LIVE_TOKEN, ...payload }),
+  });
+  return res.json();
+}
+
+const COACHES = [
+  {name:"城勇太", sub:"Van（管理者）", key:"van"},
+  {name:"舘田舜哉", sub:"コーチ", key:"tateda"},
+  {name:"伊藤あづさ", sub:"コーチ", key:"ito"},
+  {name:"笠巻昇太", sub:"コーチ", key:"kasamaki"},
+  {name:"建部淳平", sub:"コーチ", key:"tatebe"},
+  {name:"和田野々花", sub:"コーチ", key:"wada"},
+  {name:"山本帆夏", sub:"コーチ", key:"yamamoto"},
+  {name:"新保龍登", sub:"コーチ", key:"shinbo"},
+  {name:"林田匠", sub:"コーチ", key:"hayashida"},
+  {name:"佐藤樹", sub:"コーチ", key:"sato"},
+  {name:"田中花", sub:"コーチ", key:"tanaka"},
+  {name:"城健太", sub:"社長（経営）", key:"joken"},
+];
+const SHARED_WITH = new Set(["van","wada"]); // デモ: 伶菜選手が共有中のコーチ
+
+function renderCoachList(){
+  const wrap = document.getElementById('coachList');
+  wrap.innerHTML = COACHES.map(c => `
+    <div class="coach-row">
+      <div class="coach-name">
+        <div class="avatar">${c.name[0]}</div>
+        <div>
+          <div>${c.name}</div>
+          <div class="coach-sub">${c.sub}</div>
+        </div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" ${SHARED_WITH.has(c.key) ? "checked" : ""} onchange="toggleShare('${c.key}')">
+        <span class="track"></span>
+        <span class="thumb"></span>
+      </label>
+    </div>
+  `).join('');
+}
+function toggleShare(key){
+  SHARED_WITH.has(key) ? SHARED_WITH.delete(key) : SHARED_WITH.add(key);
+  if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
+    const names = COACHES.filter(c => SHARED_WITH.has(c.key)).map(c => c.name);
+    apiPost('saveShareSettings', { sharedCoachNames: names });
+    toast('共有設定を更新しました');
+  }
+}
+
+// --- マイクロインタラクション: 選択時に軽くはずむアニメーションを再生 ---
+function pulseEl(el){
+  el.classList.remove('pulse');
+  void el.offsetWidth; // reflow でアニメーションを再始動
+  el.classList.add('pulse');
+  setTimeout(() => el.classList.remove('pulse'), 400);
+}
+
+function toggleTile(el){
+  el.parentElement.querySelectorAll('.tile').forEach(t=>t.classList.remove('logged'));
+  el.classList.add('logged');
+  pulseEl(el);
+  toast('記録しました');
+  maybeSaveLiveRecord();
+}
+function toggleChip(el){
+  el.classList.toggle('sel');
+  if(el.classList.contains('sel')) pulseEl(el);
+  toast(el.classList.contains('sel') ? '記録しました' : '取り消しました');
+  maybeSaveLiveRecord();
+}
+function selectSingle(el){
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  pulseEl(el);
+  toast('記録しました');
+  maybeSaveLiveRecord();
+}
+function updateSliderLabel(el, labels){
+  el.nextElementSibling.textContent = labels[+el.value] || '';
+}
+
+// --- 今日のコンディション（総合評価・5段階） ---
+function selectOverall(el){
+  el.parentElement.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  pulseEl(el);
+  toast('記録しました');
+  maybeSaveLiveRecord();
+}
+
+// --- ライブモード: 「今日の記録」の内容が変わるたびにバックエンドへ自動保存する(1日1行・上書き) ---
+let liveSaveTimer = null;
+function maybeSaveLiveRecord(){
+  if(DEMO_MODE || !LIVE || LIVE.type !== 'athlete') return;
+  clearTimeout(liveSaveTimer);
+  liveSaveTimer = setTimeout(() => {
+    const t = readTodayFromRecordScreen();
+    const muscleParts = [...document.querySelectorAll('#muscleRow .chip.sel')].map(c => c.textContent.trim());
+    apiPost('saveRecord', {
+      date: todayStrLocal(),
+      overall: t.overall, sleep: t.sleepLabel, fatigue: t.fatigue, mood: t.mood,
+      appetite: t.appetiteLabel, muscleParts, memo: t.memo,
+    });
+  }, 400);
+}
+
+// --- ケガ・違和感: 部位選択（前面/背面トグル＋人体図タップ＋チップ、相互連動） ---
+function toggleBodyView(mode){
+  const isFront = mode === 'front';
+  document.getElementById('frontView').classList.toggle('active', isFront);
+  document.getElementById('backView').classList.toggle('active', !isFront);
+  document.getElementById('frontChips').hidden = !isFront;
+  document.getElementById('backChips').hidden = isFront;
+  document.getElementById('frontViewBtn').classList.toggle('active', isFront);
+  document.getElementById('backViewBtn').classList.toggle('active', !isFront);
+  document.querySelector('.body-view.active').classList.add('active');
+}
+function selectBodyChip(el){
+  const row = el.parentElement;
+  const chips = [...row.children];
+  const idx = chips.indexOf(el);
+  chips.forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  const activeView = document.querySelector('.body-view.active');
+  if(activeView){
+    const hotspots = [...activeView.querySelectorAll('.hotspot')];
+    hotspots.forEach(h=>h.classList.remove('active'));
+    if(hotspots[idx]) hotspots[idx].classList.add('active');
+  }
+  document.getElementById('selectedPartLabel').textContent = el.textContent.trim();
+  toast('記録しました');
+}
+function selectHotspot(el){
+  const view = el.closest('.body-view');
+  const hotspots = [...view.querySelectorAll('.hotspot')];
+  const idx = hotspots.indexOf(el);
+  hotspots.forEach(h=>h.classList.remove('active'));
+  el.classList.add('active');
+  const row = view.id === 'frontView' ? document.getElementById('frontChips') : document.getElementById('backChips');
+  const chips = [...row.children];
+  chips.forEach(c=>c.classList.remove('sel'));
+  if(chips[idx]) chips[idx].classList.add('sel');
+  document.getElementById('selectedPartLabel').textContent = el.dataset.label;
+  toast('記録しました');
+}
+
+// --- トースト通知（ワンタップ記録のフィードバック） ---
+let toastTimer;
+function toast(msg){
+  let el = document.getElementById('toastEl');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'toastEl';
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = '✓ ' + msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1300);
+  renderHeroGreeting();
+}
+
+// --- Heroカード: 開いた瞬間の挨拶＋要約(時間帯・記録内容に応じて変化) ---
+function greetingByHour(h){
+  if(h < 5) return 'こんばんは';
+  if(h < 11) return 'おはよう';
+  if(h < 17) return 'こんにちは';
+  return 'こんばんは';
+}
+function renderHeroGreeting(){
+  const greetingEl = document.getElementById('heroGreeting');
+  const msgEl = document.getElementById('heroMsg');
+  if(!greetingEl || !msgEl) return;
+  greetingEl.textContent = greetingByHour(new Date().getHours()) + '！';
+  const t = readTodayFromRecordScreen();
+  msgEl.innerHTML = `今日は${t.overallIcon} <b>${t.overallLabel}</b>コンディション。${buildTodayMessage(t)}`;
+}
+
+// --- 生理開始日の記録 ---
+let periodLoggedToday = false;
+function logPeriodStart(){
+  periodLoggedToday = true;
+  const btn = document.getElementById('periodStartBtn');
+  btn.textContent = '✓ 今日を生理開始日として記録しました';
+  btn.disabled = true;
+  btn.style.opacity = '0.65';
+  document.getElementById('phaseBadge').textContent = '🌸 月経期 1日目（今日記録）';
+  toast('記録しました');
+  if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
+    const symptoms = [...document.querySelectorAll('#symptomGrid input:checked')].map(cb => cb.parentElement.textContent.trim());
+    const severity = document.getElementById('periodSeverity').value;
+    apiPost('savePeriod', { periodStartDate: todayStrLocal(), symptoms, severity });
+  }
+}
+
+// --- ケガ・違和感の記録（都度追加） ---
+let injuries = [];
+function saveInjury(){
+  const partEl = document.querySelector('#injuryCard .body-parts:not([hidden]) .chip.sel');
+  const occEl = document.querySelector('#occurrenceRow .chip.sel');
+  const sev = document.getElementById('injurySeverity').value;
+  const part = partEl ? partEl.textContent.trim() : '（部位未選択）';
+  const occ = occEl ? occEl.textContent.trim() : '（状況未選択）';
+  const time = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+  injuries.push({part, occ, sev, time});
+  renderInjuryLog();
+  toast('ケガ・違和感を記録しました');
+  if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
+    apiPost('saveInjury', { date: todayStrLocal(), part, occasion: occ, severity: sev });
+  }
+}
+function renderInjuryLog(){
+  const wrap = document.getElementById('injuryLog');
+  if(!injuries.length){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div class="field-label">今日記録した内容（' + injuries.length + '件）</div>' +
+    injuries.map(i => `<div class="day-detail" style="margin-top:6px;">${i.time}　${i.part}・${i.occ}・痛み ${i.sev}/5</div>`).join('');
+}
+
+// ============================================================
+// 年齢帯別「今日のひとこと」判断ロジック（設計: プロジェクトdocs内
+// 「年齢帯別ひとことメッセージ_設計案.md」を参照）。
+// 優先順位: ①安全性 → ②年齢帯特有の部位注意 → ③負荷急増(複数条件一致・データ未連携につき現状は無効) →
+//          ④回復優先(睡眠+疲労の複数条件) → ⑤既存の優先順位ロジック
+// メッセージは常に「判定」ではなく「会話のきっかけ」。病名は一切示唆しない。
+// ============================================================
+
+// --- デモ用: ロール選択に紐づく選手プロファイル（本番は生年月日をNotion「選手・生徒名簿」から取得する想定） ---
+// 生年月日はSAJ競技データバンクで確認済みの実データ（2026-07-24 登録）。
+const ATHLETE_BIRTHDATES = {
+  female_self: { name: '鈴木伶菜', birthdate: '2011-05-10' }, // 中学生想定（女性）
+  male_self:   { name: '濵田匠真', birthdate: '2010-07-06' }, // 高校生想定（男性）
+};
+let LIVE_ATHLETE_BIRTHDATE = null; // 実データ連携時: 名簿リゾルバが生年月日を持っていれば入る（現状は未対応でnullが多い）
+function getCurrentAthleteBirthdate(){
+  if(!DEMO_MODE) return LIVE_ATHLETE_BIRTHDATE;
+  const roleEl = document.getElementById('roleSelect');
+  const info = roleEl ? ATHLETE_BIRTHDATES[roleEl.value] : null;
+  return info ? info.birthdate : null;
+}
+
+// 日本の学年（4/1基準）に沿った「学年年齢」を算出する
+function schoolYearAgeAsOfApril1(birthdateStr, referenceDate){
+  const bd = new Date(birthdateStr);
+  const ref = referenceDate || new Date();
+  const fiscalYear = ref.getMonth() >= 3 ? ref.getFullYear() : ref.getFullYear() - 1; // 1〜3月は前年度扱い
+  const april1 = new Date(fiscalYear, 3, 1);
+  let age = april1.getFullYear() - bd.getFullYear();
+  const beforeBirthdayThisApril = (april1.getMonth() < bd.getMonth()) ||
+    (april1.getMonth() === bd.getMonth() && april1.getDate() < bd.getDate());
+  if (beforeBirthdayThisApril) age--;
+  return age;
+}
+
+// 年齢帯を判定（"MS"=中学生 / "HS"=高校生 / null=不明・対象外→レベル1の一般ロジックにフォールバック）
+// 厳密な年齢しきい値ではなく学年の目安として使う（設計案doc参照）。
+function getAgeBand(birthdateStr){
+  if (!birthdateStr) return null;
+  const gradeAge = schoolYearAgeAsOfApril1(birthdateStr);
+  if (gradeAge >= 12 && gradeAge <= 14) return 'MS';
+  if (gradeAge >= 15 && gradeAge <= 17) return 'HS';
+  return null; // 中学生未満・高校卒業後は今回の設計対象外
+}
+
+// 年齢帯ごとの調整パラメータ（設計案doc「設計案：年齢帯（学年）による調整」の確定版テーブルに対応）
+const AGE_BAND_PARAMS = {
+  MS: {
+    label: '中学生',
+    loadSpikeThreshold: 1.15, // 直近平均比+15%（AAPの目安。単独では使わず複数条件一致を要求する）
+    // 膝・すね・足首（成長期に負担が出やすい部位）。UIの実チップ名に合わせている。
+    growthCautionParts: ['すね', '左ひざ', '右ひざ', '左足首', '右足首'],
+    growthCautionStreakDays: 3, // この日数以上連続したら成長期メッセージを出す
+  },
+  HS: {
+    label: '高校生',
+    loadSpikeThreshold: 1.225, // 直近平均比+20〜25%の中間値
+    growthCautionParts: [],
+    growthCautionStreakDays: Infinity,
+  },
+};
+
+// --- 部位別違和感の継続日数トラッキング（デモ用の簡易シミュレーション） ---
+// 本番では選手ごとの記録履歴から算出するが、デモでは「今日の記録より前に何日連続していたか」を
+// 部位ごとの初期値として持たせ、当日記録があれば+1する。
+const INJURY_STREAK_DEMO_BASE = { 'すね': 2, '左ひざ': 2, '右ひざ': 0, '左足首': 0, '右足首': 0 };
+function injuryStreakDays(partLabel){
+  const base = INJURY_STREAK_DEMO_BASE[partLabel] || 0;
+  const loggedToday = injuries.some(i => i.part === partLabel);
+  return base + (loggedToday ? 1 : 0);
+}
+
+// 週間練習量の急増率（本人の直近平均比）。MICエアログ・トレーニングログとの連携が未実装のため、
+// 今はデータソースがなく null を返す（=このレベルの判定は現状スキップされる）。連携後はここに実装する。
+function getWeeklyLoadRatio(){
+  return null;
+}
+
+// --- 体調の波（直近13日分の疲労感・気分デモ値。今日の値はライブで末尾に追加） ---
+let FATIGUE_HISTORY = [2,3,3,2,3,4,3,3,4,4,3,4,5,4];
+let MOOD_HISTORY =    [4,4,3,4,4,3,3,4,3,3,4,3,2,3];
+let HISTORY_DATES = []; // 各履歴ポイントの日付ラベル（ライブモードのみ使用。折れ線グラフのX軸ラベルに使う）
+
+// --- カレンダー(デモ月、19日目=今日) ---
+let TODAY_D = 19;
+let CAL_DEMO = {
+  1:{c:'good'}, 2:{c:'good'}, 3:{c:'good', period:true}, 4:{c:'mid', period:true},
+  5:{c:'mid', period:true}, 6:{c:'good'}, 7:{c:'good'}, 8:{c:'good'}, 9:{c:'mid'},
+  10:{c:'good'}, 11:{c:'good'}, 12:{c:'mid'}, 13:{c:'low', injury:true}, 14:{c:'mid'},
+  15:{c:'good'}, 16:{c:'good'}, 17:{c:'mid'}, 18:{c:'good'}
+};
+let DAY_NOTES = {
+  13: "疲労感: 高い / 気分: やや低い<br>ケガ・違和感: <b>左ひざ（練習中・中程度）</b><br>メモ: 着地でひねった感覚があった",
+  4: "疲労感: 普通 / 気分: 普通<br>生理2日目・症状: 腹痛、だるさ",
+};
+const COND_ICON = {good:'🙂', mid:'😐', low:'😣'};
+function isFemaleView(){
+  if(DEMO_MODE) return document.getElementById('roleSelect').value === 'female_self';
+  return !!(LIVE && LIVE.type === 'athlete' && LIVE.data.sex === '女性');
+}
+function renderCalendar(selectDayNum){
+  const grid = document.getElementById('calendarGrid');
+  const isMale = DEMO_MODE ? document.getElementById('roleSelect').value === 'male_self' : !isFemaleView();
+  const periodLegendItem = document.getElementById('periodLegendItem');
+  if(periodLegendItem) periodLegendItem.style.display = isMale ? 'none' : '';
+  const dows = ['日','月','火','水','木','金','土'];
+  let html = dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  // デモ: 1日が火曜始まり固定。ライブ: 今月の実際の曜日から計算。
+  const startOffset = DEMO_MODE ? 2 : new Date(new Date().getFullYear(), new Date().getMonth(), 1).getDay();
+  for(let i=0;i<startOffset;i++) html += `<div class="cal-day empty"></div>`;
+  for(let d=1; d<=TODAY_D; d++){
+    const info = CAL_DEMO[d] || {};
+    const marks = [];
+    // 男子選手には生理関連のマークは項目自体を表示しない（②の権限設計に合わせる）
+    if(info.period && !isMale) marks.push(`<span class="m" style="background:#D03B3B;"></span>`);
+    if(info.injury) marks.push(`<span class="m" style="background:var(--accent);"></span>`);
+    const todayCls = d === TODAY_D ? 'today' : '';
+    const selCls = d === (selectDayNum || TODAY_D) ? 'sel' : '';
+    html += `<div class="cal-day ${info.c||''} ${todayCls} ${selCls}" data-day="${d}" onclick="selectDay(${d}, this)">
+      <div class="n">${d}</div>
+      <div class="ic">${info.c ? COND_ICON[info.c] : ''}</div>
+      <div class="marks">${marks.join('')}</div>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+function selectDay(d, el){
+  document.querySelectorAll('.cal-day').forEach(x=>x.classList.remove('sel'));
+  if(el) el.classList.add('sel');
+  else { const target = document.querySelector(`.cal-day[data-day="${d}"]`); if(target) target.classList.add('sel'); }
+  const monthLabel = DEMO_MODE ? '7月' : (new Date().getMonth() + 1) + '月';
+  const label = d === TODAY_D ? `今日（${monthLabel}${d}日）` : `${monthLabel}${d}日`;
+  const isMale = DEMO_MODE ? document.getElementById('roleSelect').value === 'male_self' : !isFemaleView();
+  // 男子選手には生理関連の記録行自体を見せない（②の権限設計に合わせる）
+  let note = DAY_NOTES[d] || '';
+  if(isMale) note = note.split('<br>').filter(line => !line.includes('生理')).join('<br>');
+  document.getElementById('dayDetail').innerHTML = note
+    ? `<b>${label}の記録</b><br>${note}`
+    : `<b>${label}の記録</b><br>この日の詳細な記録はありません。`;
+}
+
+// --- 今日の記録画面の内容をDOMから読み取る ---
+const OVERALL_ICON = {5:'😀', 4:'🙂', 3:'😐', 2:'😞', 1:'😫'};
+function readTodayFromRecordScreen(){
+  const overallSel = document.querySelector('#overallMoodRow .mood-btn.sel');
+  const sleepTile = document.querySelector('#commonRecordCard .tile.logged .lb');
+  const fatigueSel = document.querySelector('#fatigueRow .chip.sel');
+  const moodSel = document.querySelector('#moodRow .chip.sel');
+  const appetiteSel = document.querySelector('#appetiteRow .chip.sel');
+  const muscleSel = [...document.querySelectorAll('#muscleRow .chip.sel')].map(c => c.textContent.trim());
+  return {
+    overall: overallSel ? +overallSel.dataset.val : 3,
+    overallLabel: overallSel ? overallSel.querySelector('.lb').textContent.trim() : '普通',
+    overallIcon: overallSel ? overallSel.querySelector('.ic').textContent.trim() : '😐',
+    sleepLabel: sleepTile ? sleepTile.textContent.trim() : '未記録',
+    fatigue: fatigueSel ? +fatigueSel.dataset.val : 3,
+    fatigueLabel: fatigueSel ? fatigueSel.textContent.trim() : '未記録',
+    mood: moodSel ? +moodSel.dataset.val : 3,
+    moodLabel: moodSel ? moodSel.textContent.trim() : '未記録',
+    appetiteLabel: appetiteSel ? appetiteSel.textContent.trim() : '未記録',
+    muscleLabel: muscleSel.length ? muscleSel.join('・') : 'なし',
+    memo: (document.getElementById('commonMemo') || {}).value || '',
+  };
+}
+function classifyCondition(fatigue, mood, overall){
+  if(overall){
+    if(overall >= 4) return 'good';
+    if(overall === 3) return 'mid';
+    return 'low';
+  }
+  const score = ((6 - fatigue) + mood) / 2;
+  if(score >= 3.7) return 'good';
+  if(score >= 2.6) return 'mid';
+  return 'low';
+}
+
+// --- 「今日のひとこと」を記録データから組み立てる ---
+function buildTodayMessage(t){
+  // レベル0（既存仕様）: 生理関連は年齢帯に関わらず最優先
+  if(periodLoggedToday){
+    return '月経期は体が最も疲れやすい時期です。無理せず、様子を見ながら練習強度を調整しましょう。';
+  }
+
+  const ageBand = getAgeBand(getCurrentAthleteBirthdate());
+  const bandParams = AGE_BAND_PARAMS[ageBand] || null;
+  const yesterdayFatigue = FATIGUE_HISTORY[FATIGUE_HISTORY.length - 1];
+  const twoDaysAgoFatigue = FATIGUE_HISTORY[FATIGUE_HISTORY.length - 2];
+
+  // レベル1: 安全性（今日、強めの痛み・違和感の記録がある場合は年齢帯に関わらず最優先。病名は一切示唆しない）
+  const todayStrongInjury = injuries.find(i => Number(i.sev) >= 4);
+  if(todayStrongInjury){
+    return `${todayStrongInjury.part}に強めの痛み・違和感の記録があります。無理に練習を続けず、コーチに今日の状態を伝えてから判断しましょう。`;
+  }
+
+  // レベル2: 年齢帯特有の部位注意（中学生・膝／すね／足首の違和感が数日連続している場合。病名は一切示唆しない）
+  if(bandParams){
+    const cautionInjury = injuries.find(i => bandParams.growthCautionParts.includes(i.part));
+    if(cautionInjury){
+      const streak = injuryStreakDays(cautionInjury.part);
+      if(streak >= bandParams.growthCautionStreakDays){
+        return `${cautionInjury.part}の違和感が${streak}日続いています。成長期はこうした部位に負担が出やすい時期です。練習中に気になる場面があれば、コーチと共有してみましょう。`;
+      }
+    }
+  }
+
+  // レベル3: 負荷急増（本人の直近平均比＋複数条件一致が必要。単一指標だけでは出さない）
+  // MICエアログ・トレーニングログとの連携が未実装のため、今はデータソースがなくスキップされる。
+  const loadRatio = getWeeklyLoadRatio();
+  if(bandParams && loadRatio !== null && loadRatio >= bandParams.loadSpikeThreshold){
+    const fatigueRising = t.fatigue > yesterdayFatigue;
+    const sleepPoor = t.sleepLabel === '眠れなかった';
+    if(fatigueRising || sleepPoor){
+      return '最近は普段より練習量が増えています。疲労感や睡眠の様子も合わせて確認してみましょう。';
+    }
+  }
+
+  // レベル4: 回復優先（睡眠が取れていない状態と疲労の高止まりが重なった場合。単一指標だけでは強めない）
+  if(t.sleepLabel === '眠れなかった' && t.fatigue >= 4 && yesterdayFatigue >= 4){
+    return '睡眠があまり取れておらず、疲労感も高めの状態が続いています。今日は回復を優先し、練習強度を調整しましょう。';
+  }
+
+  // レベル5: 既存の優先順位ロジック（睡眠改善・疲労継続・一般的なケガ記録・安定・フォールバック）
+  if(t.sleepLabel === 'よく眠れた' && t.fatigue < yesterdayFatigue){
+    return '昨日より睡眠が改善し、疲労感も和らいでいます。良いコンディションです。';
+  }
+  if(t.fatigue >= 4 && yesterdayFatigue >= 4 && twoDaysAgoFatigue >= 4){
+    return '疲労感が続いています。今日はウォームアップを長めにとって、無理のない強度で。';
+  }
+  if(injuries.length){
+    return 'ケガ・違和感の記録があります。痛みが出ている部位をかばいすぎず、無理のない範囲で調整しましょう。';
+  }
+  if(t.overall >= 4 && t.fatigue <= 3){
+    return '最近の記録は安定しています。この調子を維持していきましょう。';
+  }
+  return '今日の記録、お疲れさまでした。気になることがあれば無理せずコーチに相談してくださいね。';
+}
+
+// --- 記録内容をダッシュボードに反映する ---
+function applyTodayToDashboard(){
+  const t = readTodayFromRecordScreen();
+
+  CAL_DEMO[TODAY_D] = {
+    c: classifyCondition(t.fatigue, t.mood, t.overall),
+    period: periodLoggedToday,
+    injury: injuries.length > 0,
+  };
+  const symptomTexts = [...document.querySelectorAll('#symptomGrid input:checked')]
+    .map(cb => cb.parentElement.textContent.trim());
+  let note = `睡眠: ${t.sleepLabel}　疲労感: ${t.fatigueLabel}　気分: ${t.moodLabel}　食欲: ${t.appetiteLabel}`;
+  if(t.memo) note += `<br>メモ: ${t.memo}`;
+  if(periodLoggedToday) note += `<br>生理: 今日を開始日として記録${symptomTexts.length ? '（症状: ' + symptomTexts.join('、') + '）' : ''}`;
+  if(injuries.length) note += `<br>ケガ・違和感: ${injuries.map(i => `${i.part}(${i.occ}・痛み${i.sev}/5)`).join('、')}`;
+  DAY_NOTES[TODAY_D] = note;
+
+  renderCalendar(TODAY_D);
+  selectDay(TODAY_D);
+  renderWaveChart();
+
+  // ①今日のコンディション サマリーカードを更新
+  const setText = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  setText('summaryOverallIcon', t.overallIcon);
+  setText('summaryOverallLabel', t.overallLabel);
+  setText('summarySleep', t.sleepLabel);
+  setText('summaryFatigue', t.fatigueLabel);
+  setText('summaryMood', t.moodLabel);
+  setText('summaryAppetite', t.appetiteLabel);
+  setText('summaryMuscle', t.muscleLabel);
+
+  // ②今日のひとこと
+  document.querySelector('#adviceBanner .msg').textContent = buildTodayMessage(t);
+
+  if(periodLoggedToday){
+    const cycleToday = document.querySelector('#cycleCard .cycle-today');
+    if(cycleToday) cycleToday.style.left = '2%';
+    const phaseDayTile = document.querySelector('#cycleCard .stat-tile:nth-child(2) .v');
+    if(phaseDayTile) phaseDayTile.textContent = '1日目';
+  }
+}
+
+// --- 折れ線グラフ(依存ライブラリなしの自前SVG、今日の値をライブ反映) ---
+function renderWaveChart(){
+  const wrap = document.getElementById('waveChart');
+  if(!wrap) return;
+  const t = readTodayFromRecordScreen();
+  const labels = DEMO_MODE
+    ? [...Array.from({length:14}, (_,i)=>`7/${i+5}`), '今日']
+    : [...HISTORY_DATES, '今日'];
+  const fatigue = [...FATIGUE_HISTORY, t.fatigue];
+  const mood =    [...MOOD_HISTORY, t.mood];
+
+  const W = 340, H = 150, padL = 20, padR = 6, padT = 10, padB = 18;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = labels.length;
+  const xAt = i => padL + (plotW * i) / (n - 1);
+  const yAt = v => padT + plotH - (plotH * v) / 5;
+
+  const path = arr => arr.map((v,i) => `${i===0?'M':'L'}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+
+  let grid = '';
+  for(let g=0; g<=5; g+=1){
+    const y = yAt(g);
+    grid += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#EDEDF0" stroke-width="1"/>`;
+    if(g % 2 === 1) grid += `<text x="${padL-6}" y="${y+3}" font-size="8" fill="#9BA0AC" text-anchor="end">${g}</text>`;
+  }
+  let xLabels = '';
+  labels.forEach((lb,i) => {
+    if(i % 3 !== 0 && i !== n-1) return;
+    xLabels += `<text x="${xAt(i)}" y="${H-4}" font-size="8" fill="#9BA0AC" text-anchor="middle" font-weight="${i===n-1?'700':'400'}">${lb}</text>`;
+  });
+
+  const dots = (arr, color) => arr.map((v,i) => i === n-1
+    ? `<circle class="wv-dot" data-i="${i}" cx="${xAt(i)}" cy="${yAt(v)}" r="5.5" fill="#fff" stroke="${color}" stroke-width="2.5"/>`
+    : `<circle class="wv-dot" data-i="${i}" cx="${xAt(i)}" cy="${yAt(v)}" r="3" fill="${color}"/>`
+  ).join('');
+
+  const hoverBands = labels.map((lb,i) => {
+    const bx = padL + (plotW * (i - 0.5)) / (n - 1);
+    const bw = plotW / (n - 1);
+    return `<rect class="wv-band" data-i="${i}" x="${Math.max(padL,bx)}" y="0" width="${bw}" height="${H}" fill="transparent"/>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:${H}px; overflow:visible;">
+      ${grid}
+      <path d="${path(fatigue)}" fill="none" stroke="#2a78d6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${path(mood)}" fill="none" stroke="#eb6834" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots(fatigue,'#2a78d6')}
+      ${dots(mood,'#eb6834')}
+      ${xLabels}
+      <line id="wv-crosshair" x1="0" y1="0" x2="0" y2="${H}" stroke="#c3c2b7" stroke-width="1" opacity="0"/>
+      ${hoverBands}
+    </svg>
+    <div id="wv-tooltip" style="position:relative;">
+      <div style="display:none; position:absolute; top:-${H+6}px; background:#15171D; color:#fff; font-size:11px;
+        padding:7px 10px; border-radius:10px; white-space:nowrap; transform:translateX(-50%); pointer-events:none;">
+      </div>
+    </div>
+  `;
+
+  const svg = wrap.querySelector('svg');
+  const crosshair = wrap.querySelector('#wv-crosshair');
+  const tooltipBox = wrap.querySelector('#wv-tooltip > div');
+  svg.querySelectorAll('.wv-band').forEach(band => {
+    band.addEventListener('mouseenter', () => showTip(+band.dataset.i));
+    band.addEventListener('mousemove', () => showTip(+band.dataset.i));
+  });
+  wrap.onmouseleave = () => { crosshair.setAttribute('opacity','0'); tooltipBox.style.display='none'; };
+  function showTip(i){
+    const x = xAt(i);
+    crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x); crosshair.setAttribute('opacity','1');
+    tooltipBox.style.display = 'block';
+    tooltipBox.style.left = (x / W * 100) + '%';
+    tooltipBox.innerHTML = `${labels[i]}　<span style="color:#6DA7EC;">●</span>疲労感 ${fatigue[i]}　<span style="color:#F0A87A;">●</span>気分 ${mood[i]}`;
+  }
+}
+
+// --- タブバー: 選択中タブの下にピルをスライドさせる(マイクロインタラクション) ---
+function moveTabIndicator(btn){
+  const indicator = document.getElementById('tabIndicator');
+  if(!indicator || !btn || btn.style.display === 'none') { if(indicator) indicator.style.opacity = '0'; return; }
+  indicator.style.opacity = '1';
+  indicator.style.left = btn.offsetLeft + 'px';
+  indicator.style.width = btn.offsetWidth + 'px';
+}
+
+// --- タブ切替 ---
+function switchTab(tab){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
+  const activeBtn = document.querySelector(`nav.tabbar button[data-tab="${tab}"]`);
+  activeBtn.classList.add('active');
+  moveTabIndicator(activeBtn);
+
+  const isCoachView = DEMO_MODE ? document.getElementById('roleSelect').value.startsWith('coach') : (LIVE && LIVE.type === 'coach');
+  if(tab === 'dashboard' && isCoachView){
+    document.getElementById('screen-coach').classList.add('active');
+  } else if(tab === 'share' && !isFemaleView()){
+    document.getElementById('noAccessState').style.display = 'block';
+  } else {
+    document.getElementById('noAccessState').style.display = 'none';
+    document.getElementById(`screen-${tab}`).classList.add('active');
+    if(tab === 'dashboard') setTimeout(applyTodayToDashboard, 30);
+  }
+}
+
+// --- 役割切替（プロトタイプ用） ---
+function onRoleChange(){
+  const role = document.getElementById('roleSelect').value;
+  const whoLabel = document.getElementById('whoLabel');
+  const shareBtn = document.getElementById('shareTabBtn');
+  const periodCard = document.getElementById('periodCard');
+  const cycleCard = document.getElementById('cycleCard');
+  const adviceBanner = document.getElementById('adviceBanner');
+
+  shareBtn.style.display = (role === 'female_self') ? 'flex' : 'none';
+  periodCard.style.display = (role === 'female_self' || role.startsWith('coach')) ? '' : 'none';
+  // 周期カードは女子選手のみ。「今日のコンディション」「今日のひとこと」は男女とも共通表示。
+  if(cycleCard) cycleCard.style.display = (role === 'female_self') ? '' : 'none';
+  if(adviceBanner) adviceBanner.style.display = role.startsWith('coach') ? 'none' : '';
+  document.querySelector('nav.tabbar button[data-tab="record"]').style.display = role.startsWith('coach') ? 'none' : 'flex';
+
+  if(role === 'female_self'){
+    const band = AGE_BAND_PARAMS[getAgeBand(ATHLETE_BIRTHDATES.female_self.birthdate)];
+    whoLabel.textContent = '鈴木伶菜選手 本人ビュー' + (band ? `（${band.label}・年齢帯ロジック確認用）` : '');
+    document.getElementById('headerTitle').textContent = 'コンディション';
+  } else if(role === 'male_self'){
+    const band = AGE_BAND_PARAMS[getAgeBand(ATHLETE_BIRTHDATES.male_self.birthdate)];
+    whoLabel.textContent = '濵田匠真選手 本人ビュー' + (band ? `（${band.label}・年齢帯ロジック確認用）` : '');
+    document.getElementById('headerTitle').textContent = 'コンディション';
+  } else if(role === 'coach_shared'){
+    whoLabel.textContent = 'コーチビュー（鈴木伶菜選手は共有ON）';
+    document.getElementById('headerTitle').textContent = 'コーチ用カルテ';
+  } else if(role === 'coach_unshared'){
+    whoLabel.textContent = 'コーチビュー（鈴木伶菜選手は共有OFF）';
+    document.getElementById('headerTitle').textContent = 'コーチ用カルテ';
+  }
+
+  // コーチ表示時の共有あり/なし切り替え
+  const meta = document.getElementById('mutsuhitoMeta');
+  const sug = document.getElementById('mutsuhitoSuggestion');
+  const pill = document.getElementById('mutsuhitoStatusPill');
+  if(role === 'coach_unshared' && meta && sug){
+    meta.textContent = '直近7日: 疲労感 普通 / ケガ記録なし';
+    sug.style.display = 'none';
+    if(pill){ pill.className = 'status-pill good'; pill.innerHTML = '<span class="dot"></span>良好'; }
+  } else if(meta && sug){
+    meta.textContent = '直近7日: 疲労感 やや高い / 左ひざに違和感（軽度）';
+    sug.style.display = 'flex';
+    if(pill){ pill.className = 'status-pill warning'; pill.innerHTML = '<span class="dot"></span>注意'; }
+  }
+
+  // タブを「記録」に戻す（選手ロール）/「ダッシュボード」に切替（コーチロール）
+  if(role.startsWith('coach')){
+    switchTab('dashboard');
+  } else {
+    switchTab('record');
+  }
+}
+
+// ============================================================
+// ライブモード本体（?token=... がある場合に実データで初期化する）
+// ============================================================
+async function initLiveMode(){
+  document.querySelector('.proto-bar').style.display = 'none';
+  try{
+    const athleteData = await apiGet('getAthleteData');
+    if(!athleteData.error){
+      LIVE = { type: 'athlete', data: athleteData };
+      applyLiveAthleteMode(athleteData);
+      return;
+    }
+    const coachData = await apiGet('getCoachView');
+    if(!coachData.error){
+      LIVE = { type: 'coach', data: coachData };
+      applyLiveCoachMode(coachData);
+      return;
+    }
+    showInvalidTokenScreen();
+  } catch(e){
+    showInvalidTokenScreen();
+  }
+}
+
+function showInvalidTokenScreen(){
+  document.querySelector('main').innerHTML = `
+    <div class="empty-state">
+      <div class="ic">🔒</div>
+      無効なリンクです。<br>URLをご確認いただくか、コーチにお問い合わせください。
+    </div>`;
+  const nav = document.querySelector('nav.tabbar');
+  if(nav) nav.style.display = 'none';
+  document.getElementById('whoLabel').textContent = '';
+  document.getElementById('headerTitle').textContent = 'コンディション';
+}
+
+function applyLiveAthleteMode(data){
+  const whoLabel = document.getElementById('whoLabel');
+  const shareBtn = document.getElementById('shareTabBtn');
+  const periodCard = document.getElementById('periodCard');
+  const cycleCard = document.getElementById('cycleCard');
+  const isFemale = data.sex === '女性';
+
+  whoLabel.textContent = data.name + '選手';
+  document.getElementById('headerTitle').textContent = 'コンディション';
+  shareBtn.style.display = isFemale ? 'flex' : 'none';
+  if(periodCard) periodCard.style.display = isFemale ? '' : 'none';
+  if(cycleCard) cycleCard.style.display = isFemale ? '' : 'none';
+  document.querySelector('nav.tabbar button[data-tab="record"]').style.display = 'flex';
+
+  LIVE_ATHLETE_BIRTHDATE = data.birthdate || null;
+
+  const todayStr = todayStrLocal();
+  const thisMonthPrefix = todayStr.slice(0, 7); // yyyy-MM。カレンダーは月をまたぐ日付衝突を避けるため今月分のみ扱う(v1の既知の制約)
+  const records = [...(data.records || [])].sort((a, b) => a.date < b.date ? -1 : 1);
+  const todayRecord = records.find(r => r.date === todayStr);
+
+  // 疲労感・気分の履歴(当日を除く直近14件)
+  const histRecords = records.filter(r => r.date !== todayStr).slice(-14);
+  FATIGUE_HISTORY = histRecords.length ? histRecords.map(r => Number(r.fatigue) || 3) : [3];
+  MOOD_HISTORY = histRecords.length ? histRecords.map(r => Number(r.mood) || 3) : [3];
+  HISTORY_DATES = histRecords.length
+    ? histRecords.map(r => { const p = r.date.split('-'); return `${Number(p[1])}/${Number(p[2])}`; })
+    : [''];
+
+  // カレンダー・日別メモ(今月分のみ)
+  TODAY_D = new Date().getDate();
+  CAL_DEMO = {};
+  DAY_NOTES = {};
+  const injuriesByDate = {};
+  (data.injuries || []).forEach(inj => { (injuriesByDate[inj.date] = injuriesByDate[inj.date] || []).push(inj); });
+  const periodDates = new Set((data.periods || []).map(p => p.periodStartDate));
+  records.filter(r => r.date.startsWith(thisMonthPrefix)).forEach(r => {
+    const day = Number(r.date.split('-')[2]);
+    if(!day) return;
+    CAL_DEMO[day] = {
+      c: classifyCondition(Number(r.fatigue), Number(r.mood), Number(r.overall)),
+      period: periodDates.has(r.date),
+      injury: !!(injuriesByDate[r.date] && injuriesByDate[r.date].length),
+    };
+    let note = `睡眠: ${r.sleep || '未記録'}　疲労感: ${r.fatigue || '-'}　気分: ${r.mood || '-'}　食欲: ${r.appetite || '-'}`;
+    if(r.memo) note += `<br>メモ: ${r.memo}`;
+    if(injuriesByDate[r.date]) note += `<br>ケガ・違和感: ${injuriesByDate[r.date].map(i => `${i.part}(${i.occasion}・痛み${i.severity}/5)`).join('、')}`;
+    DAY_NOTES[day] = note;
+  });
+
+  // 今日のケガ・違和感/生理記録の状態を反映
+  injuries = (injuriesByDate[todayStr] || []).map(i => ({ part: i.part, occ: i.occasion, sev: i.severity, time: i.time }));
+  renderInjuryLog();
+  periodLoggedToday = periodDates.has(todayStr);
+  if(periodLoggedToday){
+    const btn = document.getElementById('periodStartBtn');
+    if(btn){ btn.textContent = '✓ 今日を生理開始日として記録しました'; btn.disabled = true; btn.style.opacity = '0.65'; }
+  }
+
+  // 今日すでに送信済みの記録があればフォームへプリフィル
+  if(todayRecord){
+    const overallBtn = document.querySelector(`#overallMoodRow .mood-btn[data-val="${todayRecord.overall}"]`);
+    if(overallBtn){ document.querySelectorAll('#overallMoodRow .mood-btn').forEach(b=>b.classList.remove('sel')); overallBtn.classList.add('sel'); }
+    const sleepTile = [...document.querySelectorAll('#commonRecordCard .tile')].find(t => t.querySelector('.lb').textContent.trim() === todayRecord.sleep);
+    if(sleepTile){ document.querySelectorAll('#commonRecordCard .tile').forEach(t=>t.classList.remove('logged')); sleepTile.classList.add('logged'); }
+    const fatigueChip = document.querySelector(`#fatigueRow .chip[data-val="${todayRecord.fatigue}"]`);
+    if(fatigueChip){ document.querySelectorAll('#fatigueRow .chip').forEach(c=>c.classList.remove('sel')); fatigueChip.classList.add('sel'); }
+    const moodChip = document.querySelector(`#moodRow .chip[data-val="${todayRecord.mood}"]`);
+    if(moodChip){ document.querySelectorAll('#moodRow .chip').forEach(c=>c.classList.remove('sel')); moodChip.classList.add('sel'); }
+    const appetiteChip = [...document.querySelectorAll('#appetiteRow .chip')].find(c => c.textContent.trim() === todayRecord.appetite);
+    if(appetiteChip){ document.querySelectorAll('#appetiteRow .chip').forEach(c=>c.classList.remove('sel')); appetiteChip.classList.add('sel'); }
+    if(todayRecord.muscleParts){
+      const parts = String(todayRecord.muscleParts).split('、').filter(Boolean);
+      document.querySelectorAll('#muscleRow .chip').forEach(c => c.classList.toggle('sel', parts.includes(c.textContent.trim())));
+    }
+    if(todayRecord.memo) document.getElementById('commonMemo').value = todayRecord.memo;
+  }
+
+  // 共有中のコーチ一覧を実データで初期化
+  SHARED_WITH.clear();
+  (data.sharedCoachNames || []).forEach(name => {
+    const c = COACHES.find(c => c.name === name);
+    if(c) SHARED_WITH.add(c.key);
+  });
+  renderCoachList();
+
+  renderHeroGreeting();
+  switchTab('record');
+}
+
+function applyLiveCoachMode(data){
+  const whoLabel = document.getElementById('whoLabel');
+  whoLabel.textContent = (data.coachName || '') + ' コーチビュー';
+  document.getElementById('headerTitle').textContent = 'コーチ用カルテ';
+  document.getElementById('shareTabBtn').style.display = 'none';
+  const periodCard = document.getElementById('periodCard'); if(periodCard) periodCard.style.display = 'none';
+  const cycleCard = document.getElementById('cycleCard'); if(cycleCard) cycleCard.style.display = 'none';
+  const adviceBanner = document.getElementById('adviceBanner'); if(adviceBanner) adviceBanner.style.display = 'none';
+  document.querySelector('nav.tabbar button[data-tab="record"]').style.display = 'none';
+
+  const athletes = data.athletes || [];
+  const listHtml = athletes.map(a => {
+    const status = a.hasInjury || (a.avgFatigue !== null && a.avgFatigue >= 4) ? 'warning' : 'good';
+    const statusLabel = status === 'warning' ? '注意' : '良好';
+    const fatigueLabel = a.avgFatigue === null ? '記録なし' : (a.avgFatigue >= 4 ? 'やや高い' : (a.avgFatigue >= 2.5 ? '普通' : '低い'));
+    const suggestion = a.periodSuggestion
+      ? `<div class="suggestion"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.5.4.9 1 1 1.6l.2.5h4.6l.2-.5c.1-.6.5-1.2 1-1.6A6 6 0 0 0 12 3Z"/></svg></div><div>${a.periodSuggestion}</div></div>`
+      : '';
+    return `
+      <div class="card athlete-card">
+        <div class="athlete-top">
+          <div class="avatar">${(a.name || '')[0] || '?'}</div>
+          <div class="info">
+            <div class="nm">${a.name}</div>
+            <div class="meta">直近7日: 疲労感 ${fatigueLabel} / ${a.hasInjury ? 'ケガ・違和感の記録あり' : 'ケガ記録なし'}</div>
+          </div>
+          <span class="status-pill ${status}"><span class="dot"></span>${statusLabel}</span>
+        </div>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="v">${a.recentRecordCount}/7</div><div class="l">記録日数</div></div>
+          <div class="stat-tile"><div class="v">${a.hasInjury ? 'あり' : 'なし'}</div><div class="l">ケガ・違和感</div></div>
+        </div>
+        ${suggestion}
+      </div>`;
+  }).join('') || '<div class="empty-state"><div class="ic">📋</div>在籍中の選手データがまだありません。</div>';
+
+  document.getElementById('screen-coach').innerHTML = `<h3 class="section-title">選手一覧</h3>${listHtml}
+    <div class="notice" style="margin-top:4px;">
+      コーチ画面には生理関連の生データは一切表示されません。選手本人が共有を選んだコーチにのみ、加工された提案文だけが届きます。共有されていない選手の欄には、この項目自体が表示されません。
+    </div>`;
+
+  switchTab('dashboard');
+}
+
+if(DEMO_MODE){
+  renderCoachList();
+  renderCalendar();
+  onRoleChange();
+  renderHeroGreeting();
+} else {
+  initLiveMode();
+}
+</script>
+
+</body>
+</html>
