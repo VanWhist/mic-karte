@@ -843,7 +843,11 @@ function confirmMuscleAdd(){
     toast('部位を入力してください');
     return;
   }
-  const existing = [...document.querySelectorAll('#muscleRow .chip')].find(c => c.textContent.trim() === label);
+  if(label === '＋追加'){
+    toast('その名前は使用できません');
+    return;
+  }
+  const existing = [...document.querySelectorAll('#muscleRow .chip:not(#muscleAddBtn)')].find(c => c.textContent.trim() === label);
   const chip = existing || addMuscleChip(label, false);
   if(!chip.classList.contains('sel')){
     chip.classList.add('sel');
@@ -1638,10 +1642,12 @@ function applyLiveAthleteMode(data){
     if(appetiteChip){ document.querySelectorAll('#appetiteRow .chip').forEach(c=>c.classList.remove('sel')); appetiteChip.classList.add('sel'); }
     if(todayRecord.muscleParts){
       const parts = String(todayRecord.muscleParts).split('、').filter(Boolean);
-      document.querySelectorAll('#muscleRow .chip').forEach(c => c.classList.toggle('sel', parts.includes(c.textContent.trim())));
+      document.querySelectorAll('#muscleRow .chip:not(#muscleAddBtn)').forEach(c => c.classList.toggle('sel', parts.includes(c.textContent.trim())));
       // プリセットにない部位(＋追加で入力したカスタム部位)は動的にチップを作って表示する
+      // ※以前の不具合で「＋追加」という文字列そのものが部位名として保存されてしまったデータが
+      //   混じっている場合があるため、その値だけは復元対象から除外する(過去のバグデータ対策)
       const presetLabels = [...document.querySelectorAll('#muscleRow .chip')].map(c => c.textContent.trim());
-      parts.filter(p => !presetLabels.includes(p)).forEach(p => addMuscleChip(p, true));
+      parts.filter(p => !presetLabels.includes(p) && p !== '＋追加').forEach(p => addMuscleChip(p, true));
     }
     if(todayRecord.memo) document.getElementById('commonMemo').value = todayRecord.memo;
   } else {
