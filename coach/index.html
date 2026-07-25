@@ -440,6 +440,7 @@ const stepByValue = { 1: "#86b6ef", 2: "#5598e7", 3: "#2a78d6", 4: "#1c5cab", 5:
 let current = "濵田匠真";
 let mandalaDrill = null; // 現在ドリルダウン中の要素名（nullなら全体表示）
 let visionExpanded = { goal: false, ultimate: false }; // 将来ビジョンの各項目が開いているか
+let competeExpanded = false; // 競技についての詳細が開いているか
 let trainingDrill = null; // 現在ドリルダウン中の種目名（nullなら全体表示）
 const trainingCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', records, error }
 let stgDrill = null; // 短期目標(フォームA)で現在ドリルダウン中のカテゴリ名（nullなら全体表示）
@@ -471,6 +472,11 @@ function renderSelector() {
 
 window.toggleVision = function(key) {
   visionExpanded[key] = !visionExpanded[key];
+  render();
+};
+
+window.toggleCompete = function() {
+  competeExpanded = !competeExpanded;
   render();
 };
 
@@ -714,6 +720,8 @@ function render() {
   const body = document.getElementById("appBody");
   body.innerHTML = "";
 
+  // 競技についてカード (2026/07/26追加)
+  body.appendChild(makeCompeteCard(a, seasonState, current));
   // Vision card (2026/07/15よりApps Script Web App経由でライブ取得)
   body.appendChild(makeVisionCard(a, seasonState, current));
 
@@ -1633,6 +1641,44 @@ function makeVisionCard(a, seasonState, athleteKey) {
       <div class="v"><span style="color:var(--text-muted);">来シーズン：</span>1エア ${v.nextSeasonAir1 || "―"}　2エア ${v.nextSeasonAir2 || "―"}</div>
     `;
     cbody.appendChild(trickField);
+  }
+
+  return card;
+}
+
+function makeCompeteCard(a, seasonState, athleteKey) {
+  const card = makeCard("競技について", "green", "");
+  const cbody = card.querySelector(".card-body");
+
+  if (renderSeasonPlaceholder(cbody, seasonState, a.seasonApi, athleteKey)) return card;
+
+  const c = seasonState.data.compete;
+
+  if (!c) {
+    cbody.innerHTML = `<div class="mandala-empty">まだシーズン開始シートの回答がありません。</div>`;
+    return card;
+  }
+
+  const open = competeExpanded;
+  const field = document.createElement("div");
+  field.className = "field clickable";
+  field.innerHTML = `
+    <div class="k">モーグルを始めたきっかけ <span class="chev">${open ? '▾' : '▸'}</span></div>
+    <div class="v">${c.reason}</div>
+  `;
+  field.onclick = () => toggleCompete();
+  cbody.appendChild(field);
+  if (open) {
+    const sub = document.createElement("div");
+    sub.className = "field sub";
+    sub.innerHTML = `
+      <div class="k">いつから始めたか</div><div class="v">${c.since}</div>
+      <div class="k" style="margin-top:8px;">モーグルのどんなところが好きか</div><div class="v">${c.like}</div>
+      <div class="k" style="margin-top:8px;">尊敬している選手</div><div class="v">${c.respect}</div>
+      <div class="k" style="margin-top:8px;">自分の強み</div><div class="v">${c.strength}</div>
+      <div class="k" style="margin-top:8px;">今、一番の課題</div><div class="v">${c.challenge}</div>
+    `;
+    cbody.appendChild(sub);
   }
 
   return card;
