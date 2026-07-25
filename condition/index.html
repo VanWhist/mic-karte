@@ -1477,6 +1477,14 @@ function applyLiveAthleteMode(data){
       document.querySelectorAll('#muscleRow .chip').forEach(c => c.classList.toggle('sel', parts.includes(c.textContent.trim())));
     }
     if(todayRecord.memo) document.getElementById('commonMemo').value = todayRecord.memo;
+  } else {
+    document.querySelectorAll('#overallMoodRow .mood-btn').forEach(b => b.classList.remove('sel'));
+        document.querySelectorAll('#commonRecordCard .tile').forEach(t => t.classList.remove('logged'));
+        document.querySelectorAll('#fatigueRow .chip').forEach(c => c.classList.remove('sel'));
+        document.querySelectorAll('#moodRow .chip').forEach(c => c.classList.remove('sel'));
+        document.querySelectorAll('#appetiteRow .chip').forEach(c => c.classList.remove('sel'));
+        document.querySelectorAll('#muscleRow .chip').forEach(c => c.classList.remove('sel'));
+        document.getElementById('commonMemo').value = '';
   }
 
   // 共有中のコーチ一覧を実データで初期化
