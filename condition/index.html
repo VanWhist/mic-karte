@@ -135,6 +135,22 @@
   .status-pill.critical{background:var(--critical-soft); color:#A32A2A;}
   .status-pill.critical .dot{background:var(--critical);}
 
+  /* --- コーチ画面: 最終記録日・記録が途絶えていることを知らせるバッジ ---
+     (体調の良否とは別の軸なので、status-pillとは別要素として扱う。
+      「記録が少ない=危険」ではないため、赤(critical)は使わない) */
+  .last-record-line{font-size:11.5px; color:var(--text-muted); margin-top:4px; font-weight:600;}
+  .record-badge{
+    display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+    padding:4px 10px 4px 8px; border-radius:100px; margin-top:6px;
+  }
+  .record-badge .dot{width:7px; height:7px; border-radius:50%;}
+  .record-badge.mild{background:var(--warning-soft); color:#8A6200;}
+  .record-badge.mild .dot{background:var(--warning);}
+  .record-badge.stale{background:#FCE8D5; color:#9A4B0A;}
+  .record-badge.stale .dot{background:#D97706;}
+  .record-badge.gone{background:#EEF0F3; color:#5B616B;}
+  .record-badge.gone .dot{background:#9BA0AC;}
+
   /* --- 記録画面: ワンタップタイル --- */
   .tile-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
   .tile{
@@ -694,7 +710,9 @@
         <div id="coachList"></div>
       </div>
 
-      <button class="btn female">この設定を保存する</button>
+      <div class="notice" style="margin-top:4px;">
+        コーチの選択はタップした瞬間に自動で保存されます。あとから何度でも変更できます。
+      </div>
     </section>
 
     <div class="empty-state" id="noAccessState" style="display:none;">
@@ -786,12 +804,21 @@ function renderCoachList(){
     </div>
   `).join('');
 }
-function toggleShare(key){
-  SHARED_WITH.has(key) ? SHARED_WITH.delete(key) : SHARED_WITH.add(key);
+async function toggleShare(key){
+  const wasShared = SHARED_WITH.has(key);
+  wasShared ? SHARED_WITH.delete(key) : SHARED_WITH.add(key);
+  renderCoachList(); // 即時に画面へ反映(楽観的更新)
   if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
     const names = COACHES.filter(c => SHARED_WITH.has(c.key)).map(c => c.name);
-    apiPost('saveShareSettings', { sharedCoachNames: names });
-    toast('共有設定を更新しました');
+    try{
+      await apiPost('saveShareSettings', { sharedCoachNames: names });
+      toast('共有設定を更新しました');
+    }catch(e){
+      // 保存に失敗した場合は表示を元の状態へ戻し、見た目とバックエンドの不一致を防ぐ
+      wasShared ? SHARED_WITH.add(key) : SHARED_WITH.delete(key);
+      renderCoachList();
+      toast('保存できませんでした。通信状況をご確認のうえ、もう一度お試しください');
+    }
   }
 }
 
@@ -861,6 +888,11 @@ function selectSingle(el){
   el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
   el.classList.add('sel');
   pulseEl(el);
+  if(el.closest('#occurrenceRow')){
+    // ケガ・違和感の発生状況は「＋この記録を保存」を押すまでバックエンドに保存されないため、
+    // ここでは選択の視覚フィードバックのみに留め、誤解を招くトーストや無関係な自動保存は行わない
+    return;
+  }
   toast('記録しました');
   maybeSaveLiveRecord();
 }
@@ -937,14 +969,20 @@ let liveSaveTimer = null;
 function maybeSaveLiveRecord(){
   if(DEMO_MODE || !LIVE || LIVE.type !== 'athlete') return;
   clearTimeout(liveSaveTimer);
-  liveSaveTimer = setTimeout(() => {
+  liveSaveTimer = setTimeout(async () => {
     const t = readTodayFromRecordScreen();
     const muscleParts = [...document.querySelectorAll('#muscleRow .chip.sel')].map(c => c.textContent.trim());
-    apiPost('saveRecord', {
-      date: todayStrLocal(),
-      overall: t.overall, sleep: t.sleepLabel, fatigue: t.fatigue, mood: t.mood,
-      appetite: t.appetiteLabel, muscleParts, memo: t.memo,
-    });
+    try{
+      await apiPost('saveRecord', {
+        date: todayStrLocal(),
+        overall: t.overall, sleep: t.sleepLabel, fatigue: t.fatigue, mood: t.mood,
+        appetite: t.appetiteLabel, muscleParts, memo: t.memo,
+      });
+    }catch(e){
+      // 画面上の選択状態はそのまま残し、保存に失敗したことだけを伝える。
+      // 次に何か項目を変更すれば、そのタイミングで再度保存が試みられる。
+      toast('保存できませんでした。通信状況をご確認ください');
+    }
   }, 400);
 }
 
@@ -972,7 +1010,7 @@ function selectBodyChip(el){
     if(hotspots[idx]) hotspots[idx].classList.add('active');
   }
   document.getElementById('selectedPartLabel').textContent = el.textContent.trim();
-  toast('記録しました');
+  // 部位の選択はまだ保存されていないため、ここではトーストを出さない(保存は「＋この記録を保存」時のみ)
 }
 function selectHotspot(el){
   const view = el.closest('.body-view');
@@ -985,7 +1023,7 @@ function selectHotspot(el){
   chips.forEach(c=>c.classList.remove('sel'));
   if(chips[idx]) chips[idx].classList.add('sel');
   document.getElementById('selectedPartLabel').textContent = el.dataset.label;
-  toast('記録しました');
+  // 部位の選択はまだ保存されていないため、ここではトーストを出さない(保存は「＋この記録を保存」時のみ)
 }
 
 // --- トースト通知（ワンタップ記録のフィードバック） ---
@@ -1035,7 +1073,7 @@ function openPeriodDateInput(){
 function cancelPeriodDateInput(){
   document.getElementById('periodDatePanel').hidden = true;
 }
-function confirmPeriodStart(){
+async function confirmPeriodStart(){
   const input = document.getElementById('periodStartDateInput');
   const date = input.value;
   if(!date){
@@ -1048,38 +1086,68 @@ function confirmPeriodStart(){
   }
   document.getElementById('periodDatePanel').hidden = true;
   const btn = document.getElementById('periodStartBtn');
+  const phaseBadge = document.getElementById('phaseBadge');
+  const prevBtnText = btn.textContent;
+  const prevBtnDisabled = btn.disabled;
+  const prevBtnOpacity = btn.style.opacity;
+  const prevPhaseText = phaseBadge ? phaseBadge.textContent : null;
+  const wasLoggedToday = periodLoggedToday;
   const isToday = date === todayStrLocal();
   const dateLabel = date.slice(5).replace('-', '/'); // "MM/DD"
+
   btn.textContent = `✓ ${dateLabel} を生理開始日として記録しました`;
   if(isToday){
     periodLoggedToday = true;
     btn.disabled = true;
     btn.style.opacity = '0.65';
-    document.getElementById('phaseBadge').textContent = '🌸 月経期 1日目（今日記録）';
+    if(phaseBadge) phaseBadge.textContent = '🌸 月経期 1日目（今日記録）';
   }
-  toast('記録しました');
+
   if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
     const symptoms = [...document.querySelectorAll('#symptomGrid input:checked')].map(cb => cb.parentElement.textContent.trim());
     const severity = document.getElementById('periodSeverity').value;
-    apiPost('savePeriod', { periodStartDate: date, symptoms, severity });
+    try{
+      await apiPost('savePeriod', { periodStartDate: date, symptoms, severity });
+      toast('記録しました');
+    }catch(e){
+      // 保存に失敗した場合は表示を元に戻し、選手が改めて確定し直せるようにする
+      btn.textContent = prevBtnText;
+      btn.disabled = prevBtnDisabled;
+      btn.style.opacity = prevBtnOpacity;
+      periodLoggedToday = wasLoggedToday;
+      if(phaseBadge && prevPhaseText !== null) phaseBadge.textContent = prevPhaseText;
+      toast('保存できませんでした。通信状況をご確認のうえ、もう一度お試しください');
+    }
+  } else {
+    toast('記録しました');
   }
 }
 
 // --- ケガ・違和感の記録（都度追加） ---
 let injuries = [];
-function saveInjury(){
+async function saveInjury(){
   const partEl = document.querySelector('#injuryCard .body-parts:not([hidden]) .chip.sel');
   const occEl = document.querySelector('#occurrenceRow .chip.sel');
   const sev = document.getElementById('injurySeverity').value;
   const part = partEl ? partEl.textContent.trim() : '（部位未選択）';
   const occ = occEl ? occEl.textContent.trim() : '（状況未選択）';
   const time = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+  const btn = document.getElementById('saveInjuryBtn');
+
+  if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
+    if(btn) btn.disabled = true; // 連打による二重送信を防ぐ
+    try{
+      await apiPost('saveInjury', { date: todayStrLocal(), part, occasion: occ, severity: sev });
+    }catch(e){
+      if(btn) btn.disabled = false;
+      toast('保存できませんでした。通信状況をご確認のうえ、もう一度お試しください');
+      return; // 保存が失敗した場合はログに追加せず、「記録しました」も表示しない
+    }
+    if(btn) btn.disabled = false;
+  }
   injuries.push({part, occ, sev, time});
   renderInjuryLog();
   toast('ケガ・違和感を記録しました');
-  if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
-    apiPost('saveInjury', { date: todayStrLocal(), part, occasion: occ, severity: sev });
-  }
 }
 function renderInjuryLog(){
   const wrap = document.getElementById('injuryLog');
@@ -1702,18 +1770,40 @@ function applyLiveCoachMode(data){
     const suggestion = a.periodSuggestion
       ? `<div class="suggestion"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.5.4.9 1 1 1.6l.2.5h4.6l.2-.5c.1-.6.5-1.2 1-1.6A6 6 0 0 0 12 3Z"/></svg></div><div>${a.periodSuggestion}</div></div>`
       : '';
+
+    // 最終記録日: 「良好/注意」という体調の評価とは別軸の情報として、記録がどれだけ新しいかを伝える。
+    // 記録が途絶えていても体調が悪いとは限らないため、赤(critical)は使わず、
+    // 3日/7日/14日の3段階で徐々に強い(だが穏やかな)言い回しへ切り替える。
+    const days = (a.daysSinceLastRecord === null || a.daysSinceLastRecord === undefined) ? null : a.daysSinceLastRecord;
+    let lastRecordLabel;
+    if(days === null) lastRecordLabel = 'まだ記録がありません';
+    else if(days <= 0) lastRecordLabel = '今日';
+    else if(days === 1) lastRecordLabel = '昨日';
+    else lastRecordLabel = `${days}日前`;
+
+    let freshnessBadge = '';
+    if(days === null || days >= 14){
+      freshnessBadge = `<span class="record-badge gone"><span class="dot"></span>最新データがありません</span>`;
+    } else if(days >= 7){
+      freshnessBadge = `<span class="record-badge stale"><span class="dot"></span>最近の記録がありません</span>`;
+    } else if(days >= 3){
+      freshnessBadge = `<span class="record-badge mild"><span class="dot"></span>記録が途切れています</span>`;
+    }
+
     return `
       <div class="card athlete-card">
         <div class="athlete-top">
           <div class="avatar">${(a.name || '')[0] || '?'}</div>
           <div class="info">
             <div class="nm">${a.name}</div>
-            <div class="meta">直近7日: 疲労感 ${fatigueLabel} / ${a.hasInjury ? 'ケガ・違和感の記録あり' : 'ケガ記録なし'}</div>
+            <div class="meta">過去7日: 疲労感 ${fatigueLabel} / ${a.hasInjury ? 'ケガ・違和感の記録あり' : 'ケガ記録なし'}</div>
+            <div class="last-record-line">最終記録: ${lastRecordLabel}</div>
           </div>
           <span class="status-pill ${status}"><span class="dot"></span>${statusLabel}</span>
         </div>
+        ${freshnessBadge}
         <div class="stat-row">
-          <div class="stat-tile"><div class="v">${a.recentRecordCount}/7</div><div class="l">記録日数</div></div>
+          <div class="stat-tile"><div class="v">${a.recentRecordCount}/7</div><div class="l">過去7日の記録日数</div></div>
           <div class="stat-tile"><div class="v">${a.hasInjury ? 'あり' : 'なし'}</div><div class="l">ケガ・違和感</div></div>
         </div>
         ${suggestion}
