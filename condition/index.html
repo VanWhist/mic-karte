@@ -155,6 +155,10 @@
   }
   .sleep-time-row .sleep-time-unit{font-size:12.5px; color:var(--text-secondary); flex-shrink:0;}
   .sleep-time-row .btn.small{width:auto; flex-shrink:0;}
+  .sleep-time-row input[type=text], .sleep-time-row input[type=date]{
+    flex:1; min-width:0; padding:8px 10px; border-radius:10px; border:1.5px solid var(--border);
+    background:#fff; font-size:14px;
+  }
 
   .chip-row{display:flex; gap:7px; flex-wrap:wrap; margin-top:10px;}
   .chip{
@@ -425,7 +429,16 @@
           <span class="chip sel" onclick="toggleChip(this)">ふくらはぎ</span>
           <span class="chip" onclick="toggleChip(this)">腰</span>
           <span class="chip" onclick="toggleChip(this)">肩</span>
-          <span class="chip" onclick="toggleChip(this)">＋追加</span>
+          <span class="chip" id="muscleAddBtn" onclick="openMuscleAddInput()">＋追加</span>
+        </div>
+        <div class="sleep-time-panel" id="muscleAddPanel" hidden>
+          <div class="field-label" style="margin-top:0;">部位を入力してください</div>
+          <div class="sleep-time-row">
+            <input type="text" id="muscleAddInput" placeholder="例: すね" maxlength="12"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();confirmMuscleAdd();}">
+            <button type="button" class="btn small" onclick="confirmMuscleAdd()">追加</button>
+            <button type="button" class="btn ghost small" onclick="cancelMuscleAddInput()">キャンセル</button>
+          </div>
         </div>
 
         <div class="field-label">自由メモ（任意）</div>
@@ -435,7 +448,15 @@
       <div class="card period-card" id="periodCard">
         <h2>生理・周期 <span class="tag female">女子選手向け・任意</span></h2>
         <div class="phase-badge" id="phaseBadge">🌙 黄体期 3日目（予測）</div>
-        <button class="btn female" id="periodStartBtn" onclick="logPeriodStart()" style="margin-bottom:10px;">生理が始まった日を記録する</button>
+        <button class="btn female" id="periodStartBtn" onclick="openPeriodDateInput()" style="margin-bottom:10px;">生理が始まった日を記録する</button>
+        <div class="sleep-time-panel" id="periodDatePanel" hidden>
+          <div class="field-label" style="margin-top:0;">生理が始まった日を選んでください</div>
+          <div class="sleep-time-row">
+            <input type="date" id="periodStartDateInput">
+            <button type="button" class="btn female small" onclick="confirmPeriodStart()">確定</button>
+            <button type="button" class="btn ghost small" onclick="cancelPeriodDateInput()">キャンセル</button>
+          </div>
+        </div>
         <div class="field-label">今日の症状（あれば）</div>
         <div class="symptom-grid" id="symptomGrid">
           <label class="symptom"><input type="checkbox" checked> 腹痛</label>
@@ -795,6 +816,43 @@ function toggleChip(el){
   toast(el.classList.contains('sel') ? '記録しました' : '取り消しました');
   maybeSaveLiveRecord();
 }
+
+// --- 筋肉痛・張り: 「＋追加」でプリセットにない部位を自分で入力できるようにする ---
+function addMuscleChip(label, selected){
+  const row = document.getElementById('muscleRow');
+  const addBtn = document.getElementById('muscleAddBtn');
+  const chip = document.createElement('span');
+  chip.className = 'chip custom' + (selected ? ' sel' : '');
+  chip.textContent = label;
+  chip.onclick = () => toggleChip(chip);
+  row.insertBefore(chip, addBtn);
+  return chip;
+}
+function openMuscleAddInput(){
+  document.getElementById('muscleAddPanel').hidden = false;
+  const input = document.getElementById('muscleAddInput');
+  if(input){ input.value = ''; input.focus(); }
+}
+function cancelMuscleAddInput(){
+  document.getElementById('muscleAddPanel').hidden = true;
+}
+function confirmMuscleAdd(){
+  const input = document.getElementById('muscleAddInput');
+  const label = (input.value || '').trim();
+  if(!label){
+    toast('部位を入力してください');
+    return;
+  }
+  const existing = [...document.querySelectorAll('#muscleRow .chip')].find(c => c.textContent.trim() === label);
+  const chip = existing || addMuscleChip(label, false);
+  if(!chip.classList.contains('sel')){
+    chip.classList.add('sel');
+    pulseEl(chip);
+  }
+  document.getElementById('muscleAddPanel').hidden = true;
+  toast('記録しました');
+  maybeSaveLiveRecord();
+}
 function selectSingle(el){
   el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
   el.classList.add('sel');
@@ -959,20 +1017,47 @@ function renderHeroGreeting(){
   msgEl.innerHTML = `今日は${t.overallIcon} <b>${t.overallLabel}</b>コンディション。${buildTodayMessage(t)}`;
 }
 
-// --- 生理開始日の記録 ---
+// --- 生理開始日の記録: カレンダーで日付を選び、確定/キャンセルできるようにする ---
 let periodLoggedToday = false;
-function logPeriodStart(){
-  periodLoggedToday = true;
+function openPeriodDateInput(){
+  document.getElementById('periodDatePanel').hidden = false;
+  const input = document.getElementById('periodStartDateInput');
+  if(input){
+    input.max = todayStrLocal();
+    input.value = todayStrLocal();
+    input.focus();
+  }
+}
+function cancelPeriodDateInput(){
+  document.getElementById('periodDatePanel').hidden = true;
+}
+function confirmPeriodStart(){
+  const input = document.getElementById('periodStartDateInput');
+  const date = input.value;
+  if(!date){
+    toast('日付を選択してください');
+    return;
+  }
+  if(date > todayStrLocal()){
+    toast('未来の日付は選択できません');
+    return;
+  }
+  document.getElementById('periodDatePanel').hidden = true;
   const btn = document.getElementById('periodStartBtn');
-  btn.textContent = '✓ 今日を生理開始日として記録しました';
-  btn.disabled = true;
-  btn.style.opacity = '0.65';
-  document.getElementById('phaseBadge').textContent = '🌸 月経期 1日目（今日記録）';
+  const isToday = date === todayStrLocal();
+  const dateLabel = date.slice(5).replace('-', '/'); // "MM/DD"
+  btn.textContent = `✓ ${dateLabel} を生理開始日として記録しました`;
+  if(isToday){
+    periodLoggedToday = true;
+    btn.disabled = true;
+    btn.style.opacity = '0.65';
+    document.getElementById('phaseBadge').textContent = '🌸 月経期 1日目（今日記録）';
+  }
   toast('記録しました');
   if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
     const symptoms = [...document.querySelectorAll('#symptomGrid input:checked')].map(cb => cb.parentElement.textContent.trim());
     const severity = document.getElementById('periodSeverity').value;
-    apiPost('savePeriod', { periodStartDate: todayStrLocal(), symptoms, severity });
+    apiPost('savePeriod', { periodStartDate: date, symptoms, severity });
   }
 }
 
@@ -1554,6 +1639,9 @@ function applyLiveAthleteMode(data){
     if(todayRecord.muscleParts){
       const parts = String(todayRecord.muscleParts).split('、').filter(Boolean);
       document.querySelectorAll('#muscleRow .chip').forEach(c => c.classList.toggle('sel', parts.includes(c.textContent.trim())));
+      // プリセットにない部位(＋追加で入力したカスタム部位)は動的にチップを作って表示する
+      const presetLabels = [...document.querySelectorAll('#muscleRow .chip')].map(c => c.textContent.trim());
+      parts.filter(p => !presetLabels.includes(p)).forEach(p => addMuscleChip(p, true));
     }
     if(todayRecord.memo) document.getElementById('commonMemo').value = todayRecord.memo;
   } else {
@@ -1566,7 +1654,9 @@ function applyLiveAthleteMode(data){
     document.querySelectorAll('#fatigueRow .chip').forEach(c => c.classList.remove('sel'));
     document.querySelectorAll('#moodRow .chip').forEach(c => c.classList.remove('sel'));
     document.querySelectorAll('#appetiteRow .chip').forEach(c => c.classList.remove('sel'));
+    document.querySelectorAll('#muscleRow .chip.custom').forEach(c => c.remove());
     document.querySelectorAll('#muscleRow .chip').forEach(c => c.classList.remove('sel'));
+    document.getElementById('muscleAddPanel').hidden = true;
     document.getElementById('commonMemo').value = '';
     const sleepTimeTile = document.getElementById('sleepTimeTile');
     if(sleepTimeTile) sleepTimeTile.querySelector('.lb').textContent = '時間を入力';
