@@ -121,7 +121,7 @@
   .field { padding: 8px 0; border-top: 1px solid var(--gridline); }
   .field:first-child { border-top: none; padding-top: 0; }
   .field .k { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
-  .field .v { font-size: 14px; line-height: 1.55; color: var(--text-primary); }
+  .field .v { font-size: 14px; line-height: 1.55; color: var(--text-primary); white-space: pre-wrap; }
   .field.clickable { cursor: pointer; transition: opacity 0.08s ease; }
   .field.clickable:active { opacity: 0.6; }
   .field .chev { font-size: 10px; color: var(--text-muted); font-weight: 400; }
@@ -146,7 +146,7 @@
     padding: 9px 10px;
   }
   .goal-tile .k { font-size: 10.5px; color: var(--blue-450); font-weight: 700; margin-bottom: 3px; }
-  .goal-tile .v { font-size: 12.5px; line-height: 1.5; color: var(--text-primary); }
+  .goal-tile .v { font-size: 12.5px; line-height: 1.5; color: var(--text-primary); white-space: pre-wrap; }
   .goal-tile.clickable { cursor: pointer; transition: transform 0.08s ease; }
   .goal-tile.clickable:active { transform: scale(0.97); }
   .goal-tile.clickable { position: relative; padding-right: 30px; }
@@ -325,6 +325,74 @@
     padding: 4px 2px 10px;
   }
 
+  /* ===== 短期目標カード 新レイアウト(2026/08: 今回/前回の比較表示) ===== */
+
+  /* 今回/前回のヘッダー行 */
+  .rec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 11px; }
+  .rec-chips { display: flex; align-items: center; gap: 6px; }
+  .rec-chip { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+  .rec-chip.now { background: var(--accent-soft); color: var(--blue-550); border: 1px solid var(--blue-250); }
+  .rec-chip.prev { background: var(--page); color: var(--text-muted); border: 1px solid var(--gridline); }
+  .rec-chip-sep { font-size: 11px; color: var(--text-muted); }
+
+  /* 前回の目標のふりかえり */
+  .review-box { background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+  .rb-title { font-size: 10.5px; font-weight: 700; color: var(--gold-text); margin-bottom: 7px; letter-spacing: 0.02em; }
+  .rb-achv { display: flex; align-items: baseline; gap: 7px; margin-bottom: 6px; }
+  .rb-achv .lab { font-size: 10.5px; color: var(--gold-text); }
+  .rb-achv .val { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .review-row { padding: 6px 0; border-top: 1px solid rgba(215,155,0,0.25); }
+  .review-row .k { font-size: 10px; color: var(--gold-text); margin-bottom: 2px; }
+  .review-row .v { font-size: 12.5px; line-height: 1.55; color: var(--text-primary); white-space: pre-wrap; }
+  .rb-more { margin-top: 8px; font-size: 11px; }
+
+  /* タイル内の前回行 */
+  .goal-tile .now-line { font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; }
+  .goal-tile .prev-line {
+    font-size: 11px; line-height: 1.45; color: var(--text-muted);
+    margin-top: 5px; padding-top: 5px; border-top: 1px dashed rgba(11,11,11,0.14);
+    white-space: pre-wrap;
+  }
+  /* 今回が未回答で前回だけ出す場合は区切り線を出さない */
+  .goal-tile .prev-line.first { margin-top: 0; padding-top: 0; border-top: none; }
+  .goal-tile .tag { font-size: 9.5px; font-weight: 700; margin-right: 4px; }
+  .goal-tile .tag.now { color: var(--blue-450); }
+  .goal-tile .tag.prev { color: var(--text-muted); }
+
+  /* 詳細ビューの2列比較 */
+  .cmp-head { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 2px 0 6px; }
+  .cmp-head div { font-size: 10.5px; font-weight: 700; text-align: center; padding: 4px 0; border-radius: 6px; }
+  .cmp-head .h-now { background: var(--accent-soft); color: var(--blue-550); }
+  .cmp-head .h-prev { background: var(--page); color: var(--text-muted); }
+  .cmp-row { border-top: 1px solid var(--gridline); padding: 8px 0 0; }
+  .cmp-row .k { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+  .cmp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cmp-cols .c { font-size: 12px; line-height: 1.5; border-radius: 8px; padding: 7px 8px; white-space: pre-wrap; }
+  .cmp-cols .c.now { background: var(--accent-soft); color: var(--text-primary); }
+  .cmp-cols .c.prev { background: var(--page); color: var(--text-secondary); }
+  .cmp-cols .c.empty { color: var(--text-muted); }
+
+  /* これまでの記録（履歴一覧） */
+  .hist-list { display: flex; flex-direction: column; gap: 8px; }
+  .hist-item {
+    position: relative; padding: 10px 30px 10px 12px; border-radius: 10px;
+    background: var(--page); border: 1px solid var(--gridline); cursor: pointer;
+    transition: transform 0.08s ease;
+  }
+  .hist-item:active { transform: scale(0.98); }
+  .hist-item::after {
+    content: "\203A"; position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+    font-size: 22px; font-weight: 700; color: var(--blue-450); opacity: 0.6;
+  }
+  .hist-item.current { background: var(--accent-soft); border-color: var(--blue-250); }
+  .hist-item .m { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+  .hist-item .s { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
+  .hist-badge { font-size: 9.5px; font-weight: 700; border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+  .hist-badge.now { background: var(--blue-450); color: #fff; }
+  .hist-badge.prev { background: #fff; color: var(--text-muted); border: 1px solid var(--gridline); }
+
+  .sec-title { font-size: 11px; color: var(--text-muted); font-weight: 700; margin: 12px 0 6px; }
+
   .draft-banner {
     max-width: 480px;
     margin: 10px auto 0;
@@ -447,7 +515,13 @@ let visionExpanded = { goal: false, ultimate: false }; // 将来ビジョンの�
 let competeExpanded = false; // 競技についての詳細が開いているか
 let trainingDrill = null; // 現在ドリルダウン中の種目名（nullなら全体表示）
 const trainingCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', records, error }
-let stgDrill = null; // 短期目標(フォームA)で現在ドリルダウン中のカテゴリ名（nullなら全体表示）
+// 短期目標カードの表示状態(2026/08〜: 1枚のカードで4画面を切り替える)
+//   mode "overview": 今回/前回の比較サマリー（初期表示）
+//   mode "detail"  : cat の5問を今回/前回で横並び比較
+//   mode "history" : 「これまでの記録」の月別一覧
+//   mode "record"  : recIndex 番目(records配列のindex)の1か月分の全内容
+let stgView = { mode: "overview", cat: null, recIndex: null };
+let stgReviewOpen = false; // 振り返りブロックの隠し項目を開いているか
 const stgCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', data, error }
 const seasonCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', data, error }（将来ビジョン/シーズン目標/自己分析/生活習慣・サポート共通）
 const mandalaCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', data, error }
@@ -465,7 +539,8 @@ function renderSelector() {
       current = name;
       mandalaDrill = null;
       trainingDrill = null;
-      stgDrill = null;
+      stgView = { mode: "overview", cat: null, recIndex: null };
+      stgReviewOpen = false;
       airLogDrill = null;
       visionExpanded = { goal: false, ultimate: false };
       render();
@@ -506,12 +581,16 @@ window.retryTraining = function(athleteKey) {
   render();
 };
 
-window.selectStg = function(category) {
-  stgDrill = category;
+// 短期目標カードの画面遷移。onclick属性から呼ぶためグローバルに公開する。
+window.stgGo = function(mode, arg) {
+  if (mode === "detail") stgView = { mode: "detail", cat: arg, recIndex: null };
+  else if (mode === "history") stgView = { mode: "history", cat: null, recIndex: null };
+  else if (mode === "record") stgView = { mode: "record", cat: null, recIndex: arg };
+  else stgView = { mode: "overview", cat: null, recIndex: null };
   render();
 };
-window.stgBack = function() {
-  stgDrill = null;
+window.stgToggleReview = function() {
+  stgReviewOpen = !stgReviewOpen;
   render();
 };
 window.retryStg = function(athleteKey) {
@@ -755,12 +834,10 @@ function render() {
   const mandalaObj = (mandalaState && mandalaState.status === "loaded") ? mandalaState.data : null;
   body.appendChild(makeMandalaCard(mandalaObj, mandalaState, a.mandalaApi, current));
 
-  // Short-term goal card (2026/07/14よりApps Script Web App経由でライブ取得)
+  // 短期目標と振り返りカード(2026/07/14よりApps Script Web App経由でライブ取得。
+  // 2026/08〜: 独立していた「前回の振り返り(フォームB)」カードをこのカードに統合し、
+  // 今回/前回の2件を比較表示する。それより古い分は「これまでの記録」から遡る)
   body.appendChild(makeShortTermGoalCard(a.shortTermGoal, current));
-
-  // 振り返りカード(2026/07/24〜: フォームB[月次更新]の回答が採用された場合のみ、短期目標カードの直後に表示)
-  const reflectionCard = makeReflectionCard(a.shortTermGoal, current);
-  if (reflectionCard) body.appendChild(reflectionCard);
 
   // Self-assessment card
   const selfCard = makeCard("自己分析(1〜5段階評価)", "blue", "");
@@ -871,8 +948,65 @@ function getStgWantLabel(category) {
   return STG_WANT_LABEL_BY_CATEGORY[category] || "挑戦したい技:";
 }
 
+// 短期目標カードの「振り返り」ブロックに出す項目と順序(フォームBの回答)。
+// 全体画面では先頭2件だけ出し、残りは「ふりかえりをすべて見る」で展開する。
+const STG_REVIEW_FIELDS = [
+  ["growth", "できるようになったこと・成長"],
+  ["difficulty", "難しかったこと"],
+  ["learning", "学んだこと・気づいたこと"],
+  ["physicalProgress", "フィジカル面の前回からの取り組み"],
+  ["airSenseFeedback", "空中感覚づくりの練習をやってみた感想"],
+  ["extraPhysicalEffort", "自分からプラスして取り組んだこと"]
+];
+
+// 空文字/null/undefinedをまとめてnull扱いにする(未回答判定用)。
+function stgVal(v) {
+  return (v === null || v === undefined || v === "") ? null : String(v);
+}
+
+// "2026/08/01" や "2026/08/01 23:40" から "2026年8月" を作る。取れなければ空文字。
+function stgMonthLabelFrom(str) {
+  const m = String(str == null ? "" : str).match(/(\d{4})[\/\-年](\d{1,2})/);
+  return m ? m[1] + "年" + Number(m[2]) + "月" : "";
+}
+
+// APIレスポンスから records 配列(記入日の新しい順)を取り出す。
+// STG APIが records を返さない場合(旧バージョン・キャッシュ済みレスポンス・静的データ)は、
+// 従来キーの categories/plan/updated/reflection から1件だけのrecordsを組み立てて後方互換を保つ。
+function stgBuildRecords(data) {
+  if (!data) return [];
+  if (Array.isArray(data.records)) {
+    const rs = data.records.filter(function (r) { return r && r.categories; });
+    if (rs.length) return rs;
+  }
+  if (!data.categories && !data.plan && !data.updated) return [];
+  const filledDate = (data.reflection && data.reflection.filledDate) || null;
+  return [{
+    source: data.reflection ? "B" : "A",
+    month: null,
+    monthLabel: stgMonthLabelFrom(filledDate || data.updated),
+    filledDate: filledDate,
+    updated: data.updated || null,
+    categories: data.categories || {},
+    plan: data.plan || null,
+    reflection: data.reflection || null
+  }];
+}
+
+// レコードの表示用月ラベル(monthLabelが無い旧データでは記入日/更新日から作る)。
+function stgRecLabel(rec) {
+  if (!rec) return "";
+  return rec.monthLabel || stgMonthLabelFrom(rec.filledDate || rec.updated) || "";
+}
+
+// 「今回 2026年8月」のようなチップ用テキスト。月が特定できない場合は「今回」だけ。
+function stgChipText(prefix, rec) {
+  const label = stgRecLabel(rec);
+  return label ? prefix + " " + label : prefix;
+}
+
 function makeShortTermGoalCard(stg, athleteKey) {
-  const card = makeCard("短期目標（〜7月末）", "blue", "");
+  const card = makeCard("短期目標と振り返り", "blue", "");
   const cbody = card.querySelector(".card-body");
 
   if (!stg) {
@@ -881,10 +1015,8 @@ function makeShortTermGoalCard(stg, athleteKey) {
   }
 
   // ライブ連携: apiUrlがあればフォームAの回答シートに紐づくApps Script Web Appから直接フェッチする。
-  // カテゴリ/計画/更新日はキャッシュ読み込み後の値に差し替え、formUrl/sheetUrlは常に静的な値のまま。
-  let categories = stg.categories;
-  let plan = stg.plan;
-  let updated = stg.updated;
+  // データはキャッシュ読み込み後の値に差し替え、formUrl/sheetUrlは常に静的な値のまま。
+  let data = stg;
 
   if (stg.apiUrl) {
     loadShortTermGoal(athleteKey, stg.apiUrl, stg.token); // 既に読み込み中/済みなら何もしない
@@ -895,7 +1027,7 @@ function makeShortTermGoalCard(stg, athleteKey) {
     }
     if (cache.status === "error") {
       cbody.innerHTML = `
-        <div class="mandala-empty">データを取得できませんでした（${cache.error}）。</div>
+        <div class="mandala-empty">データを取得できませんでした（${escHtml(cache.error)}）。</div>
         <div class="mandala-summary">
           <a class="mandala-link" href="javascript:void(0)" onclick="retryStg('${athleteKey}')">再読み込み →</a>
           <a class="mandala-link" href="${stg.formUrl}" target="_blank" rel="noopener">フォームを開く →</a>
@@ -903,75 +1035,104 @@ function makeShortTermGoalCard(stg, athleteKey) {
       `;
       return card;
     }
-    categories = cache.data.categories;
-    plan = cache.data.plan;
-    updated = cache.data.updated;
+    data = cache.data;
   }
 
-  const drillCat = stgDrill && categories[stgDrill] ? stgDrill : null;
-
-  if (drillCat) {
-    // Detail view: 選んだカテゴリの5問をすべて表示
-    const c = categories[drillCat];
-    const header = document.createElement("div");
-    header.className = "mandala-summary";
-    header.style.marginTop = "0";
-    header.style.marginBottom = "8px";
-    header.innerHTML = `<a class="mandala-link" href="javascript:void(0)" onclick="stgBack()">← 全体に戻る</a><span>${drillCat}</span>`;
-    cbody.appendChild(header);
-
-    getStgFieldLabels(drillCat).forEach(([key, label]) => {
-      const f = document.createElement("div");
-      f.className = "field";
-      f.innerHTML = `<div class="k">${label}</div><div class="v">${c[key] || "（回答なし）"}</div>`;
-      cbody.appendChild(f);
-    });
-
-    const footer = document.createElement("div");
-    footer.className = "mandala-summary";
-    footer.innerHTML = stg.sheetUrl ? `<span></span><a class="mandala-link" href="${stg.sheetUrl}" target="_blank" rel="noopener">全回答をシートで見る →</a>` : `<span></span>`;
-    cbody.appendChild(footer);
+  const records = stgBuildRecords(data);
+  if (!records.length) {
+    cbody.innerHTML = `<div class="mandala-empty">まだ回答がありません。</div>`;
+    const f = document.createElement("div");
+    f.className = "mandala-summary";
+    f.innerHTML = `<span></span><a class="mandala-link" href="${stg.formUrl}" target="_blank" rel="noopener">フォームを開く →</a>`;
+    cbody.appendChild(f);
     return card;
   }
 
-  // Overview: 3カテゴリのタイル（タップで5問に展開）+ 練習計画は常時簡易表示
+  const cur = records[0];
+  const prev = records[1] || null;
+
+  // 表示状態が今のデータと噛み合わない場合(選手切替直後・データ更新後など)は全体画面に戻す。
+  let mode = stgView.mode;
+  if (mode === "record" && !records[stgView.recIndex]) mode = "overview";
+  if (mode === "history" && records.length <= 2) mode = "overview";
+  if (mode === "detail") {
+    const hasCat = (cur.categories && cur.categories[stgView.cat]) || (prev && prev.categories && prev.categories[stgView.cat]);
+    if (!hasCat) mode = "overview";
+  }
+
+  if (mode === "history") stgRenderHistory(cbody, records);
+  else if (mode === "record") stgRenderRecord(cbody, records[stgView.recIndex]);
+  else if (mode === "detail") stgRenderDetail(cbody, stg, records, cur, prev, stgView.cat);
+  else stgRenderOverview(cbody, stg, records, cur, prev);
+
+  return card;
+}
+
+// ---------- 全体（オーバービュー） ----------
+function stgRenderOverview(cbody, stg, records, cur, prev) {
+  // 月が特定できない(＝まだ未回答の)1件だけのときはチップを出さない。
+  const showChips = !!(stgRecLabel(cur) || prev);
+  if (showChips || records.length > 2) {
+    const head = document.createElement("div");
+    head.className = "rec-head";
+    head.innerHTML =
+      (showChips ?
+        '<span class="rec-chips">' +
+          '<span class="rec-chip now">' + escHtml(stgChipText("今回", cur)) + '</span>' +
+          (prev ? '<span class="rec-chip-sep">/</span><span class="rec-chip prev">' + escHtml(stgChipText("前回", prev)) + '</span>' : '') +
+        '</span>' : '<span></span>') +
+      (records.length > 2 ? '<a class="mandala-link" href="javascript:void(0)" onclick="stgGo(\'history\')">これまでの記録 ›</a>' : '<span></span>');
+    cbody.appendChild(head);
+  }
+
+  if (cur.reflection) cbody.appendChild(stgMakeReviewBox(cur.reflection, prev));
+
+  // 3カテゴリのタイル（今回 + 前回を1枚に）
   const grid = document.createElement("div");
   grid.className = "goal-grid";
-  STG_CATEGORIES.forEach(cat => {
-    const c = categories[cat];
+  STG_CATEGORIES.forEach(function (cat) {
+    const c = cur.categories ? cur.categories[cat] : null;
+    const p = (prev && prev.categories) ? prev.categories[cat] : null;
+    const nowWant = stgVal(c && c.wantToDo);
+    const prevWant = stgVal(p && p.wantToDo);
     const tile = document.createElement("div");
-    tile.className = "goal-tile" + (c ? " clickable" : " muted");
-    if (c) {
-      tile.innerHTML = `<div class="k">${cat}</div><div class="v">${getStgWantLabel(cat)} ${c.wantToDo}</div>`;
-      tile.onclick = () => selectStg(cat);
+    const hasAny = !!(c || p);
+    tile.className = "goal-tile" + (hasAny ? " clickable" : " muted");
+    if (hasAny) {
+      tile.innerHTML =
+        '<div class="k">' + escHtml(cat) + '</div>' +
+        (nowWant ? '<div class="now-line"><span class="tag now">今回</span>' + escHtml(nowWant) + '</div>' : '') +
+        (prevWant ? '<div class="prev-line' + (nowWant ? '' : ' first') + '"><span class="tag prev">前回</span>' + escHtml(prevWant) + '</div>' : '') +
+        (!nowWant && !prevWant ? '<div class="v" style="color:var(--text-muted);">（回答なし）</div>' : '');
+      tile.onclick = function () { window.stgGo("detail", cat); };
     } else {
-      tile.innerHTML = `<div class="k">${cat}</div><div class="v" style="color:var(--text-muted);">まだ回答がありません</div>`;
+      tile.innerHTML = '<div class="k">' + escHtml(cat) + '</div><div class="v" style="color:var(--text-muted);">まだ回答がありません</div>';
     }
     grid.appendChild(tile);
   });
   cbody.appendChild(grid);
 
+  // 練習計画（今回）
   const planTitle = document.createElement("div");
-  planTitle.style.cssText = "font-size:11px;color:var(--text-muted);font-weight:700;margin:12px 0 6px;";
-  planTitle.textContent = "練習計画";
+  planTitle.className = "sec-title";
+  planTitle.textContent = "練習計画（今回）";
   cbody.appendChild(planTitle);
 
-  if (plan) {
-    const p = plan;
+  const p = cur.plan;
+  if (p) {
     const planGrid = document.createElement("div");
     planGrid.className = "goal-grid";
-    planGrid.innerHTML = `
-      <div class="goal-tile"><div class="k">練習頻度・時間</div><div class="v">${p.frequency}</div></div>
-      <div class="goal-tile"><div class="k">サポートしてほしいこと</div><div class="v">${p.support}</div></div>
-    `;
+    planGrid.innerHTML =
+      '<div class="goal-tile"><div class="k">練習頻度・時間</div><div class="v">' + escHtml(stgVal(p.frequency) || "（回答なし）") + '</div></div>' +
+      '<div class="goal-tile"><div class="k">サポートしてほしいこと</div><div class="v">' + escHtml(stgVal(p.support) || "（回答なし）") + '</div></div>';
     cbody.appendChild(planGrid);
-    if (p.wish || p.message) {
+
+    if (stgVal(p.wish) || stgVal(p.message)) {
       const f = document.createElement("div");
       f.className = "field";
-      f.innerHTML = `
-        ${p.wish ? `<div class="k">モーグルの楽しさを広めたいこと</div><div class="v">${p.wish}</div>` : ""}
-        ${p.message ? `<div class="k" style="margin-top:8px;">最後にひとこと</div><div class="v">${p.message}</div>` : ""}
-      `;
+      f.innerHTML =
+        (stgVal(p.wish) ? '<div class="k">モーグルの楽しさを広めたいこと</div><div class="v">' + escHtml(p.wish) + '</div>' : '') +
+        (stgVal(p.message) ? '<div class="k" style="margin-top:8px;">最後にひとこと</div><div class="v">' + escHtml(p.message) + '</div>' : '');
       cbody.appendChild(f);
     }
   } else {
@@ -984,68 +1145,182 @@ function makeShortTermGoalCard(stg, athleteKey) {
 
   const footer = document.createElement("div");
   footer.className = "mandala-summary";
-  footer.innerHTML = `
-    <span>${updated ? "更新日 " + updated : "まだ回答がありません"}</span>
-    <span>
-      <a class="mandala-link" href="${stg.formUrl}" target="_blank" rel="noopener">フォームを開く →</a>
-      ${stg.sheetUrl ? `&nbsp;&nbsp;<a class="mandala-link" href="${stg.sheetUrl}" target="_blank" rel="noopener">全回答を見る →</a>` : ""}
-    </span>
-  `;
+  footer.innerHTML =
+    '<span>' + (cur.updated ? "更新日 " + escHtml(cur.updated) : "まだ回答がありません") + '</span>' +
+    '<span>' +
+      '<a class="mandala-link" href="' + stg.formUrl + '" target="_blank" rel="noopener">フォームを開く →</a>' +
+      (stg.sheetUrl ? '&nbsp;&nbsp;<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
+    '</span>';
   cbody.appendChild(footer);
-
-  return card;
 }
 
-// 振り返りカード: 短期目標フォームA APIのレスポンスに reflection オブジェクトがある場合のみ表示する。
-// reflectionは「フォームB（月次更新）」の回答が採用された時だけAPI側が付与するため、
-// フォームAのみの選手（reflectionが無い/nullの選手）では常にnullを返し、カード自体を描画しない。
-function makeReflectionCard(stg, athleteKey) {
-  if (!stg || !stg.apiUrl) return null;
-  const cache = stgCache[athleteKey];
-  if (!cache || cache.status !== "loaded" || !cache.data || !cache.data.reflection) return null;
-  const r = cache.data.reflection;
+// ---------- 振り返りブロック（前回の目標に対するふりかえり） ----------
+function stgMakeReviewBox(r, prev) {
+  const box = document.createElement("div");
+  box.className = "review-box";
 
-  const card = makeCard("前回の振り返り（フォームB）", "blue", "");
-  const cbody = card.querySelector(".card-body");
+  const prevLabel = stgRecLabel(prev);
+  const title = document.createElement("div");
+  title.className = "rb-title";
+  title.textContent = prevLabel ? "前回（" + prevLabel + "）の目標のふりかえり" : "前回の目標のふりかえり";
+  box.appendChild(title);
 
-  const grid = document.createElement("div");
-  grid.className = "goal-grid";
-  grid.innerHTML = `
-    <div class="goal-tile"><div class="k">達成度</div><div class="v">${r.achievement || "（回答なし）"}</div></div>
-  `;
-  cbody.appendChild(grid);
+  const achv = document.createElement("div");
+  achv.className = "rb-achv";
+  achv.innerHTML = '<span class="lab">達成度</span><span class="val">' + escHtml(stgVal(r.achievement) || "（回答なし）") + '</span>';
+  box.appendChild(achv);
 
-  const textFields = [
-    ["できるようになったこと・成長", r.growth],
-    ["難しかったこと", r.difficulty],
-    ["学んだこと", r.learning]
-  ];
-  textFields.forEach(([label, val]) => {
-    const f = document.createElement("div");
-    f.className = "field";
-    f.innerHTML = `<div class="k">${label}</div><div class="v">${val || "（回答なし）"}</div>`;
-    cbody.appendChild(f);
+  const shown = stgReviewOpen ? STG_REVIEW_FIELDS : STG_REVIEW_FIELDS.slice(0, 2);
+  shown.forEach(function (pair) {
+    const v = stgVal(r[pair[0]]);
+    if (!v) return;
+    const row = document.createElement("div");
+    row.className = "review-row";
+    row.innerHTML = '<div class="k">' + escHtml(pair[1]) + '</div><div class="v">' + escHtml(v) + '</div>';
+    box.appendChild(row);
   });
 
-  if (r.airSenseFeedback) {
-    const f = document.createElement("div");
-    f.className = "field";
-    f.innerHTML = `<div class="k">空中感覚づくり教材の感想</div><div class="v">${r.airSenseFeedback}</div>`;
-    cbody.appendChild(f);
+  const hidden = STG_REVIEW_FIELDS.slice(2).filter(function (pair) { return !!stgVal(r[pair[0]]); }).length;
+  if (hidden > 0) {
+    const more = document.createElement("div");
+    more.className = "rb-more";
+    more.innerHTML = '<a class="mandala-link" href="javascript:void(0)" onclick="stgToggleReview()">' +
+      (stgReviewOpen ? "とじる ▲" : "ふりかえりをすべて見る（あと" + hidden + "件） ▼") + '</a>';
+    box.appendChild(more);
   }
-  if (r.extraPhysicalEffort) {
-    const f = document.createElement("div");
-    f.className = "field";
-    f.innerHTML = `<div class="k">フィジカル面で自分からプラスして取り組んだこと</div><div class="v">${r.extraPhysicalEffort}</div>`;
-    cbody.appendChild(f);
+  return box;
+}
+
+// ---------- カテゴリ詳細（今回 / 前回の横並び比較） ----------
+function stgRenderDetail(cbody, stg, records, cur, prev, cat) {
+  const c = cur.categories ? cur.categories[cat] : null;
+  const p = (prev && prev.categories) ? prev.categories[cat] : null;
+
+  const header = document.createElement("div");
+  header.className = "mandala-summary";
+  header.style.marginTop = "0";
+  header.style.marginBottom = "8px";
+  header.innerHTML = '<a class="mandala-link" href="javascript:void(0)" onclick="stgGo(\'overview\')">← 全体に戻る</a><span>' + escHtml(cat) + '</span>';
+  cbody.appendChild(header);
+
+  const ch = document.createElement("div");
+  ch.className = "cmp-head";
+  ch.innerHTML =
+    '<div class="h-now">' + escHtml(stgChipText("今回", cur)) + '</div>' +
+    '<div class="h-prev">' + (prev ? escHtml(stgChipText("前回", prev)) : "前回なし") + '</div>';
+  cbody.appendChild(ch);
+
+  getStgFieldLabels(cat).forEach(function (pair) {
+    const key = pair[0], label = pair[1];
+    const nowV = stgVal(c ? c[key] : null);
+    const prevV = stgVal(p ? p[key] : null);
+    if (!nowV && !prevV) return;
+    const row = document.createElement("div");
+    row.className = "cmp-row";
+    row.innerHTML =
+      '<div class="k">' + escHtml(label) + '</div>' +
+      '<div class="cmp-cols">' +
+        '<div class="c now' + (nowV ? '' : ' empty') + '">' + escHtml(nowV || "—") + '</div>' +
+        '<div class="c prev' + (prevV ? '' : ' empty') + '">' + escHtml(prevV || "—") + '</div>' +
+      '</div>';
+    cbody.appendChild(row);
+  });
+
+  const footer = document.createElement("div");
+  footer.className = "mandala-summary";
+  footer.innerHTML =
+    (records.length > 2 ? '<a class="mandala-link" href="javascript:void(0)" onclick="stgGo(\'history\')">これまでの記録 ›</a>' : '<span></span>') +
+    (stg.sheetUrl ? '<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答をシートで見る →</a>' : '<span></span>');
+  cbody.appendChild(footer);
+}
+
+// ---------- これまでの記録（月別一覧） ----------
+function stgRenderHistory(cbody, records) {
+  const header = document.createElement("div");
+  header.className = "mandala-summary";
+  header.style.marginTop = "0";
+  header.style.marginBottom = "10px";
+  header.innerHTML = '<a class="mandala-link" href="javascript:void(0)" onclick="stgGo(\'overview\')">← 全体に戻る</a><span>これまでの記録</span>';
+  cbody.appendChild(header);
+
+  const list = document.createElement("div");
+  list.className = "hist-list";
+  records.forEach(function (rec, i) {
+    const item = document.createElement("div");
+    item.className = "hist-item" + (i === 0 ? " current" : "");
+    const badge = i === 0 ? '<span class="hist-badge now">今回</span>' : (i === 1 ? '<span class="hist-badge prev">前回</span>' : '');
+    const summary = STG_CATEGORIES.map(function (cat) {
+      const c = rec.categories ? rec.categories[cat] : null;
+      return c ? stgVal(c.wantToDo) : null;
+    }).filter(Boolean).join(" ／ ");
+    item.innerHTML =
+      '<div class="m">' + escHtml(stgRecLabel(rec) || "記録") + badge + '</div>' +
+      '<div class="s">' + (rec.filledDate ? "記入日 " + escHtml(rec.filledDate) + "<br>" : "") + escHtml(summary || "—") + '</div>';
+    item.onclick = function () { window.stgGo("record", i); };
+    list.appendChild(item);
+  });
+  cbody.appendChild(list);
+}
+
+// ---------- 過去1か月分の中身 ----------
+function stgRenderRecord(cbody, rec) {
+  const label = stgRecLabel(rec);
+  const header = document.createElement("div");
+  header.className = "mandala-summary";
+  header.style.marginTop = "0";
+  header.style.marginBottom = "8px";
+  header.innerHTML = '<a class="mandala-link" href="javascript:void(0)" onclick="stgGo(\'history\')">← これまでの記録</a><span>' +
+    escHtml(label) + (rec.filledDate ? escHtml("（記入日 " + rec.filledDate + "）") : "") + '</span>';
+  cbody.appendChild(header);
+
+  if (rec.reflection) {
+    const r = rec.reflection;
+    const box = document.createElement("div");
+    box.className = "review-box";
+    box.innerHTML = '<div class="rb-title">前月の目標のふりかえり</div>' +
+      '<div class="rb-achv"><span class="lab">達成度</span><span class="val">' + escHtml(stgVal(r.achievement) || "（回答なし）") + '</span></div>' +
+      STG_REVIEW_FIELDS.map(function (pair) {
+        const v = stgVal(r[pair[0]]);
+        return v ? '<div class="review-row"><div class="k">' + escHtml(pair[1]) + '</div><div class="v">' + escHtml(v) + '</div></div>' : '';
+      }).join("");
+    cbody.appendChild(box);
+  }
+
+  STG_CATEGORIES.forEach(function (cat) {
+    const c = rec.categories ? rec.categories[cat] : null;
+    if (!c) return;
+    const t = document.createElement("div");
+    t.className = "sec-title";
+    t.textContent = cat;
+    cbody.appendChild(t);
+    getStgFieldLabels(cat).forEach(function (pair) {
+      const v = stgVal(c[pair[0]]);
+      if (!v) return;
+      const f = document.createElement("div");
+      f.className = "field";
+      f.innerHTML = '<div class="k">' + escHtml(pair[1]) + '</div><div class="v">' + escHtml(v) + '</div>';
+      cbody.appendChild(f);
+    });
+  });
+
+  if (rec.plan) {
+    const t2 = document.createElement("div");
+    t2.className = "sec-title";
+    t2.textContent = "練習計画";
+    cbody.appendChild(t2);
+    const p = rec.plan;
+    const planGrid = document.createElement("div");
+    planGrid.className = "goal-grid";
+    planGrid.innerHTML =
+      '<div class="goal-tile"><div class="k">練習頻度・時間</div><div class="v">' + escHtml(stgVal(p.frequency) || "—") + '</div></div>' +
+      '<div class="goal-tile"><div class="k">サポートしてほしいこと</div><div class="v">' + escHtml(stgVal(p.support) || "—") + '</div></div>';
+    cbody.appendChild(planGrid);
   }
 
   const footer = document.createElement("div");
   footer.className = "mandala-summary";
-  footer.innerHTML = `<span>記入日 ${r.filledDate || "-"}</span><span></span>`;
+  footer.innerHTML = '<span>' + (rec.updated ? "更新日 " + escHtml(rec.updated) : "") + '</span><span></span>';
   cbody.appendChild(footer);
-
-  return card;
 }
 
 const MAIN_EXERCISES = ["スクワット", "ベンチプレス", "懸垂", "デッドリフト", "ベントオーバーバーベルロー", "腹筋種目"];
