@@ -81,6 +81,21 @@ body{
 .notice p{margin:0;font-size:13px;line-height:1.7;color:var(--ink-2);}
 .notice p strong{color:var(--ink);font-weight:700;}
 
+/* デモ表示の注意書き（健康状態の判定色ではなく、画面そのものについての注意） */
+.demo-notice{
+  background:var(--amber-bg);
+  border-bottom:1px solid var(--amber-line);
+  border-top:1px solid var(--amber-line);
+  padding:12px 14px 13px;
+}
+.demo-notice .dn-head{
+  display:flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:700;color:var(--amber-ink);
+}
+.demo-notice .dn-body{
+  font-size:12.5px;line-height:1.7;color:var(--amber-ink);margin-top:4px;
+}
+
 main{padding:14px 14px 40px;}
 
 /* ---------- 共通パーツ ---------- */
@@ -125,7 +140,8 @@ h2.ttl{font-size:15px;font-weight:700;margin:0 0 4px;letter-spacing:.01em;}
 .state.attention{background:var(--amber-bg);border-color:var(--amber-line);}
 .state.consult{background:var(--red-bg);border-color:var(--red-line);}
 .state.insufficient{background:var(--short-bg);border-color:var(--short-line);border-style:dashed;}
-.state .st-head{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14px;}
+/* 見出しが2行に折り返しても記号が1行目に並ぶようにする */
+.state .st-head{display:flex;align-items:flex-start;gap:7px;font-weight:700;font-size:14px;line-height:1.55;}
 .state.attention .st-head{color:var(--amber-ink);}
 .state.consult .st-head{color:var(--red-ink);}
 .state.insufficient .st-head{color:var(--short-ink);}
@@ -141,7 +157,7 @@ ul.points li{
 ul.points li:last-child{margin-bottom:0;}
 ul.points li.attention{background:var(--amber-bg);border-color:var(--amber-line);}
 ul.points li.consult{background:var(--red-bg);border-color:var(--red-line);}
-ul.points .p-head{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;}
+ul.points .p-head{display:flex;align-items:flex-start;gap:6px;font-size:13.5px;font-weight:700;line-height:1.55;}
 ul.points li.attention .p-head{color:var(--amber-ink);}
 ul.points li.consult .p-head{color:var(--red-ink);}
 ul.points .p-body{font-size:12.5px;line-height:1.7;color:var(--ink-2);margin-top:4px;}
@@ -258,8 +274,14 @@ table.grid td.d{text-align:left;white-space:nowrap;color:var(--ink);font-weight:
   padding:14px;margin-top:16px;
 }
 .howto h3{font-size:13px;margin:0 0 8px;font-weight:700;}
-.howto ul{margin:0;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.8;}
+.howto ul,.howto ol{margin:0;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.8;}
 .howto li{margin-bottom:4px;}
+.howto li b{color:var(--ink);}
+/* ご意見をいただきたいこと：本文より一段強く見せる */
+.howto.ask{background:var(--surface);border-color:var(--line-strong);}
+.howto.ask h3{font-size:14px;}
+.howto.ask ol{font-size:12.5px;}
+.howto.ask li{margin-bottom:8px;}
 .foot{font-size:11px;color:var(--ink-3);text-align:center;padding:18px 0 8px;line-height:1.8;}
 
 /* サンプルデータバー */
@@ -525,8 +547,17 @@ function buildMock(kind){
     }
     var row = mockRow(d, rnd, base, shift);
 
+    if (kind === "partial"){
+      // HRVと歩数しか取れていない状態。5指標のうち4指標が判定不能になる。
+      // ベースライン収集を始めてからの2〜3週間は、実際にこれに近い状態になる。
+      ["sleep_hours","in_bed_hours","sleep_efficiency","deep_hours","rem_hours",
+       "core_hours","awake_hours","resting_hr","hr_min","hr_avg","resp_rate","spo2"]
+        .forEach(function(k){ row[k] = ""; });
+      row.sleep_start = ""; row.sleep_end = "";
+    }
+
     // 同期漏れ：行はあるが一部の項目が空
-    if (d === "2026-08-14"){ row.hrv_ms = ""; row.spo2 = ""; row.resp_rate = ""; }
+    if (d === "2026-08-14" && kind !== "partial"){ row.hrv_ms = ""; row.spo2 = ""; row.resp_rate = ""; }
 
     out.days.push(row);
   }
@@ -653,16 +684,26 @@ function analyze(payload){
   var attns     = vals.filter(function(m){ return m.level === "attention"; });
   var shortages = vals.filter(function(m){ return m.level === "insufficient"; });
 
+  // judged = 実際に個人基準と比較できた項目数。
+  // 「特記なし」と言ってよいのは、この項目数の範囲だけ。
+  var judged = vals.length - shortages.length;
+
   if (consults.length > 0 || attns.length >= RULES.concurrentForConsult){
     A.overall = "consult";
   } else if (attns.length > 0){
     A.overall = "attention";
-  } else if (shortages.length === vals.length){
+  } else if (judged * 2 < vals.length){
+    // 判定できた項目が過半数に満たない状態は「特記なし」ではなく「データ不足」。
+    // 1項目でも判定できれば無彩色になる作りだと、ベースライン収集を始めてからの
+    // 2〜3週間（判断材料が最も乏しい時期）に、最も安心させる見た目が出てしまう。
     A.overall = "insufficient";
   } else {
     A.overall = "none";
   }
-  A.counts = { consult: consults.length, attention: attns.length, insufficient: shortages.length, total: vals.length };
+  A.counts = {
+    consult: consults.length, attention: attns.length,
+    insufficient: shortages.length, judged: judged, total: vals.length
+  };
 
   // --- 確認ポイント（観察事実だけを書く。判断は書かない） -----------------
   var order = ["hrv_ms","resting_hr","sleep_hours","resp_rate","spo2"];
@@ -881,6 +922,14 @@ function chartBars(series, baseMean, opts){
 /* --------------------------------------------------------------------------
    9. 描画
    -------------------------------------------------------------------------- */
+/* 判定できなかった指標の名前を並べる（「4項目」だけだと何が欠けているか分からないため） */
+function shortageNames(A){
+  var names = Object.keys(RULES.metrics)
+    .filter(function(k){ return A.metrics[k].level === "insufficient"; })
+    .map(function(k){ return RULES.metrics[k].label.replace("（7日平均）", ""); });
+  return esc(names.join("・"));
+}
+
 function baselineNote(A){
   if (!A.baseline) return '<p class="note">個人基準の期間が設定されていません。</p>';
   return '<p class="note">基準期間：' + esc(A.baseline.start) + ' 〜 ' + esc(A.baseline.end) +
@@ -928,10 +977,11 @@ function render(A, meta){
   if (meta.mock){
     html += '<div class="mockbar"><b>サンプルデータ表示中</b><span>（実データではありません）</span>' +
       '<select id="mockSel">' +
-        ['full:データが十分にある状態',
+        ['full:全項目を判定できた状態',
+         'partial:一部の項目だけ判定できた状態',
+         'sparse:全項目が判定不能な状態',
          'attention:確認が必要が出ている状態',
          'consult:PTへ確認が出ている状態',
-         'sparse:データ不足の状態',
          'single:1日分だけ',
          'empty:0件'].map(function(o){
           var p = o.split(":");
@@ -953,6 +1003,12 @@ function render(A, meta){
     '最終判断は担当PTが行います。' +
   '</p></div>';
 
+  // ▼▼ デモ表示用の注意書き ▼▼
+  // 対象選手の実データを表示するようになったら、次の1行をコメントアウトすれば消える。
+  // （関数定義ごと消す必要はない）
+  html += demoDataNotice();
+  // ▲▲ ここまで ▲▲
+
   html += '<main>';
 
   if (!A.latestDate){
@@ -964,6 +1020,7 @@ function render(A, meta){
     // 枠を置くこと自体が「何を最優先に見るか」を伝える手段になっている。
     html += todoBlock();
     html += howtoBlock();
+    html += askBlock();
     html += '<div class="foot">MIC コンディション記録 v1（たたき台）</div></main>';
     return html;
   }
@@ -999,18 +1056,39 @@ function render(A, meta){
     });
     html += '</ul>';
     html += '<p class="note">ここに書かれているのは観察された事実だけです。練習量をどうするかの判断は含みません。</p>';
-  } else if (A.overall === "insufficient"){
-    html += '<div class="state insufficient"><div class="st-head"><span aria-hidden="true">？</span>判断材料が不足しています</div>' +
-      '<div class="st-body">個人基準と比較できるだけのデータがそろっていません。' +
-      'この状態では「変化がない」とも「変化がある」とも言えません。</div></div>';
   } else {
-    html += '<div class="state none"><div class="st-head"><span aria-hidden="true">▪</span>目立つ変化は検出されていません</div>' +
-      '<div class="st-body">直近7日の平均は、いずれの指標も個人基準から外れていません。</div>' +
-      '<div class="st-foot">練習可能を意味する表示ではありません</div></div>';
-    if (A.counts.insufficient > 0){
-      html += '<p class="note">※ ' + A.counts.insufficient + '／' + A.counts.total +
-              '項目はデータ不足のため比較できていません。詳細は「データ取得状況」を参照。</p>';
+    // 「外れていません」と言えるのは、実際に判定できた項目についてだけ。
+    // judged < total のときに「いずれの指標も」と書くと事実として誤りになる。
+    var judged = A.counts.judged, total = A.counts.total;
+    var head, body;
+    if (judged === 0){
+      head = "判断材料が不足しています";
+      body = "個人基準と比較できるだけのデータがそろっていません。" +
+             "この状態では「変化がない」とも「変化がある」とも言えません。";
+    } else if (judged < total){
+      head = "判定できた項目では、目立つ変化はありません";
+      body = "判定できた" + judged + "項目では、個人基準から外れていません。" +
+             "残りの" + (total - judged) + "項目はデータ不足のため比較できていません。";
+    } else {
+      head = "目立つ変化は検出されていません";
+      body = "直近7日の平均は、いずれの指標も個人基準から外れていません。";
     }
+    html += '<div class="state ' + A.overall + '">' +
+      '<div class="st-head"><span aria-hidden="true">' + STATE_TEXT[A.overall].glyph + '</span>' + head + '</div>' +
+      '<div class="st-body">' + body + '</div>' +
+      '<div class="st-foot">練習可能を意味する表示ではありません</div></div>';
+  }
+
+  // データ不足の件数は、誤解を招きうる見出しと同じ重さで見えていないと意味がない。
+  // 小さい注釈ではなく、本文と同じ大きさの「データ不足」ブロックとして出す。
+  if (A.counts.insufficient > 0){
+    html += '<div class="state insufficient" style="margin-top:10px">' +
+      '<div class="st-head"><span aria-hidden="true">？</span>' +
+      A.counts.insufficient + '／' + A.counts.total + '項目は判定できていません</div>' +
+      '<div class="st-body">' +
+      shortageNames(A) + 'は、個人基準と比較できるだけのデータがありません。' +
+      'この画面では、これらの項目に変化があるかどうかは分かりません。' +
+      '内訳は「データ取得状況」を開いてください。</div></div>';
   }
   html += '</div>';
 
@@ -1114,9 +1192,21 @@ function render(A, meta){
   html += acc("データ取得状況", covSummary, coverageDetail(A));
 
   html += howtoBlock();
+  html += askBlock();
   html += '<div class="foot">MIC コンディション記録 v1（たたき台）<br>この画面の項目・見せ方について、担当PTのご意見をお願いします。</div>';
   html += '</main>';
   return html;
+}
+
+/* 誰のデータかを最上部で明示する。
+   医療者は具体的な数値を見ると意図せず臨床的な印象を作るため、
+   「これは対象選手のデータではない」と先に言い切っておく必要がある。 */
+function demoDataNotice(){
+  return '<div class="demo-notice">' +
+    '<div class="dn-head"><span aria-hidden="true">！</span>表示中のデータについて</div>' +
+    '<div class="dn-body">これは開発者本人の検証用データです。対象選手のデータではありません。<br>' +
+    '表示されている数値に医学的な意味はありません。項目の並びと見せ方を確認するための画面です。</div>' +
+  '</div>';
 }
 
 /* 最優先の2項目（未実装）。膝と前日負荷を別カードに分けず、一続きのブロックで見せる。
@@ -1293,18 +1383,38 @@ function howtoBlock(){
       c.sd + "SD 以上外れたとき「確認が必要」／" + c.sdConsult + "SD 以上外れたとき「PTへ確認」";
   });
   return '<div class="howto">' +
-    '<h3>この画面の判定の作り方（ご意見をください）</h3>' +
+    '<h3>この画面の判定の作り方</h3>' +
     '<ul>' +
       '<li>総合スコア・Readiness・コンディション点数は作っていません。複数の指標を1つの数字にまとめていません。</li>' +
       '<li>HRVの絶対値による判定はしていません。AppleヘルスケアのHRVは原則SDNN、7日平均の研究で広く使われるのはLnRMSSDで、指標の種類が違うため文献の閾値をそのまま当てはめていません。</li>' +
       '<li>判定に使うのは、その選手自身の基準期間との差（%）と、基準期間のばらつき（SD）に対する逸脱の2つだけです。</li>' +
       '<li>' + lines.join('</li><li>') + '</li>' +
       '<li>上の「差が◯%」は、ごくわずかな変化を拾わないための下限の歯止めです。判定の主役はSDのほうで、%はどの指標でも1SD相当より小さい値に置いています。</li>' +
-      '<li><b>ここがご相談したい点です。</b>基準期間が短い／安定しすぎているとSDが小さく出るため、わずかな変化でも「確認が必要」が立ちやすくなります。逆に厳しくすると見落とします。どちらに寄せるべきかをご指示ください。</li>' +
       '<li>同じ日に「確認が必要」が' + RULES.concurrentForConsult + '本以上立った場合も「PTへ確認」に上げています。これは点数化ではなく、本数を数えているだけです。</li>' +
       '<li>基準期間内のデータが' + RULES.minBaselineDays + '日分未満、または直近7日の取得が' + RULES.minRollingDays + '日分未満のときは、判定せず「データ不足」と表示します。</li>' +
-      '<li><b>上に書いた数値はすべて暫定です。</b>担当PTのご指摘を受けて調整する前提の仮置きの値で、根拠のある基準ではありません。</li>' +
+      '<li>判定できた項目が半分に満たないときは、「特記なし」ではなく「データ不足」として表示します。</li>' +
+      '<li><b>現状の限界：</b>いまの基準期間は、開発者本人の短期間のデータから計算しています。ばらつき（SD）が小さく出るため、実際よりも「確認が必要」が立ちやすい状態です。対象選手のデータで基準期間を取り直した後に、あらためて調整します。</li>' +
+      '<li><b>上に書いた数値はすべて暫定です。</b>根拠のある基準ではありません。</li>' +
     '</ul></div>';
+}
+
+/* PTにお聞きしたいこと。
+   表示しているのが対象選手のデータではない以上、閾値の妥当性はPTには答えられない質問。
+   いま答えられる設問（項目・並び順・言葉遣い・入力の粒度）だけを置く。 */
+function askBlock(){
+  var qs = [
+    '<b>項目に過不足はありませんか。</b>見たいのに無いもの、要らないものはありますか。',
+    '<b>並び順は適切ですか。</b>膝の翌朝反応 → 前日の負荷 → 睡眠 → 安静時心拍・HRV の順にしています。',
+    '<b>言葉遣いに違和感はありませんか。</b>「確認が必要」「目立つ変化は検出されていません」「練習開始・負荷変更の前にPTへ確認」など。',
+    '<b>SpO2と呼吸数を判定に入れるべきですか。</b>現在は入れていますが、優先順位（膝＞睡眠＞安静時心拍・HRV）には含まれていません。' +
+      'また基準期間のばらつきが非常に小さいため、わずかな変化でも「確認が必要」が立ちやすい状態です。参考表示のみに変えるべきか、ご意見ください。',
+    '<b>膝の腫れ・痛み・こわばりを、選手にどの粒度で入力させるべきですか。</b>段階の数、言葉の選び方。'
+  ];
+  return '<div class="howto ask">' +
+    '<h3>ご意見をいただきたいこと</h3>' +
+    '<ol>' + qs.map(function(q){ return '<li>' + q + '</li>'; }).join('') + '</ol>' +
+    '<p class="note">閾値の数値そのものについては、対象選手のデータで4週間の基準期間を取得したうえで、あらためてご相談します。いまはお答えいただかなくて構いません。</p>' +
+  '</div>';
 }
 
 /* --------------------------------------------------------------------------
