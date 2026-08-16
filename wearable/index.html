@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>コンディション記録｜MIC</title>
+<style>
+/* ============================================================
+   配色ルール（このアプリの根幹。実装の都合で変えないこと）
+
+   - 健康状態の表示に緑を一切使わない。
+     緑は一般的なUIで「成功・完了・OK」を意味するため、
+     「今日は練習してよい」という許可として読まれてしまう。
+   - 非対称配色：
+       特記なし      → 無彩色のみ（グレー／黒）
+       確認が必要    → アンバー
+       PTへの確認    → 赤
+       データ不足    → 破線の枠＋薄いブルーグレー
+   - 色だけで意味を伝えない。必ず記号＋テキストを併記する。
+   ============================================================ */
+:root{
+  --page:#F3F4F6;
+  --surface:#FFFFFF;
+  --ink:#16181D;          /* 本文 */
+  --ink-2:#4A4F5A;        /* 副文 */
+  --ink-3:#767C88;        /* 補足 */
+  --line:#E2E4E9;
+  --line-strong:#C9CDD4;
+
+  /* 確認が必要（アンバー） */
+  --amber-ink:#8A5100;
+  --amber-bg:#FFF7E8;
+  --amber-line:#D9922B;
+
+  /* PTへの確認が必要（赤） */
+  --red-ink:#A81F17;
+  --red-bg:#FDECEA;
+  --red-line:#C4342B;
+
+  /* データ不足（薄いブルーグレー＋破線） */
+  --short-ink:#42586E;
+  --short-bg:#EFF3F7;
+  --short-line:#9AACBE;
+
+  /* 未実装（グレーアウト） */
+  --todo-bg:#F2F3F5;
+  --todo-line:#C9CDD4;
+  --todo-ink:#5E646E;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",system-ui,sans-serif;
+  font-size:15px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:430px;margin:0 auto;background:var(--page);min-height:100vh;}
+@media (min-width:760px){
+  body{background:#E7E9ED;}
+  .wrap{box-shadow:0 0 0 1px var(--line);background:var(--page);}
+}
+
+/* ---------- 上部固定バー ---------- */
+.topbar{
+  position:sticky; top:0; z-index:20;
+  background:var(--ink); color:#fff;
+  padding:8px 14px 9px;
+}
+.topbar .t1{font-size:12px;letter-spacing:.02em;opacity:.72;}
+.topbar .t2{font-size:12.5px;font-weight:700;line-height:1.45;margin-top:1px;}
+
+/* ---------- 固定文言ブロック ---------- */
+.notice{
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  padding:14px 14px 15px;
+}
+.notice p{margin:0;font-size:13px;line-height:1.7;color:var(--ink-2);}
+.notice p strong{color:var(--ink);font-weight:700;}
+
+main{padding:14px 14px 40px;}
+
+/* ---------- 共通パーツ ---------- */
+.card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:12px;
+}
+.sec-label{
+  font-size:11.5px;font-weight:700;letter-spacing:.06em;
+  color:var(--ink-3);margin:0 0 8px;
+  display:flex;align-items:baseline;gap:6px;
+}
+.sec-label .num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:3px;
+  background:var(--ink-3);color:#fff;font-size:10px;font-weight:700;
+  letter-spacing:0;flex:none;
+}
+h2.ttl{font-size:15px;font-weight:700;margin:0 0 4px;letter-spacing:.01em;}
+.sub{font-size:12.5px;color:var(--ink-3);margin:0;}
+.hr{height:1px;background:var(--line);margin:12px 0;}
+
+/* ステータスバッジ（記号＋文字。色だけに頼らない） */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;font-weight:700;line-height:1;
+  padding:5px 8px;border-radius:6px;border:1px solid;
+  white-space:nowrap;
+}
+.badge .gl{font-size:12px;line-height:1;}
+.badge.none{color:var(--ink-2);background:#F2F3F5;border-color:var(--line-strong);}
+.badge.attention{color:var(--amber-ink);background:var(--amber-bg);border-color:var(--amber-line);}
+.badge.consult{color:var(--red-ink);background:var(--red-bg);border-color:var(--red-line);}
+.badge.insufficient{color:var(--short-ink);background:var(--short-bg);border-color:var(--short-line);border-style:dashed;}
+
+/* 状態ブロック */
+.state{border-radius:10px;padding:12px;border:1px solid;}
+.state.none{background:#F7F8F9;border-color:var(--line-strong);}
+.state.attention{background:var(--amber-bg);border-color:var(--amber-line);}
+.state.consult{background:var(--red-bg);border-color:var(--red-line);}
+.state.insufficient{background:var(--short-bg);border-color:var(--short-line);border-style:dashed;}
+.state .st-head{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14px;}
+.state.attention .st-head{color:var(--amber-ink);}
+.state.consult .st-head{color:var(--red-ink);}
+.state.insufficient .st-head{color:var(--short-ink);}
+.state.none .st-head{color:var(--ink);}
+.state .st-body{font-size:13px;line-height:1.7;color:var(--ink-2);margin-top:6px;}
+.state .st-foot{font-size:11.5px;color:var(--ink-3);margin-top:8px;}
+
+/* 確認ポイント一覧 */
+ul.points{list-style:none;margin:10px 0 0;padding:0;}
+ul.points li{
+  border:1px solid;border-radius:10px;padding:11px 12px;margin-bottom:8px;
+}
+ul.points li:last-child{margin-bottom:0;}
+ul.points li.attention{background:var(--amber-bg);border-color:var(--amber-line);}
+ul.points li.consult{background:var(--red-bg);border-color:var(--red-line);}
+ul.points .p-head{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;}
+ul.points li.attention .p-head{color:var(--amber-ink);}
+ul.points li.consult .p-head{color:var(--red-ink);}
+ul.points .p-body{font-size:12.5px;line-height:1.7;color:var(--ink-2);margin-top:4px;}
+
+/* 未実装カード */
+.todo-block{
+  border:1px solid var(--todo-line);border-radius:12px;
+  background:var(--todo-bg);padding:0;margin-bottom:12px;overflow:hidden;
+}
+.todo-block .tb-head{
+  padding:10px 14px;border-bottom:1px dashed var(--todo-line);
+  font-size:11.5px;font-weight:700;letter-spacing:.05em;color:var(--todo-ink);
+}
+.todo-item{padding:13px 14px;}
+.todo-item + .todo-item{border-top:1px dashed var(--todo-line);}
+.todo-item .ti-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.todo-item h3{margin:0;font-size:14.5px;font-weight:700;color:var(--todo-ink);}
+.todo-item .ti-rank{
+  font-size:10.5px;font-weight:700;color:#fff;background:var(--todo-ink);
+  padding:3px 6px;border-radius:4px;white-space:nowrap;letter-spacing:.03em;
+}
+.todo-item .ti-desc{font-size:12.5px;color:var(--todo-ink);margin:6px 0 0;line-height:1.7;}
+.todo-item .ti-ph{
+  margin-top:9px;border:1px dashed var(--todo-line);border-radius:8px;
+  background:repeating-linear-gradient(135deg,#EAECEF 0 6px,#F2F3F5 6px 12px);
+  color:var(--todo-ink);font-size:12px;font-weight:700;
+  padding:14px 10px;text-align:center;
+}
+.todo-flow{
+  display:flex;align-items:center;gap:6px;justify-content:center;
+  font-size:11.5px;color:var(--todo-ink);padding:8px 14px 12px;
+}
+
+/* 数値表示 */
+.metric-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:2px;}
+.metric-main{font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.01em;}
+.metric-main .u{font-size:14px;font-weight:600;color:var(--ink-2);margin-left:2px;}
+.metric-diff{font-size:13px;font-weight:700;color:var(--ink-2);text-align:right;}
+.metric-diff .lbl{display:block;font-size:11px;font-weight:600;color:var(--ink-3);}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line);}
+.kv:last-child{border-bottom:none;}
+.kv .k{color:var(--ink-3);}
+.kv .v{font-weight:600;color:var(--ink);text-align:right;}
+.kv .v.miss{color:var(--short-ink);font-weight:600;}
+
+.note{font-size:11.5px;color:var(--ink-3);line-height:1.65;margin:8px 0 0;}
+.note.strong{color:var(--ink-2);font-weight:600;}
+.coverage{
+  display:inline-block;font-size:11px;font-weight:700;color:var(--ink-2);
+  background:#F2F3F5;border:1px solid var(--line-strong);border-radius:5px;
+  padding:2px 6px;margin-top:8px;
+}
+
+/* チャート */
+.chart{margin-top:10px;}
+.chart svg{display:block;width:100%;height:auto;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:7px;font-size:11px;color:var(--ink-3);}
+.legend span{display:inline-flex;align-items:center;gap:4px;}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid var(--ink);}
+.legend i.dot{width:6px;height:6px;border:none;border-radius:50%;background:#9BA1AB;}
+.legend i.band{width:14px;height:9px;border:none;background:#E4E7EB;border-radius:2px;}
+.legend i.miss{width:12px;height:0;border-top:2px dotted var(--short-line);}
+
+/* PTコメント欄 */
+.pt-box{
+  border:1px dashed var(--line-strong);border-radius:10px;
+  padding:16px 12px;text-align:center;color:var(--ink-3);font-size:12.5px;
+  background:#FAFBFC;
+}
+
+/* アコーディオン */
+.acc{
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  margin-bottom:10px;overflow:hidden;
+}
+.acc > summary{
+  list-style:none;cursor:pointer;padding:13px 14px;display:block;
+  -webkit-tap-highlight-color:transparent;
+}
+.acc > summary::-webkit-details-marker{display:none;}
+.acc-row{display:flex;align-items:center;gap:10px;}
+.acc-row .acc-ttl{font-size:14.5px;font-weight:700;flex:1;min-width:0;}
+.acc-row .acc-mark{
+  flex:none;width:18px;height:18px;position:relative;
+}
+.acc-row .acc-mark::before,.acc-row .acc-mark::after{
+  content:"";position:absolute;background:var(--ink-3);border-radius:1px;
+}
+.acc-row .acc-mark::before{left:3px;top:8px;width:12px;height:2px;}
+.acc-row .acc-mark::after{left:8px;top:3px;width:2px;height:12px;transition:opacity .15s;}
+.acc[open] .acc-row .acc-mark::after{opacity:0;}
+.acc-summary{
+  font-size:12.5px;color:var(--ink-2);margin-top:3px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.acc-summary .s-val{font-weight:700;color:var(--ink);}
+.acc-body{padding:0 14px 14px;border-top:1px solid var(--line);margin-top:11px;padding-top:13px;}
+.acc-body h4{font-size:13px;font-weight:700;margin:0 0 6px;color:var(--ink);}
+.acc-body h4.mt{margin-top:16px;}
+
+/* テーブル（データ取得状況） */
+table.grid{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px;}
+table.grid th,table.grid td{
+  border:1px solid var(--line);padding:4px 3px;text-align:center;color:var(--ink-2);
+}
+table.grid th{background:#F7F8F9;font-weight:700;color:var(--ink-3);font-size:10.5px;}
+table.grid td.ok{color:var(--ink);}
+table.grid td.no{background:var(--short-bg);color:var(--short-ink);font-weight:700;}
+table.grid td.d{text-align:left;white-space:nowrap;color:var(--ink);font-weight:600;}
+
+/* 設計メモ（判定の作り方） */
+.howto{
+  background:#FAFBFC;border:1px solid var(--line);border-radius:12px;
+  padding:14px;margin-top:16px;
+}
+.howto h3{font-size:13px;margin:0 0 8px;font-weight:700;}
+.howto ul{margin:0;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.8;}
+.howto li{margin-bottom:4px;}
+.foot{font-size:11px;color:var(--ink-3);text-align:center;padding:18px 0 8px;line-height:1.8;}
+
+/* サンプルデータバー */
+.mockbar{
+  background:#2B2F38;color:#fff;padding:8px 14px;font-size:11.5px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.mockbar b{font-weight:700;}
+.mockbar select{font-size:11.5px;padding:3px 5px;border-radius:5px;border:none;font-family:inherit;}
+
+.loading{padding:60px 20px;text-align:center;color:var(--ink-3);font-size:13px;}
+.err{
+  margin:14px;padding:14px;border-radius:10px;
+  background:var(--short-bg);border:1px dashed var(--short-line);color:var(--short-ink);
+  font-size:13px;line-height:1.7;
+}
+.err b{display:block;margin-bottom:4px;font-size:13.5px;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading">読み込み中…</div></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   コンディション記録アプリ v1
+   用途は「練習を止める・減らす」判断の材料のみ。
+   良好であることを「進んでよい」の根拠にはしない。
+   総合スコア／Readiness／コンディション点数のたぐいは作らない。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. 接続設定
+   -------------------------------------------------------------------------- */
+var CFG = {
+  // 既存の「ウェアラブル取り込み用」Apps Script ウェブアプリのURL。
+  // 取り込み用と同じ /exec を使い、action=summary で読み取り分岐に入る。
+  // ※ デプロイ後に実URLへ差し替える。トークンの実値はここに書かない。
+  API_URL: "__APPS_SCRIPT_EXEC_URL__",
+  DEFAULT_ATHLETE: "van-test"
+};
+
+/* --------------------------------------------------------------------------
+   2. 判定ルール（閾値はすべてここ1箇所にまとめる）
+
+   ★絶対値の閾値を一切使わない理由★
+     HRVは測定方式によって数値の意味が変わる。
+     Appleヘルスケアが出すHRVは原則 SDNN、
+     スポーツ分野で「7日平均」が広く使われている研究は LnRMSSD が中心で、
+     指標の種類そのものが違う。
+     そのため「HRVが◯ms以下なら要注意」といった文献由来の絶対値を
+     持ち込むと、まったく別の物差しで判定することになる。
+     このアプリは絶対値を使わず、
+       (a) その選手自身の基準期間の平均との差（%）
+       (b) 基準期間の標準偏差に対する逸脱（SD）
+     の2つだけで「確認が必要」を出す。
+
+   ★下の数値はすべて暫定★
+     担当PTの確認を受けていない仮置きの値。
+     画面下部「この画面の判定の作り方」に同じ内容を日本語で表示しており、
+     PTからの指摘を受けてここだけを直せば全画面に反映される。
+   -------------------------------------------------------------------------- */
+var RULES = {
+  rollingWindow: 7,       // 移動平均の窓（日）
+  chartDays: 14,          // グラフに出す日数
+  minBaselineDays: 5,     // 基準期間内にこの日数以上データがないと判定しない
+  minRollingDays: 5,      // 7日窓のうちこの日数以上ないと移動平均を出さない
+
+  // dir: "low"  = 下がったときに確認対象
+  //      "high" = 上がったときに確認対象
+  // sd / sdConsult: 基準期間の標準偏差に対する逸脱の大きさ（判定の主役はこちら）
+  // pct: 個人基準平均との差がこの%を超えていること。
+  //      ★これは「下限の歯止め」であり、判定の主役ではない。
+  //        基準期間が非常に安定している選手だと1SDが数%にしかならないため、
+  //        pctを1SD相当より大きく設定すると、SD側の判定が実質的に効かなくなる
+  //        （例：テストデータではSpO2の1SDが約0.2%で、pct=2%とすると約9SD相当になり
+  //          「確認が必要」が永久に出なくなる）。
+  //        そのため pct は各指標の1SD相当より小さい値に置いている。
+  //      ★裏返しの注意：基準期間が短い・安定しすぎているとSDが小さく出て、
+  //        わずかな変化でも「確認が必要」が立ちやすくなる。
+  //        どちらに寄せるかはPTのご判断をいただきたい点。
+  metrics: {
+    hrv_ms:      { label:"HRV（7日平均）",   unit:"ms",  dir:"low",  pct:3,   sd:1.0, sdConsult:2.0, decimals:0 },
+    resting_hr:  { label:"安静時心拍（7日平均）", unit:"bpm", dir:"high", pct:2,   sd:1.0, sdConsult:2.0, decimals:0 },
+    sleep_hours: { label:"睡眠時間（7日平均）",  unit:"h",   dir:"low",  pct:3,   sd:1.0, sdConsult:2.0, decimals:1 },
+    resp_rate:   { label:"呼吸数（7日平均）",   unit:"回/分", dir:"high", pct:2,   sd:1.5, sdConsult:2.5, decimals:1 },
+    spo2:        { label:"SpO2（7日平均）",   unit:"%",   dir:"low",  pct:0.3, sd:1.5, sdConsult:2.5, decimals:1 }
+  },
+
+  // 「PTへ確認」に上げる条件のうち、複数指標の同時逸脱を見る本数。
+  // ※これは複数指標を1つの点数に丸めるものではなく、
+  //   「同じ日に何本アンバーが立っているか」を数えているだけ。
+  concurrentForConsult: 2,
+
+  // サマリに出す確認ポイントの最大件数
+  maxPoints: 3
+};
+
+/* --------------------------------------------------------------------------
+   3. 汎用ユーティリティ
+   -------------------------------------------------------------------------- */
+function esc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function qs(name){
+  var m = new RegExp("[?&]" + name + "=([^&]*)").exec(location.search);
+  return m ? decodeURIComponent(m[1].replace(/\+/g," ")) : "";
+}
+// 日付は最初から最後まで "yyyy-MM-dd" の文字列として扱う。
+// Date型に変換すると突き合わせが壊れる（このプロジェクトの既知バグ）。
+function ymdAdd(ymd, n){
+  var p = ymd.split("-");
+  var dt = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0,10);
+}
+function ymdDiff(a, b){ // a - b（日数）
+  var pa = a.split("-"), pb = b.split("-");
+  var da = Date.UTC(+pa[0], +pa[1]-1, +pa[2]);
+  var db = Date.UTC(+pb[0], +pb[1]-1, +pb[2]);
+  return Math.round((da - db) / 86400000);
+}
+function ymdLabel(ymd){ var p = ymd.split("-"); return (+p[1]) + "/" + (+p[2]); }
+function ymdJa(ymd){
+  var p = ymd.split("-");
+  var w = ["日","月","火","水","木","金","土"][new Date(Date.UTC(+p[0],+p[1]-1,+p[2])).getUTCDay()];
+  return p[0] + "年" + (+p[1]) + "月" + (+p[2]) + "日（" + w + "）";
+}
+// 欠測を0にしない。空文字・null・undefined・数値化できない値はすべて null を返す。
+function num(v){
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  var s = String(v).trim();
+  if (s === "" || s === "-" || s === "—") return null;
+  var n = Number(s);
+  return isFinite(n) ? n : null;
+}
+function fmt(v, d){
+  if (v === null) return "—";
+  return (d ? v.toFixed(d) : String(Math.round(v)));
+}
+function fmtSigned(v, d, unit){
+  if (v === null) return "—";
+  var dec = (d == null ? 0 : d);
+  var rounded = +v.toFixed(dec);               // 丸めた結果が0なら「±0.0」と出す（「−0.0」を避ける）
+  var s = (rounded > 0 ? "+" : rounded < 0 ? "−" : "±") + Math.abs(rounded).toFixed(dec);
+  return s + (unit || "");
+}
+function fmtHM(h){
+  if (h === null) return "—";
+  var total = Math.round(h * 60);
+  return Math.floor(total / 60) + "時間" + String(total % 60) + "分";
+}
+
+/* --------------------------------------------------------------------------
+   4. 統計（欠測は集計から除外する）
+   -------------------------------------------------------------------------- */
+function mean(arr){
+  var v = arr.filter(function(x){ return x !== null; });
+  if (!v.length) return null;
+  return v.reduce(function(a,b){ return a+b; }, 0) / v.length;
+}
+function sd(arr){
+  var v = arr.filter(function(x){ return x !== null; });
+  if (v.length < 2) return null;
+  var m = mean(v);
+  var s = v.reduce(function(a,b){ return a + (b-m)*(b-m); }, 0) / (v.length - 1);
+  return Math.sqrt(s);
+}
+
+/* --------------------------------------------------------------------------
+   5. モックデータ（バックエンド未接続でも設計意図が見えるように）
+      列定義は wearable シートと同じ順・同じ名前。
+   -------------------------------------------------------------------------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function mockRow(date, rnd, base, shift){
+  var jitter = function(sd){ return (rnd() + rnd() + rnd() - 1.5) * sd * 1.2; };
+  var sleepH  = base.sleep  + (shift.sleep  || 0) + jitter(0.55);
+  var inBed   = sleepH + 0.35 + rnd() * 0.35;
+  var deep    = sleepH * (0.16 + rnd() * 0.05);
+  var rem     = sleepH * (0.21 + rnd() * 0.06);
+  var awake   = 0.2 + rnd() * 0.3;
+  var core    = Math.max(0.5, sleepH - deep - rem);
+  var rhr     = base.rhr + (shift.rhr || 0) + jitter(2.0);
+  // date は「起床した日」。就床はその前夜になる。
+  return {
+    date: date,
+    athlete_id: "van-test",
+    sleep_start: ymdAdd(date,-1) + " 22:4" + Math.floor(rnd()*9) + ":00 +0900",
+    sleep_end:   date + " 0" + (5 + Math.floor(rnd()*2)) + ":3" + Math.floor(rnd()*9) + ":00 +0900",
+    sleep_hours: +sleepH.toFixed(2),
+    in_bed_hours: +inBed.toFixed(2),
+    sleep_efficiency: +(sleepH / inBed * 100).toFixed(1),
+    deep_hours: +deep.toFixed(2),
+    rem_hours: +rem.toFixed(2),
+    core_hours: +core.toFixed(2),
+    awake_hours: +awake.toFixed(2),
+    resting_hr: Math.round(rhr),
+    hr_min: Math.round(rhr - 3 - rnd()*2),
+    hr_avg: Math.round(rhr + 17 + rnd()*6),
+    hrv_ms: +(base.hrv + (shift.hrv || 0) + jitter(5.5)).toFixed(1),
+    resp_rate: +(base.resp + (shift.resp || 0) + jitter(0.55)).toFixed(1),
+    spo2: +(base.spo2 + (shift.spo2 || 0) + jitter(0.5)).toFixed(1),
+    wrist_temp: "",   // ★現在のデバイスでは取得できないため常に空
+    steps: Math.round(base.steps + (rnd()-0.5) * 5200),
+    source: "Zepp",
+    updated_at: date + " 07:12:0" + Math.floor(rnd()*9)
+  };
+}
+var MOCK_TODAY = "2026-08-17";
+var MOCK_BASELINE = { start:"2026-07-28", end:"2026-08-03", approved_by:"担当PT", approved_at:"2026-08-04" };
+
+function buildMock(kind){
+  var rnd = mulberry32(20260817);
+  var base = { sleep:7.6, rhr:52, hrv:62, resp:14.4, spo2:97.2, steps:9200 };
+  var out = { athlete_id:"van-test", athlete_name:"van（テストデータ）",
+              baseline:MOCK_BASELINE, days:[], generated_at:MOCK_TODAY + " 08:05:00", mock:true };
+
+  if (kind === "empty") return out;
+
+  if (kind === "sparse"){
+    // 4日分だけ。基準期間にはデータが1日も無い＝判定できない。
+    ["2026-08-14","2026-08-15","2026-08-16","2026-08-17"].forEach(function(d){
+      out.days.push(mockRow(d, rnd, base, {}));
+    });
+    return out;
+  }
+  if (kind === "single"){
+    out.days.push(mockRow(MOCK_TODAY, rnd, base, {}));
+    return out;
+  }
+
+  var start = "2026-07-25";
+  var n = ymdDiff(MOCK_TODAY, start) + 1;
+  for (var i = 0; i < n; i++){
+    var d = ymdAdd(start, i);
+
+    // デバイス未装着の日は行ごと存在しない
+    if (d === "2026-08-11") continue;
+
+    var shift = {};
+    if (kind === "attention" && ymdDiff(d, "2026-08-09") >= 0){
+      // HRVだけがゆるやかに低下していく想定（1指標だけの逸脱＝アンバー）
+      var k = Math.min(1, ymdDiff(d, "2026-08-09") / 6);
+      shift.hrv = -8 * k;
+    }
+    if (kind === "consult" && ymdDiff(d, "2026-08-08") >= 0){
+      // HRV低下・安静時心拍上昇・睡眠短縮が同じ日に重なっている想定。
+      // 1本ずつはアンバー相当だが、同時に立っているため「PTへ確認」に上がる。
+      var k2 = Math.min(1, ymdDiff(d, "2026-08-08") / 6);
+      shift.hrv = -8 * k2;
+      shift.rhr = 2.7 * k2;
+      shift.sleep = -0.43 * k2;
+    }
+    var row = mockRow(d, rnd, base, shift);
+
+    // 同期漏れ：行はあるが一部の項目が空
+    if (d === "2026-08-14"){ row.hrv_ms = ""; row.spo2 = ""; row.resp_rate = ""; }
+
+    out.days.push(row);
+  }
+  return out;
+}
+
+/* --------------------------------------------------------------------------
+   6. 解析
+   -------------------------------------------------------------------------- */
+function analyze(payload){
+  var days = (payload.days || []).slice().sort(function(a,b){
+    return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+  });
+  var byDate = {};
+  days.forEach(function(r){ byDate[r.date] = r; });
+
+  var latestDate = days.length ? days[days.length-1].date : null;
+  var bl = payload.baseline || null;
+
+  var A = {
+    athleteName: payload.athlete_name || payload.athlete_id || "—",
+    athleteId: payload.athlete_id || "",
+    latestDate: latestDate,
+    lastSync: days.length ? (days[days.length-1].updated_at || "—") : "—",
+    baseline: bl ? {
+      start: bl.start, end: bl.end,
+      approvedBy: bl.approved_by || "—", approvedAt: bl.approved_at || "—",
+      days: 0, valid: false
+    } : null,
+    days: days,
+    byDate: byDate,
+    metrics: {},
+    points: [],
+    overall: "insufficient",
+    dataShortage: []
+  };
+
+  if (!latestDate){ A.overall = "insufficient"; return A; }
+
+  // --- 基準期間の行を集める（この期間は固定。自動更新はしない） -----------
+  var blRows = [];
+  if (bl && bl.start && bl.end){
+    days.forEach(function(r){
+      if (r.date >= bl.start && r.date <= bl.end) blRows.push(r);
+    });
+    A.baseline.days = blRows.length;
+  }
+
+  // --- 直近 chartDays 日の日付列（欠測日も枠として残す） -------------------
+  var axis = [];
+  for (var i = RULES.chartDays - 1; i >= 0; i--) axis.push(ymdAdd(latestDate, -i));
+  A.axis = axis;
+
+  Object.keys(RULES.metrics).forEach(function(key){
+    var cfg = RULES.metrics[key];
+    var baseVals = blRows.map(function(r){ return num(r[key]); });
+    var bMean = mean(baseVals), bSd = sd(baseVals);
+    var bN = baseVals.filter(function(x){ return x !== null; }).length;
+    var baseValid = (bN >= RULES.minBaselineDays && bMean !== null && bSd !== null && bSd > 0);
+
+    // 直近日の7日移動平均
+    var win = [], winHave = 0;
+    for (var j = RULES.rollingWindow - 1; j >= 0; j--){
+      var d = ymdAdd(latestDate, -j);
+      var v = byDate[d] ? num(byDate[d][key]) : null;
+      win.push(v);
+      if (v !== null) winHave++;
+    }
+    var avg7 = (winHave >= RULES.minRollingDays) ? mean(win) : null;
+
+    // グラフ用：日次値と、その日時点の7日移動平均
+    var series = axis.map(function(d){
+      var v = byDate[d] ? num(byDate[d][key]) : null;
+      var w = [], have = 0;
+      for (var k = RULES.rollingWindow - 1; k >= 0; k--){
+        var dd = ymdAdd(d, -k);
+        var vv = byDate[dd] ? num(byDate[dd][key]) : null;
+        w.push(vv);
+        if (vv !== null) have++;
+      }
+      var ma = (have >= RULES.minRollingDays) ? mean(w) : null;
+      return {
+        date: d,
+        value: v,
+        ma: ma,
+        pct: (baseValid && v !== null) ? (v - bMean) / bMean * 100 : null,
+        maPct: (baseValid && ma !== null) ? (ma - bMean) / bMean * 100 : null
+      };
+    });
+
+    var pct = (baseValid && avg7 !== null) ? (avg7 - bMean) / bMean * 100 : null;
+    var z   = (baseValid && avg7 !== null) ? (avg7 - bMean) / bSd : null;
+
+    // 「気になる向き」を正の値にそろえる
+    var sign = (cfg.dir === "low") ? -1 : 1;
+    var cz   = (z   === null) ? null : z * sign;
+    var cpct = (pct === null) ? null : pct * sign;
+
+    var level = "insufficient";
+    if (!baseValid || avg7 === null){
+      level = "insufficient";
+    } else if (cz >= cfg.sdConsult && cpct >= cfg.pct){
+      level = "consult";
+    } else if (cz >= cfg.sd && cpct >= cfg.pct){
+      level = "attention";
+    } else {
+      level = "none";
+    }
+
+    A.metrics[key] = {
+      key: key, cfg: cfg,
+      latest: byDate[latestDate] ? num(byDate[latestDate][key]) : null,
+      avg7: avg7,
+      coverage: { have: winHave, need: RULES.rollingWindow },
+      base: { mean: bMean, sd: bSd, n: bN, valid: baseValid },
+      pct: pct, z: z, level: level,
+      series: series
+    };
+  });
+
+  // --- 全体の状態 ---------------------------------------------------------
+  var vals = Object.keys(A.metrics).map(function(k){ return A.metrics[k]; });
+  var consults  = vals.filter(function(m){ return m.level === "consult"; });
+  var attns     = vals.filter(function(m){ return m.level === "attention"; });
+  var shortages = vals.filter(function(m){ return m.level === "insufficient"; });
+
+  if (consults.length > 0 || attns.length >= RULES.concurrentForConsult){
+    A.overall = "consult";
+  } else if (attns.length > 0){
+    A.overall = "attention";
+  } else if (shortages.length === vals.length){
+    A.overall = "insufficient";
+  } else {
+    A.overall = "none";
+  }
+  A.counts = { consult: consults.length, attention: attns.length, insufficient: shortages.length, total: vals.length };
+
+  // --- 確認ポイント（観察事実だけを書く。判断は書かない） -----------------
+  var order = ["hrv_ms","resting_hr","sleep_hours","resp_rate","spo2"];
+  var flagged = order.map(function(k){ return A.metrics[k]; })
+                     .filter(function(m){ return m.level === "consult" || m.level === "attention"; });
+
+  if (A.overall === "consult" && attns.length >= RULES.concurrentForConsult && consults.length === 0){
+    A.points.push({
+      level: "consult",
+      title: "複数の指標が同じ日に基準から外れています",
+      body: flagged.map(function(m){ return m.cfg.label.replace("（7日平均）",""); }).join("・") +
+            "が、いずれも個人基準から外れた範囲にあります。" +
+            "練習開始・負荷変更の前に担当PTへ確認してください。"
+    });
+  }
+  flagged.slice(0, RULES.maxPoints).forEach(function(m){
+    A.points.push({
+      level: m.level,
+      title: m.cfg.label.replace("（7日平均）","") + "の7日平均が個人基準から外れています",
+      body: m.cfg.label + "は " + fmt(m.avg7, m.cfg.decimals) + m.cfg.unit +
+            "、個人基準比 " + fmtSigned(m.pct, 1, "%") +
+            "（基準期間のばらつきに対して " + fmtSigned(m.z, 1) + "SD）です。" +
+            "膝の反応・睡眠・前日の負荷とあわせて確認してください。"
+    });
+  });
+  A.points = A.points.slice(0, RULES.maxPoints);
+
+  // --- 欠測の把握 ---------------------------------------------------------
+  var missDays = [], partial = [];
+  axis.forEach(function(d){
+    if (!byDate[d]){ missDays.push(d); return; }
+    var miss = [];
+    ["sleep_hours","resting_hr","hrv_ms","resp_rate","spo2","steps"].forEach(function(k){
+      if (num(byDate[d][k]) === null) miss.push(k);
+    });
+    if (miss.length) partial.push({ date: d, miss: miss });
+  });
+  A.missing = { noRow: missDays, partial: partial };
+
+  return A;
+}
+
+/* --------------------------------------------------------------------------
+   7. 状態表示のことば（「正常」「良好」「問題なし」は使わない）
+   -------------------------------------------------------------------------- */
+var STATE_TEXT = {
+  none:         { glyph:"▪", label:"特記なし",   head:"目立つ変化は検出されていません" },
+  attention:    { glyph:"△", label:"確認が必要", head:"確認したい変化があります" },
+  consult:      { glyph:"！", label:"PTへ確認",  head:"練習開始・負荷変更前にPTへ確認" },
+  insufficient: { glyph:"？", label:"データ不足", head:"判断材料が不足しています" }
+};
+function badge(level){
+  var s = STATE_TEXT[level];
+  return '<span class="badge ' + level + '"><span class="gl" aria-hidden="true">' + s.glyph + '</span>' + s.label + '</span>';
+}
+
+/* --------------------------------------------------------------------------
+   8. グラフ（インラインSVG。外部ライブラリは使わない）
+      色は無彩色のみ。プラス側を緑・マイナス側を赤にしない。
+   -------------------------------------------------------------------------- */
+var C = { ink:"#16181D", ink2:"#4A4F5A", grid:"#E2E4E9", soft:"#9BA1AB", band:"#E4E7EB", miss:"#9AACBE" };
+
+/* 中央ゼロの棒グラフ：日次値の個人基準比（%）。単日の上下では着色しない。 */
+function chartCenterBars(series, opts){
+  var W = 330, H = 126, padT = 12, padB = 20, padL = 30, padR = 4;
+  var plotH = H - padT - padB, plotW = W - padL - padR;
+  var mid = padT + plotH / 2;
+  var vals = series.map(function(s){ return s.pct; }).filter(function(v){ return v !== null; });
+  var maxAbs = vals.length ? Math.max.apply(null, vals.map(Math.abs)) : 10;
+  maxAbs = Math.max(10, Math.ceil(maxAbs / 5) * 5);
+  var slot = plotW / series.length;
+  var bw = Math.max(6, slot * 0.56);
+
+  var g = '';
+  // 目盛
+  [maxAbs, 0, -maxAbs].forEach(function(t){
+    var y = mid - (t / maxAbs) * (plotH / 2);
+    g += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W-padR) + '" y2="' + y.toFixed(1) +
+         '" stroke="' + (t === 0 ? C.ink2 : C.grid) + '" stroke-width="' + (t === 0 ? 1.2 : 1) + '"/>';
+    g += '<text x="' + (padL-5) + '" y="' + (y+3.5).toFixed(1) + '" font-size="9" fill="#767C88" text-anchor="end">' +
+         (t > 0 ? "+" : t < 0 ? "−" : "±") + Math.abs(t) + '%</text>';
+  });
+  series.forEach(function(s, i){
+    var cx = padL + slot * i + slot / 2;
+    if (s.pct === null){
+      // 欠測は0として描かない。点線の枠だけ残す。
+      g += '<line x1="' + cx.toFixed(1) + '" y1="' + padT + '" x2="' + cx.toFixed(1) + '" y2="' + (padT+plotH) +
+           '" stroke="' + C.miss + '" stroke-width="1" stroke-dasharray="2 3" opacity="0.75"/>';
+    } else {
+      var v = Math.max(-maxAbs, Math.min(maxAbs, s.pct));
+      var h = Math.abs(v) / maxAbs * (plotH / 2);
+      var y = v >= 0 ? mid - h : mid;
+      g += '<rect x="' + (cx - bw/2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) +
+           '" height="' + Math.max(1, h).toFixed(1) + '" fill="' + C.ink2 + '" rx="1"/>';
+    }
+    if (i === 0 || i === series.length - 1 || i === Math.floor(series.length/2)){
+      g += '<text x="' + cx.toFixed(1) + '" y="' + (H-6) + '" font-size="9" fill="#767C88" text-anchor="middle">' +
+           ymdLabel(s.date) + '</text>';
+    }
+  });
+  return '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
+         esc(opts && opts.aria || "個人基準比の推移") + '">' + g + '</svg></div>';
+}
+
+/* 日次値＝点（線で結ばない）＋7日移動平均＝太い実線＋個人基準帯 */
+function chartBandDots(m, opts){
+  var W = 330, H = 158, padT = 10, padB = 20, padL = 34, padR = 6;
+  var plotH = H - padT - padB, plotW = W - padL - padR;
+  var s = m.series;
+  var pool = [];
+  s.forEach(function(p){ if (p.value !== null) pool.push(p.value); if (p.ma !== null) pool.push(p.ma); });
+  if (m.base.valid){ pool.push(m.base.mean + m.base.sd); pool.push(m.base.mean - m.base.sd); }
+  if (!pool.length) return '<div class="chart"><div class="note">表示できるデータがありません。</div></div>';
+
+  var lo = Math.min.apply(null, pool), hi = Math.max.apply(null, pool);
+  var pad = (hi - lo) * 0.18 || Math.max(1, hi * 0.05);
+  lo -= pad; hi += pad;
+  var y = function(v){ return padT + plotH - (v - lo) / (hi - lo) * plotH; };
+  var slot = plotW / s.length;
+  var x = function(i){ return padL + slot * i + slot / 2; };
+
+  var g = '';
+  // 個人基準帯（「正常範囲」ではない）
+  if (m.base.valid){
+    var yTop = y(m.base.mean + m.base.sd), yBot = y(m.base.mean - m.base.sd);
+    g += '<rect x="' + padL + '" y="' + yTop.toFixed(1) + '" width="' + plotW + '" height="' +
+         Math.max(1, yBot - yTop).toFixed(1) + '" fill="' + C.band + '"/>';
+    g += '<line x1="' + padL + '" y1="' + y(m.base.mean).toFixed(1) + '" x2="' + (W-padR) + '" y2="' +
+         y(m.base.mean).toFixed(1) + '" stroke="' + C.soft + '" stroke-width="1" stroke-dasharray="4 3"/>';
+  }
+  // 軸ラベル
+  [hi - pad*0.6, lo + pad*0.6].forEach(function(t){
+    g += '<text x="' + (padL-5) + '" y="' + (y(t)+3.5).toFixed(1) + '" font-size="9" fill="#767C88" text-anchor="end">' +
+         fmt(t, m.cfg.decimals) + '</text>';
+  });
+  // 欠測日の目印
+  s.forEach(function(p, i){
+    if (p.value === null){
+      g += '<line x1="' + x(i).toFixed(1) + '" y1="' + padT + '" x2="' + x(i).toFixed(1) + '" y2="' + (padT+plotH) +
+           '" stroke="' + C.miss + '" stroke-width="1" stroke-dasharray="2 3" opacity="0.75"/>';
+    }
+  });
+  // 7日移動平均（太い実線）。欠測でつながらない区間は切る。
+  var seg = [];
+  s.forEach(function(p, i){
+    if (p.ma === null){ if (seg.length > 1) g += polyline(seg); seg = []; return; }
+    seg.push([x(i), y(p.ma)]);
+  });
+  if (seg.length > 1) g += polyline(seg);
+  function polyline(pts){
+    return '<polyline fill="none" stroke="' + C.ink + '" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" points="' +
+           pts.map(function(p){ return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ") + '"/>';
+  }
+  // 日次値（点のみ。線で結ばない）
+  s.forEach(function(p, i){
+    if (p.value === null) return;
+    g += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p.value).toFixed(1) + '" r="2.6" fill="' + C.soft + '"/>';
+  });
+  // 日付
+  [0, Math.floor(s.length/2), s.length-1].forEach(function(i){
+    g += '<text x="' + x(i).toFixed(1) + '" y="' + (H-6) + '" font-size="9" fill="#767C88" text-anchor="middle">' +
+         ymdLabel(s[i].date) + '</text>';
+  });
+  return '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
+         esc(opts && opts.aria || "推移") + '">' + g + '</svg></div>' +
+    '<div class="legend">' +
+      '<span><i class="dot"></i>日次値（線で結んでいません）</span>' +
+      '<span><i></i>7日移動平均</span>' +
+      (m.base.valid ? '<span><i class="band"></i>個人基準帯</span>' : '') +
+      '<span><i class="miss"></i>欠測</span>' +
+    '</div>';
+}
+
+/* 0起点の棒グラフ（睡眠時間・歩数）。基準平均を破線で示す。 */
+function chartBars(series, baseMean, opts){
+  opts = opts || {};
+  var W = 330, H = 128, padT = 12, padB = 20, padL = 34, padR = 6;
+  var plotH = H - padT - padB, plotW = W - padL - padR;
+  var vals = series.map(function(s){ return s.value; }).filter(function(v){ return v !== null; });
+  if (!vals.length) return '<div class="chart"><div class="note">表示できるデータがありません。</div></div>';
+  var hi = Math.max.apply(null, vals);
+  if (baseMean !== null && baseMean !== undefined) hi = Math.max(hi, baseMean);
+  hi = hi * 1.12;
+  var y = function(v){ return padT + plotH - (v / hi) * plotH; };
+  var slot = plotW / series.length, bw = Math.max(6, slot * 0.56);
+  var g = '';
+  g += '<line x1="' + padL + '" y1="' + (padT+plotH) + '" x2="' + (W-padR) + '" y2="' + (padT+plotH) +
+       '" stroke="' + C.ink2 + '" stroke-width="1.2"/>';
+  g += '<text x="' + (padL-5) + '" y="' + (y(hi/1.12)+3.5).toFixed(1) + '" font-size="9" fill="#767C88" text-anchor="end">' +
+       fmt(hi/1.12, opts.decimals || 0) + '</text>';
+  if (baseMean !== null && baseMean !== undefined){
+    g += '<line x1="' + padL + '" y1="' + y(baseMean).toFixed(1) + '" x2="' + (W-padR) + '" y2="' + y(baseMean).toFixed(1) +
+         '" stroke="' + C.ink2 + '" stroke-width="1.2" stroke-dasharray="5 3"/>';
+    g += '<text x="' + (W-padR) + '" y="' + (y(baseMean)-4).toFixed(1) + '" font-size="9" fill="#4A4F5A" text-anchor="end">個人基準の平均</text>';
+  }
+  series.forEach(function(s, i){
+    var cx = padL + slot * i + slot / 2;
+    if (s.value === null){
+      g += '<line x1="' + cx.toFixed(1) + '" y1="' + padT + '" x2="' + cx.toFixed(1) + '" y2="' + (padT+plotH) +
+           '" stroke="' + C.miss + '" stroke-width="1" stroke-dasharray="2 3" opacity="0.75"/>';
+    } else {
+      var yy = y(s.value);
+      g += '<rect x="' + (cx-bw/2).toFixed(1) + '" y="' + yy.toFixed(1) + '" width="' + bw.toFixed(1) +
+           '" height="' + Math.max(1, padT+plotH-yy).toFixed(1) + '" fill="' + C.ink2 + '" rx="1"/>';
+    }
+    if (i === 0 || i === series.length-1 || i === Math.floor(series.length/2)){
+      g += '<text x="' + cx.toFixed(1) + '" y="' + (H-6) + '" font-size="9" fill="#767C88" text-anchor="middle">' +
+           ymdLabel(s.date) + '</text>';
+    }
+  });
+  return '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
+         esc(opts.aria || "推移") + '">' + g + '</svg></div>' +
+    '<div class="legend"><span><i class="miss"></i>欠測（0として扱っていません）</span></div>';
+}
+
+/* --------------------------------------------------------------------------
+   9. 描画
+   -------------------------------------------------------------------------- */
+function baselineNote(A){
+  if (!A.baseline) return '<p class="note">個人基準の期間が設定されていません。</p>';
+  return '<p class="note">基準期間：' + esc(A.baseline.start) + ' 〜 ' + esc(A.baseline.end) +
+         '（この期間のデータ ' + A.baseline.days + '日分）<br>' +
+         'この基準はPTが承認したときだけ更新されます。日々の値では自動更新しません。</p>';
+}
+
+// 数値指標のサマリカード1枚。extraFn は判定できた場合だけ末尾に足す内訳。
+function metricSummaryCard(A, key, num_, title, extraFn){
+  var m = A.metrics[key];
+  var s = STATE_TEXT[m.level];
+  var html = '';
+  html += '<div class="card">';
+  html += '<div class="sec-label"><span class="num">' + num_ + '</span>' + esc(title) + '</div>';
+
+  if (!m.base.valid || m.avg7 === null){
+    html += '<div class="state insufficient"><div class="st-head"><span aria-hidden="true">？</span>' +
+            s.head + '</div><div class="st-body">' +
+            (!m.base.valid
+              ? '基準期間内のデータが' + m.base.n + '日分しかありません（判定には' + RULES.minBaselineDays + '日分以上が必要です）。'
+              : '直近7日のうち取得できたのは' + m.coverage.have + '日分です（移動平均には' + RULES.minRollingDays + '日分以上が必要です）。') +
+            '個人基準との比較はできません。</div></div>';
+    html += baselineNote(A);
+    return html + '</div>';
+  }
+
+  html += '<div class="metric-row">';
+  html += '<div><h2 class="ttl">' + esc(m.cfg.label) + '</h2><div class="metric-main">' +
+          (key === "sleep_hours" ? fmtHM(m.avg7) : fmt(m.avg7, m.cfg.decimals) + '<span class="u">' + esc(m.cfg.unit) + '</span>') +
+          '</div></div>';
+  html += '<div class="metric-diff"><span class="lbl">個人基準比</span>' + fmtSigned(m.pct, 1, "%") +
+          '<span class="lbl" style="margin-top:2px">' + fmtSigned(m.z, 1) + ' SD</span></div>';
+  html += '</div>';
+  html += '<div style="margin-top:10px">' + badge(m.level) + '</div>';
+  html += '<span class="coverage">直近7日中 ' + m.coverage.have + '日取得</span>';
+  if (extraFn) html += extraFn(m);
+  html += baselineNote(A);
+  return html + '</div>';
+}
+
+function render(A, meta){
+  var html = '';
+
+  /* --- サンプルデータバー --- */
+  if (meta.mock){
+    html += '<div class="mockbar"><b>サンプルデータ表示中</b><span>（実データではありません）</span>' +
+      '<select id="mockSel">' +
+        ['full:データが十分にある状態',
+         'attention:確認が必要が出ている状態',
+         'consult:PTへ確認が出ている状態',
+         'sparse:データ不足の状態',
+         'single:1日分だけ',
+         'empty:0件'].map(function(o){
+          var p = o.split(":");
+          return '<option value="' + p[0] + '"' + (p[0] === meta.demo ? ' selected' : '') + '>' + p[1] + '</option>';
+        }).join('') +
+      '</select></div>';
+  }
+
+  /* --- 上部固定バー --- */
+  html += '<div class="topbar">' +
+    '<div class="t1">MIC コンディション記録　' + esc(A.athleteName) + '</div>' +
+    '<div class="t2">練習の許可・再開・増量を判定する画面ではありません</div>' +
+  '</div>';
+
+  /* --- 固定文言 --- */
+  html += '<div class="notice"><p>' +
+    'この画面は、練習の許可・再開・増量を判定するものではありません。<br>' +
+    '<strong>膝の翌朝反応を最優先に、負荷を減らす・止める必要がないかを確認するための記録です。</strong><br>' +
+    '最終判断は担当PTが行います。' +
+  '</p></div>';
+
+  html += '<main>';
+
+  if (!A.latestDate){
+    html += '<div class="card"><div class="sec-label"><span class="num">1</span>データの状況</div>' +
+      '<div class="state insufficient"><div class="st-head"><span aria-hidden="true">？</span>判断材料が不足しています</div>' +
+      '<div class="st-body">この選手の記録がまだ1件も取り込まれていません。<br>' +
+      'デバイスの装着状況と同期の設定を確認してください。</div></div></div>';
+    // データが1件も無くても、最優先の2項目の枠は必ず置く。
+    // 枠を置くこと自体が「何を最優先に見るか」を伝える手段になっている。
+    html += todoBlock();
+    html += howtoBlock();
+    html += '<div class="foot">MIC コンディション記録 v1（たたき台）</div></main>';
+    return html;
+  }
+
+  /* --- 1. 日付・同期状況 --- */
+  var missCount = A.missing.noRow.length;
+  var partCount = A.missing.partial.length;
+  html += '<div class="card">';
+  html += '<div class="sec-label"><span class="num">1</span>データの状況</div>';
+  html += '<h2 class="ttl">' + esc(ymdJa(A.latestDate)) + ' 時点の記録</h2>';
+  html += '<div class="kv"><span class="k">最終同期</span><span class="v">' + esc(A.lastSync) + '</span></div>';
+  html += '<div class="kv"><span class="k">データ元</span><span class="v">' +
+          esc((A.byDate[A.latestDate] && A.byDate[A.latestDate].source) || "—") + '</span></div>';
+  html += '<div class="kv"><span class="k">直近' + RULES.chartDays + '日の欠測</span><span class="v' +
+          ((missCount || partCount) ? ' miss' : '') + '">' +
+          ((missCount || partCount)
+            ? (missCount ? '記録なし ' + missCount + '日' : '') + (missCount && partCount ? '／' : '') +
+              (partCount ? '一部欠測 ' + partCount + '日' : '')
+            : 'なし') + '</span></div>';
+  html += '<div class="kv"><span class="k">朝の主観入力・練習後入力</span><span class="v miss">未実装（下記2項目）</span></div>';
+  html += '</div>';
+
+  /* --- 2. 本日の確認ポイント --- */
+  html += '<div class="card">';
+  html += '<div class="sec-label"><span class="num">2</span>本日の確認ポイント</div>';
+  if (A.points.length){
+    html += '<div style="margin-bottom:2px">' + badge(A.overall) + '</div>';
+    html += '<ul class="points">';
+    A.points.forEach(function(p){
+      html += '<li class="' + p.level + '"><div class="p-head"><span aria-hidden="true">' +
+              STATE_TEXT[p.level].glyph + '</span>' + esc(p.title) + '</div>' +
+              '<div class="p-body">' + esc(p.body) + '</div></li>';
+    });
+    html += '</ul>';
+    html += '<p class="note">ここに書かれているのは観察された事実だけです。練習量をどうするかの判断は含みません。</p>';
+  } else if (A.overall === "insufficient"){
+    html += '<div class="state insufficient"><div class="st-head"><span aria-hidden="true">？</span>判断材料が不足しています</div>' +
+      '<div class="st-body">個人基準と比較できるだけのデータがそろっていません。' +
+      'この状態では「変化がない」とも「変化がある」とも言えません。</div></div>';
+  } else {
+    html += '<div class="state none"><div class="st-head"><span aria-hidden="true">▪</span>目立つ変化は検出されていません</div>' +
+      '<div class="st-body">直近7日の平均は、いずれの指標も個人基準から外れていません。</div>' +
+      '<div class="st-foot">練習可能を意味する表示ではありません</div></div>';
+    if (A.counts.insufficient > 0){
+      html += '<p class="note">※ ' + A.counts.insufficient + '／' + A.counts.total +
+              '項目はデータ不足のため比較できていません。詳細は「データ取得状況」を参照。</p>';
+    }
+  }
+  html += '</div>';
+
+  /* --- 3・4. 未実装（最優先の2項目）。一続きのブロックで見せる --- */
+  html += todoBlock();
+
+  /* --- 5. 睡眠 --- */
+  var sl = A.metrics.sleep_hours;
+  html += metricSummaryCard(A, "sleep_hours", "5", "睡眠", function(m){
+    return '<div class="kv" style="margin-top:10px"><span class="k">前夜の睡眠時間</span><span class="v' +
+      (m.latest === null ? ' miss' : '') + '">' + (m.latest === null ? '未取得' : fmtHM(m.latest)) + '</span></div>' +
+      '<div class="kv"><span class="k">個人基準の平均</span><span class="v">' + fmtHM(m.base.mean) + '</span></div>';
+  });
+
+  /* --- 6. 安静時心拍・HRV --- */
+  html += metricSummaryCard(A, "resting_hr", "6", "安静時心拍", function(m){
+    return '<div class="kv" style="margin-top:10px"><span class="k">前夜の安静時心拍</span><span class="v' +
+      (m.latest === null ? ' miss' : '') + '">' +
+      (m.latest === null ? '未取得' : fmt(m.latest, 0) + ' bpm') + '</span></div>' +
+      '<div class="kv"><span class="k">個人基準の平均</span><span class="v">' + fmt(m.base.mean, 0) + ' bpm</span></div>';
+  });
+
+  var hrv = A.metrics.hrv_ms;
+  html += '<div class="card">';
+  html += '<div class="sec-label"><span class="num">6</span>HRV（心拍変動）</div>';
+  if (!hrv.base.valid || hrv.avg7 === null){
+    html += '<div class="state insufficient"><div class="st-head"><span aria-hidden="true">？</span>判断材料が不足しています</div>' +
+      '<div class="st-body">' +
+      (!hrv.base.valid
+        ? '基準期間内のHRVは' + hrv.base.n + '日分しかありません（判定には' + RULES.minBaselineDays + '日分以上が必要です）。'
+        : '直近7日のうちHRVを取得できたのは' + hrv.coverage.have + '日分です。') +
+      '7日移動平均を個人基準と比べることができません。</div></div>';
+    html += baselineNote(A);
+  } else {
+    html += '<div class="metric-row">' +
+      '<div><h2 class="ttl">HRV 7日移動平均</h2><div class="metric-main">' + fmt(hrv.avg7, 0) + '<span class="u">ms</span></div></div>' +
+      '<div class="metric-diff"><span class="lbl">個人基準比</span>' + fmtSigned(hrv.pct, 1, "%") +
+      '<span class="lbl" style="margin-top:2px">' + fmtSigned(hrv.z, 1) + ' SD</span></div>' +
+    '</div>';
+    html += '<div style="margin-top:10px">' + badge(hrv.level) + '</div>';
+    html += '<span class="coverage">直近7日中 ' + hrv.coverage.have + '日取得</span>';
+    html += chartCenterBars(hrv.series, { aria:"HRV日次値の個人基準比、過去" + RULES.chartDays + "日" });
+    html += '<p class="note">日次値の個人基準比（過去' + RULES.chartDays + '日）。単日の上下では着色していません。</p>';
+    html += '<p class="note strong">HRVは単独では判断しません。膝の反応・睡眠・前日の負荷とあわせて見てください。</p>';
+    html += baselineNote(A);
+  }
+  html += '</div>';
+
+  /* --- 7. PTコメント欄 --- */
+  html += '<div class="card">';
+  html += '<div class="sec-label"><span class="num">7</span>担当PTの指示・コメント</div>';
+  html += '<div class="pt-box">今後ここにPTがコメントを書けるようにします<br>' +
+          '<span style="font-size:11.5px">（v1は読み取り専用の空枠です）</span></div>';
+  html += '</div>';
+
+  /* ======================= アコーディオン ======================= */
+  html += '<div style="height:6px"></div>';
+
+  /* 膝と前日負荷 */
+  html += acc("膝と前日の負荷", '<span class="s-val">未実装</span><span>入力の仕組みがまだありません</span>',
+    '<h4>この2項目が最上位である理由</h4>' +
+    '<p class="note" style="font-size:12.5px;color:var(--ink-2)">' +
+    '指標の優先順位は「膝など局所の翌朝の反応 ＞ 睡眠 ＞ 安静時心拍・HRV」です。' +
+    'ウェアラブルから取れる睡眠・心拍・HRVは、この順位でいちばん下にあたります。' +
+    '最優先の2項目が未実装のあいだ、この画面だけで練習量を決めることはできません。</p>' +
+    '<h4 class="mt">実装予定</h4>' +
+    '<div class="kv"><span class="k">morning シート（朝の主観入力）</span><span class="v miss">未作成</span></div>' +
+    '<div class="kv"><span class="k">・膝の腫れ</span><span class="v miss">—</span></div>' +
+    '<div class="kv"><span class="k">・膝の痛み</span><span class="v miss">—</span></div>' +
+    '<div class="kv"><span class="k">・膝のこわばり</span><span class="v miss">—</span></div>' +
+    '<div class="kv"><span class="k">session シート（練習後入力）</span><span class="v miss">未作成</span></div>' +
+    '<div class="kv"><span class="k">・RPE</span><span class="v miss">—</span></div>' +
+    '<div class="kv"><span class="k">・ジャンプ本数</span><span class="v miss">—</span></div>' +
+    '<p class="note">入力方法（誰が・いつ・どの尺度で答えるか）はPTと相談して決めます。</p>');
+
+  /* 睡眠 */
+  var slSummary = (sl.avg7 !== null)
+    ? '<span class="s-val">' + fmtHM(sl.avg7) + '</span><span>7日平均｜個人基準比 ' + (sl.base.valid ? fmtSigned(sl.pct,1,"%") : "—") + '</span>'
+    : '<span class="s-val">データ不足</span><span>7日平均を出せません</span>';
+  html += acc("睡眠", slSummary, sleepDetail(A));
+
+  /* 心拍・HRV */
+  var hrvSummary = (hrv.avg7 !== null && hrv.base.valid)
+    ? '<span class="s-val">HRV 7日平均 ' + fmtSigned(hrv.pct,1,"%") + '</span><span>安静時心拍 ' +
+      (A.metrics.resting_hr.base.valid && A.metrics.resting_hr.avg7 !== null ? fmtSigned(A.metrics.resting_hr.pct,1,"%") : "—") + '</span>'
+    : '<span class="s-val">データ不足</span><span>個人基準と比較できません</span>';
+  html += acc("心拍・HRV", hrvSummary, hrDetail(A));
+
+  /* その他 */
+  var stepsLatest = A.byDate[A.latestDate] ? num(A.byDate[A.latestDate].steps) : null;
+  var otherSummary = '<span class="s-val">SpO2 ' +
+    (A.metrics.spo2.avg7 !== null ? fmt(A.metrics.spo2.avg7,1) + "%" : "—") + '</span><span>呼吸数 ' +
+    (A.metrics.resp_rate.avg7 !== null ? fmt(A.metrics.resp_rate.avg7,1) + "回/分" : "—") + '｜歩数 ' +
+    (stepsLatest !== null ? stepsLatest.toLocaleString("ja-JP") + "歩" : "未取得") + '</span>';
+  html += acc("その他（SpO2・呼吸数・歩数）", otherSummary, otherDetail(A));
+
+  /* データ取得状況 */
+  var covSummary = (missCount || partCount)
+    ? '<span class="s-val">' + (missCount + partCount) + '日に欠測</span><span>直近' + RULES.chartDays + '日</span>'
+    : '<span class="s-val">直近' + RULES.chartDays + '日すべて取得</span><span>—</span>';
+  html += acc("データ取得状況", covSummary, coverageDetail(A));
+
+  html += howtoBlock();
+  html += '<div class="foot">MIC コンディション記録 v1（たたき台）<br>この画面の項目・見せ方について、担当PTのご意見をお願いします。</div>';
+  html += '</main>';
+  return html;
+}
+
+/* 最優先の2項目（未実装）。膝と前日負荷を別カードに分けず、一続きのブロックで見せる。
+   「昨日どれだけやったか → 今朝どう出たか」が並んで見えることが判断に効くため。 */
+function todoBlock(){
+  return '<div class="todo-block">' +
+    '<div class="tb-head">3・4　最優先の項目（未実装）</div>' +
+    '<div class="todo-item">' +
+      '<div class="ti-top"><h3>膝の翌朝反応</h3><span class="ti-rank">優先度 1</span></div>' +
+      '<p class="ti-desc">腫れ・痛み・こわばりを翌朝に評価した記録。判断のいちばん上に置く項目。</p>' +
+      '<div class="ti-ph">この項目は最優先ですが、まだ実装されていません</div>' +
+    '</div>' +
+    '<div class="todo-item">' +
+      '<div class="ti-top"><h3>前日の負荷（RPE・ジャンプ本数）</h3><span class="ti-rank">優先度 2</span></div>' +
+      '<p class="ti-desc">練習後に入力する主観的運動強度とジャンプ本数。翌朝の反応と並べて見るための対になる記録。</p>' +
+      '<div class="ti-ph">この項目は最優先ですが、まだ実装されていません</div>' +
+    '</div>' +
+    '<div class="todo-flow"><span>昨日どれだけやったか</span><span aria-hidden="true">→</span>' +
+    '<span>今朝どう出たか</span><span>を並べて見るための枠です</span></div>' +
+  '</div>';
+}
+
+function acc(title, summaryHtml, bodyHtml){
+  return '<details class="acc"><summary><div class="acc-row"><div class="acc-ttl">' + esc(title) +
+    '</div><div class="acc-mark" aria-hidden="true"></div></div>' +
+    '<div class="acc-summary">' + summaryHtml + '</div></summary>' +
+    '<div class="acc-body">' + bodyHtml + '</div></details>';
+}
+
+function sleepDetail(A){
+  var m = A.metrics.sleep_hours;
+  var r = A.byDate[A.latestDate] || {};
+  var h = '';
+  h += '<h4>睡眠時間の推移（過去' + RULES.chartDays + '日）</h4>';
+  h += chartBars(m.series, m.base.valid ? m.base.mean : null, { decimals:1, aria:"睡眠時間の推移" });
+  h += '<h4 class="mt">前夜の内訳</h4>';
+  [["総睡眠時間","sleep_hours","h"],["在床時間","in_bed_hours","h"],["睡眠効率","sleep_efficiency","%"],
+   ["深い睡眠","deep_hours","h"],["REM睡眠","rem_hours","h"],["コア（浅い）睡眠","core_hours","h"],
+   ["中途覚醒","awake_hours","h"]].forEach(function(x){
+    var v = num(r[x[1]]);
+    var txt = (v === null) ? '未取得'
+      : (x[2] === "h" ? fmtHM(v) : fmt(v,1) + x[2]);
+    h += '<div class="kv"><span class="k">' + x[0] + '</span><span class="v' + (v===null?' miss':'') + '">' + txt + '</span></div>';
+  });
+  h += '<div class="kv"><span class="k">就床</span><span class="v' + (r.sleep_start?'':' miss') + '">' +
+       esc(r.sleep_start || "未取得") + '</span></div>';
+  h += '<div class="kv"><span class="k">起床</span><span class="v' + (r.sleep_end?'':' miss') + '">' +
+       esc(r.sleep_end || "未取得") + '</span></div>';
+  h += baselineNote(A);
+  return h;
+}
+
+function hrDetail(A){
+  var hrv = A.metrics.hrv_ms, rhr = A.metrics.resting_hr;
+  var h = '';
+  h += '<h4>HRV：日次値と7日移動平均</h4>';
+  h += chartBandDots(hrv, { aria:"HRVの日次値と7日移動平均、個人基準帯" });
+  h += '<p class="note">日次値は点で示しています。日々の変動が大きいため、線では結んでいません。' +
+       '帯は「個人基準帯」（基準期間の平均 ± 1標準偏差）で、正常範囲ではありません。</p>';
+  h += baselineNote(A);
+  h += '<p class="note strong">HRVは高いほど良いという単純な指標ではありません。単独では判断しません。</p>';
+  h += '<div class="kv" style="margin-top:10px"><span class="k">前夜のHRV</span><span class="v' +
+       (hrv.latest===null?' miss':'') + '">' + (hrv.latest===null?'未取得':fmt(hrv.latest,1)+' ms') + '</span></div>';
+  h += '<div class="kv"><span class="k">7日移動平均</span><span class="v">' +
+       (hrv.avg7===null?'—':fmt(hrv.avg7,1)+' ms') + '</span></div>';
+  h += '<div class="kv"><span class="k">個人基準の平均</span><span class="v">' +
+       (hrv.base.valid?fmt(hrv.base.mean,1)+' ms':'—') + '</span></div>';
+  h += '<div class="kv"><span class="k">個人基準のばらつき（1SD）</span><span class="v">' +
+       (hrv.base.valid?'±'+fmt(hrv.base.sd,1)+' ms':'—') + '</span></div>';
+
+  h += '<h4 class="mt">安静時心拍：日次値と7日移動平均</h4>';
+  h += chartBandDots(rhr, { aria:"安静時心拍の日次値と7日移動平均、個人基準帯" });
+  h += '<div class="kv"><span class="k">前夜の安静時心拍</span><span class="v' +
+       (rhr.latest===null?' miss':'') + '">' + (rhr.latest===null?'未取得':fmt(rhr.latest,0)+' bpm') + '</span></div>';
+  h += '<div class="kv"><span class="k">7日移動平均</span><span class="v">' +
+       (rhr.avg7===null?'—':fmt(rhr.avg7,1)+' bpm') + '</span></div>';
+  h += '<div class="kv"><span class="k">個人基準の平均</span><span class="v">' +
+       (rhr.base.valid?fmt(rhr.base.mean,1)+' bpm':'—') + '</span></div>';
+  var r = A.byDate[A.latestDate] || {};
+  h += '<div class="kv"><span class="k">心拍の最小／平均（前夜）</span><span class="v">' +
+       (num(r.hr_min)===null?'未取得':fmt(num(r.hr_min),0)) + ' ／ ' +
+       (num(r.hr_avg)===null?'未取得':fmt(num(r.hr_avg),0)) + ' bpm</span></div>';
+  return h;
+}
+
+function otherDetail(A){
+  var h = '';
+  var spo2 = A.metrics.spo2, resp = A.metrics.resp_rate;
+  var r = A.byDate[A.latestDate] || {};
+
+  h += '<h4>SpO2（血中酸素飽和度）</h4>';
+  h += '<div class="kv"><span class="k">前夜</span><span class="v' + (spo2.latest===null?' miss':'') + '">' +
+       (spo2.latest===null?'未取得':fmt(spo2.latest,1)+' %') + '</span></div>';
+  h += '<div class="kv"><span class="k">7日移動平均</span><span class="v">' +
+       (spo2.avg7===null?'—':fmt(spo2.avg7,1)+' %') + '</span></div>';
+  h += '<div class="kv"><span class="k">個人基準比</span><span class="v">' +
+       (spo2.base.valid&&spo2.pct!==null?fmtSigned(spo2.pct,1,"%"):'—') + '</span></div>';
+
+  h += '<h4 class="mt">呼吸数</h4>';
+  h += '<div class="kv"><span class="k">前夜</span><span class="v' + (resp.latest===null?' miss':'') + '">' +
+       (resp.latest===null?'未取得':fmt(resp.latest,1)+' 回/分') + '</span></div>';
+  h += '<div class="kv"><span class="k">7日移動平均</span><span class="v">' +
+       (resp.avg7===null?'—':fmt(resp.avg7,1)+' 回/分') + '</span></div>';
+  h += '<div class="kv"><span class="k">個人基準比</span><span class="v">' +
+       (resp.base.valid&&resp.pct!==null?fmtSigned(resp.pct,1,"%"):'—') + '</span></div>';
+
+  h += '<h4 class="mt">歩数（過去' + RULES.chartDays + '日）</h4>';
+  var stepSeries = A.axis.map(function(d){
+    return { date:d, value: A.byDate[d] ? num(A.byDate[d].steps) : null };
+  });
+  h += chartBars(stepSeries, null, { decimals:0, aria:"歩数の推移" });
+  h += '<p class="note">歩数は日中の活動量の目安です。練習内容そのものを表す値ではありません。</p>';
+
+  h += '<h4 class="mt">手首皮膚温</h4>';
+  h += '<div class="kv"><span class="k">wrist_temp</span><span class="v miss">取得できません</span></div>';
+  h += '<p class="note">現在使用しているデバイスでは手首皮膚温を取得できないため、この列は常に空です。' +
+       '空欄を0として扱わず、集計からも除外しています。</p>';
+  return h;
+}
+
+function coverageDetail(A){
+  var cols = [["睡眠","sleep_hours"],["安静時心拍","resting_hr"],["HRV","hrv_ms"],
+              ["呼吸数","resp_rate"],["SpO2","spo2"],["歩数","steps"]];
+  var h = '';
+  h += '<h4>直近' + RULES.chartDays + '日の取得状況</h4>';
+  h += '<table class="grid"><thead><tr><th>日付</th>' +
+       cols.map(function(c){ return '<th>' + c[0] + '</th>'; }).join('') + '</tr></thead><tbody>';
+  A.axis.slice().reverse().forEach(function(d){
+    var r = A.byDate[d];
+    h += '<tr><td class="d">' + ymdLabel(d) + '</td>';
+    if (!r){
+      h += '<td class="no" colspan="' + cols.length + '">記録なし（デバイス未装着／同期漏れ）</td>';
+    } else {
+      cols.forEach(function(c){
+        var v = num(r[c[1]]);
+        h += (v === null) ? '<td class="no">—</td>' : '<td class="ok">✓</td>';
+      });
+    }
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  h += '<p class="note">「—」は欠測です。欠測は0として扱わず、平均・標準偏差の計算から除外しています。' +
+       'そのため欠測が多い期間は、値が出ていても比較の精度が落ちます。</p>';
+
+  h += '<h4 class="mt">個人基準（ベースライン）</h4>';
+  if (A.baseline){
+    h += '<div class="kv"><span class="k">基準期間</span><span class="v">' + esc(A.baseline.start) + ' 〜 ' + esc(A.baseline.end) + '</span></div>';
+    h += '<div class="kv"><span class="k">期間内のデータ日数</span><span class="v">' + A.baseline.days + '日</span></div>';
+    h += '<div class="kv"><span class="k">承認</span><span class="v">' + esc(A.baseline.approvedBy) + '（' + esc(A.baseline.approvedAt) + '）</span></div>';
+  } else {
+    h += '<div class="kv"><span class="k">基準期間</span><span class="v miss">未設定</span></div>';
+  }
+  h += '<p class="note">基準は毎日自動では更新しません。自動更新すると、徐々に悪化した状態まで' +
+       '「新しい平常」として取り込んでしまい、悪化が検出できなくなるためです。' +
+       'この基準はPTが承認したときだけ更新されます。</p>';
+
+  h += '<h4 class="mt">指標ごとの判定可否</h4>';
+  Object.keys(RULES.metrics).forEach(function(k){
+    var m = A.metrics[k];
+    h += '<div class="kv"><span class="k">' + esc(m.cfg.label.replace("（7日平均）","")) + '</span><span class="v">' +
+         (m.base.valid
+           ? '基準' + m.base.n + '日／直近7日中' + m.coverage.have + '日'
+           : '<span class="miss">基準' + m.base.n + '日（不足）</span>') + '</span></div>';
+  });
+  return h;
+}
+
+function howtoBlock(){
+  var M = RULES.metrics;
+  var lines = Object.keys(M).map(function(k){
+    var c = M[k];
+    return esc(c.label.replace("（7日平均）","")) + "：個人基準より" +
+      (c.dir === "low" ? "低い" : "高い") + "方向に、差が " + c.pct + "% を超え、かつ " +
+      c.sd + "SD 以上外れたとき「確認が必要」／" + c.sdConsult + "SD 以上外れたとき「PTへ確認」";
+  });
+  return '<div class="howto">' +
+    '<h3>この画面の判定の作り方（ご意見をください）</h3>' +
+    '<ul>' +
+      '<li>総合スコア・Readiness・コンディション点数は作っていません。複数の指標を1つの数字にまとめていません。</li>' +
+      '<li>HRVの絶対値による判定はしていません。AppleヘルスケアのHRVは原則SDNN、7日平均の研究で広く使われるのはLnRMSSDで、指標の種類が違うため文献の閾値をそのまま当てはめていません。</li>' +
+      '<li>判定に使うのは、その選手自身の基準期間との差（%）と、基準期間のばらつき（SD）に対する逸脱の2つだけです。</li>' +
+      '<li>' + lines.join('</li><li>') + '</li>' +
+      '<li>上の「差が◯%」は、ごくわずかな変化を拾わないための下限の歯止めです。判定の主役はSDのほうで、%はどの指標でも1SD相当より小さい値に置いています。</li>' +
+      '<li><b>ここがご相談したい点です。</b>基準期間が短い／安定しすぎているとSDが小さく出るため、わずかな変化でも「確認が必要」が立ちやすくなります。逆に厳しくすると見落とします。どちらに寄せるべきかをご指示ください。</li>' +
+      '<li>同じ日に「確認が必要」が' + RULES.concurrentForConsult + '本以上立った場合も「PTへ確認」に上げています。これは点数化ではなく、本数を数えているだけです。</li>' +
+      '<li>基準期間内のデータが' + RULES.minBaselineDays + '日分未満、または直近7日の取得が' + RULES.minRollingDays + '日分未満のときは、判定せず「データ不足」と表示します。</li>' +
+      '<li><b>上に書いた数値はすべて暫定です。</b>担当PTのご指摘を受けて調整する前提の仮置きの値で、根拠のある基準ではありません。</li>' +
+    '</ul></div>';
+}
+
+/* --------------------------------------------------------------------------
+   10. 起動
+   -------------------------------------------------------------------------- */
+function mount(payload, meta){
+  var A = analyze(payload);
+  document.getElementById("app").innerHTML = render(A, meta);
+  var sel = document.getElementById("mockSel");
+  if (sel){
+    sel.addEventListener("change", function(){
+      var u = new URL(location.href);
+      u.searchParams.set("demo", sel.value);
+      location.href = u.toString();
+    });
+  }
+}
+function showError(title, body){
+  document.getElementById("app").innerHTML =
+    '<div class="topbar"><div class="t1">MIC コンディション記録</div>' +
+    '<div class="t2">練習の許可・再開・増量を判定する画面ではありません</div></div>' +
+    '<div class="err"><b>' + esc(title) + '</b>' + body + '</div>';
+}
+
+(function init(){
+  var token = qs("token");
+  var athlete = qs("athlete") || qs("athlete_id") || CFG.DEFAULT_ATHLETE;
+  var demo = qs("demo");
+
+  // トークンが無い場合はサンプルデータを表示する（PTレビュー用のたたき台）。
+  if (!token){
+    var kind = demo || "full";
+    mount(buildMock(kind), { mock:true, demo:kind });
+    return;
+  }
+  if (!CFG.API_URL || CFG.API_URL.indexOf("__") === 0){
+    showError("接続先が未設定です",
+      "この画面の <code>CFG.API_URL</code> に、既存の「ウェアラブル取り込み用」ウェブアプリの /exec URL を設定してください。" +
+      "設定手順は README.md を参照してください。");
+    return;
+  }
+
+  var url = CFG.API_URL +
+    "?action=summary&token=" + encodeURIComponent(token) +
+    "&athlete_id=" + encodeURIComponent(athlete) +
+    "&days=60";
+
+  fetch(url, { method:"GET" })
+    .then(function(res){ return res.json(); })
+    .then(function(json){
+      if (!json || json.ok !== true){
+        showError("データを取得できませんでした",
+          esc((json && json.error) || "サーバーからの応答を解釈できませんでした。") +
+          "<br>URLのトークンと、スクリプトプロパティ VIEW_TOKEN の設定を確認してください。");
+        return;
+      }
+      mount(json, { mock:false, demo:"" });
+    })
+    .catch(function(e){
+      showError("通信に失敗しました",
+        "ネットワーク接続と、ウェブアプリのデプロイ設定（アクセスできるユーザー＝全員）を確認してください。<br>" +
+        '<span style="font-size:11.5px">' + esc(String(e)) + "</span>");
+    });
+})();
+</script>
+</body>
+</html>
