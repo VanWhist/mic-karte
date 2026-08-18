@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>経過画面 デモ｜MIC コンディション記録</title>
+<style>
+  :root{
+    --ink:#1c2024; --sub:#5b6470; --muted:#8b939c;
+    --line:#e3e6ea; --bg:#f5f6f8; --surface:#ffffff;
+    --amber:#b45309; --amberBg:#fff7ed; --amberLine:#f0c88a;
+    --slate:#64748b;
+    --sMorning:#2a78d6;  /* 朝 */
+    --sPost:#eb6834;     /* 練習後 */
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+       font-size:14.5px;line-height:1.6;}
+  .wrap{max-width:390px;margin:0 auto;padding-bottom:80px;}
+  .topbar{background:#1c2024;color:#fff;padding:11px 14px;}
+  .topbar .t1{font-size:12.5px;color:#c8ccd2}
+  .topbar .t2{font-size:13.5px;font-weight:700;margin-top:2px}
+  .topbar .t3{font-size:11.5px;color:#9aa3ad;margin-top:4px}
+
+  .sec{margin:12px 12px 0;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .card.amber{border:1.5px solid var(--amberLine);background:var(--amberBg);}
+  h2{margin:0 0 3px;font-size:15px;}
+  .lead{margin:0 0 10px;font-size:12.5px;color:var(--sub);}
+  .k{font-size:12.5px;color:var(--sub);}
+  .num{font-variant-numeric:tabular-nums;}
+  .hint{border:0;background:none;color:var(--sub);font-size:12px;padding:0 4px;
+        min-width:24px;min-height:24px;cursor:pointer;}
+
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;}
+  .kv .v{font-weight:600;text-align:right}
+
+  .state{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px;}
+  .state span{font-size:11.5px;border:1px solid var(--line);border-radius:999px;
+    padding:2px 9px;background:#fff;color:var(--sub);}
+  .state span.done{border-color:var(--ink);color:var(--ink);font-weight:600;}
+
+  button.act{display:block;width:100%;min-height:44px;border-radius:10px;font-size:15px;
+    border:0;background:#1c2024;color:#fff;margin-top:10px;}
+  button.act.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin:0 0 4px;}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px;}
+  .legend u{display:inline-block;width:0;height:0;border-left:5px solid transparent;
+    border-right:5px solid transparent;border-bottom:8px solid var(--ink);margin-right:4px;vertical-align:0;}
+
+  svg{display:block;width:100%;overflow:visible;}
+  .axis text{font-size:9.5px;fill:var(--muted);}
+  .grid line{stroke:var(--line);stroke-width:1;}
+  .gtitle{font-size:12.5px;font-weight:600;margin:8px 0 1px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+  th,td{border:1px solid var(--line);padding:5px 5px;text-align:center;}
+  th{background:#f7f8f9;color:var(--sub);font-weight:600;font-size:11.5px;}
+  td.dt{text-align:left;color:var(--sub);white-space:nowrap}
+  td.why{text-align:left;font-size:11.5px;color:var(--amber);}
+
+  .site{display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:13px;margin-top:4px;}
+  .site b{border:1px solid var(--line);border-radius:6px;padding:1px 8px;background:#fafbfc;font-weight:600}
+  .site b.chg{border-color:var(--amberLine);background:var(--amberBg);color:var(--amber)}
+
+  .ev{display:flex;gap:9px;font-size:13px;margin-bottom:8px;}
+  .ev .d{flex:0 0 46px;color:var(--sub);font-size:12px;padding-top:1px;}
+  .ev.hit .v{color:var(--amber);font-weight:700}
+
+  details{border-top:1px solid var(--line);padding-top:8px;margin-top:4px;}
+  details summary{font-size:13.5px;font-weight:600;cursor:pointer;min-height:24px;}
+  details .lead{margin-top:6px}
+
+  .wrow{padding:7px 0;border-bottom:1px solid var(--line);}
+  .wrow:last-child{border-bottom:0}
+  .wtop{display:flex;justify-content:space-between;align-items:baseline;}
+  .wtop .lab{font-size:13px}
+  .wtop .val{font-size:16px;font-weight:700}
+  .wtop .unit{font-size:11px;font-weight:600;margin-left:1px}
+  .wbase{font-size:11px;color:var(--sub);}
+
+  .dayrow{display:flex;justify-content:space-between;gap:8px;width:100%;
+    padding:9px 2px;border-bottom:1px solid var(--line);font-size:13px;
+    background:none;border-left:0;border-right:0;border-top:0;text-align:left;min-height:44px;}
+  .dayrow .r{color:var(--sub);font-size:12px}
+  .dayrow.hit{background:var(--amberBg)}
+
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-width:390px;margin:0 auto;
+    background:#fff;border-top:1px solid var(--line);border-radius:14px 14px 0 0;
+    box-shadow:0 -6px 24px rgba(0,0,0,.12);padding:12px 14px 18px;transform:translateY(102%);
+    transition:transform .18s ease;z-index:20;}
+  .sheet.on{transform:translateY(0)}
+  .sheet .sh{display:flex;justify-content:space-between;align-items:center;}
+  .sheet .sh b{font-size:15px}
+  .sheet .cl{min-width:44px;min-height:44px;border:0;background:none;font-size:20px;color:var(--sub)}
+  .nav{display:flex;gap:8px;margin-top:10px}
+  .nav button{flex:1;min-height:44px;border:1px solid var(--line);background:#fff;border-radius:9px;font-size:14px}
+  .stage{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);}
+  .stage:first-of-type{border-top:0}
+  .stage .sn{flex:0 0 62px;font-size:12.5px;font-weight:700;color:var(--muted);padding-top:1px}
+  .stage .sd{font-size:13px;color:var(--sub)}
+  .stage.now .sn{color:var(--ink)} .stage.now .sd{color:var(--ink)}
+  .stage .badge{display:block;font-size:10.5px;font-weight:700;color:#fff;background:var(--ink);
+    border-radius:4px;padding:0 5px;margin-top:3px;width:fit-content}
+  .note{margin-top:10px;border-top:1px solid var(--line);padding-top:9px;font-size:12.5px;color:var(--sub)}
+  .calc{margin-top:8px;font-size:12px;color:var(--amber);background:#fff;
+    border:1px solid var(--amberLine);border-radius:8px;padding:7px 10px;line-height:1.5}
+  .facts{margin-top:10px;border-top:1px solid var(--amberLine);padding-top:6px}
+  .facts .k{color:var(--amber)} .facts .v{color:var(--amber)}
+  .dec{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;background:#fafbfc}
+  .dec .dh{font-size:12px;color:var(--sub);margin-bottom:3px}
+  .dec .db{font-size:13px}
+  .dec .dw{font-size:12px;color:var(--sub);margin-top:4px}
+  .dec.open{border-style:dashed;background:#fff}
+  .demo{background:#fffbeb;border-bottom:2px solid #f0c88a;padding:11px 14px;}
+  .demo .dt1{font-size:14px;font-weight:700;color:var(--amber)}
+  .demo .dt2{font-size:12.5px;color:#7c5a12;margin-top:3px;line-height:1.55}
+  .demo .dl{border-top:1px solid #f0c88a;margin-top:9px;padding-top:8px}
+  .demo .dl summary{font-size:13px;font-weight:700;color:var(--amber);min-height:32px;line-height:1.9}
+  .demo ol{margin:4px 0 0;padding-left:1.25em;font-size:12.5px;color:#5a4a2a;line-height:1.7}
+  .demo ol li{margin-bottom:5px}
+  .demo .dnote{margin:6px 0 0;font-size:11.5px;color:#8a7a5a}
+  details.rules{border-top:1px solid var(--amberLine);margin-top:10px;padding-top:8px}
+  details.rules summary{font-size:13px;font-weight:700;color:var(--amber);min-height:32px;line-height:2.1}
+  .rb{font-size:12.5px;color:#5a4a2a;padding:5px 0;border-bottom:1px dotted var(--amberLine);line-height:1.65}
+  .rb:last-of-type{border-bottom:0}
+  .rn{font-size:11.5px;color:#8a7a5a;margin-top:7px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="demo">
+  <div class="dt1">操作確認用のデモです</div>
+  <div class="dt2">画面の数値・日付・部位は<b>すべて架空のサンプル</b>です。実在の選手の記録ではありません。</div>
+  <details class="dl">
+    <summary>見ていただきたい点（4つ）</summary>
+    <ol>
+      <li><b>この画面を見て、相談を受けたときに判断ができそうか。</b>足りない情報、逆に不要な情報があれば教えてください。</li>
+      <li><b>「いま、誰が判断するか」の段階1〜3という進め方に同意いただけるか。</b>とくに段階2で線を引いていただく形が現実的かどうか。</li>
+      <li><b>ボタンやグラフの操作が分かりにくくないか。</b>グラフや日付はタップできます。</li>
+      <li><b>「いま適用しているルール（v1）」の表示が、ご回答の内容と合っているか。</b>オレンジの枠の中にあります。</li>
+    </ol>
+    <p class="dnote">ボタンは押せますが、デモのため実際の送信・記録は行いません。</p>
+  </details>
+</div>
+
+<div class="topbar">
+  <div class="t1">MIC コンディション記録　操作確認用デモ</div>
+  <div class="t2">この画面は判定しません。判断するのは人です</div>
+  <div class="t3">いまの判断者：担当PT　／　段階 1 / 3</div>
+</div>
+
+<div class="sec">
+
+  <!-- 0 データの状況 -->
+  <div class="card">
+    <div class="kv"><span class="k">表示期間</span><span class="v num" id="range">—</span></div>
+    <div class="kv"><span class="k">最終同期</span><span class="v num">8/17 07:42</span></div>
+    <div class="kv"><span class="k">未入力の日</span><span class="v" id="miss">—</span></div>
+    <div class="kv"><span class="k">通知ルール</span><span class="v">v1（試行中）</span></div>
+    <div class="kv"><span class="k">数値の確認</span><span class="v">2026/08/18 PT確認済み</span></div>
+  </div>
+
+  <!-- 0.5 判断の範囲 -->
+  <div class="card">
+    <h2>いま、誰が判断するか</h2>
+    <p class="lead">最終的には、選手とスタッフがこの記録を見て練習の可否を判断できる状態を目指します。
+      そこへは段階を踏んで移します。いまは段階1です。</p>
+    <div class="stage now">
+      <div class="sn">段階 1<span class="badge">いま</span></div>
+      <div class="sd"><b>判断はすべて担当PT。</b>画面は記録と表示だけを行います。
+        該当した日と、そのとき誰がどう判断したかを残します。</div>
+    </div>
+    <div class="stage">
+      <div class="sn">段階 2</div>
+      <div class="sd">溜まった判断の記録をもとに、<b>「ここまでは選手とコーチが判断してよい」という線を担当PTが引きます。</b></div>
+    </div>
+    <div class="stage">
+      <div class="sn">段階 3</div>
+      <div class="sd">線の内側は<b>選手とスタッフが判断し、記録します。</b>線の外側は、これまでどおり担当PTに確認します。</div>
+    </div>
+    <div class="note">
+      段階が3になっても変えないこと：<b>該当が出ていないことは、練習してよいという意味にはしません。</b>
+      違和感があれば、記録に関係なく連絡します。
+    </div>
+  </div>
+
+  <!-- 1 通知・連絡の状況 -->
+  <div class="card amber">
+    <h2 style="color:var(--amber)">試行ルールに一致しました</h2>
+    <p class="lead" style="color:var(--amber)">自動の通知は送っていません。試行中のため、画面に記録として残しています。</p>
+    <div class="calc">
+      通知ルール <b>v1</b> で過去の記録を再計算しました<br>
+      計算日時 <b>8/18 07:20</b>　／　対象 <b>7/21–8/17</b>
+    </div>
+    <div style="font-size:13.5px;margin-top:8px">
+      該当した理由は2つです。<br>
+      ① 翌朝まで戻らない記録が3日続いた<br>
+      　（<b>8/14練習→8/15朝</b>・<b>8/15練習→8/16朝</b>・<b>8/16練習→8/17朝</b>）<br>
+      ② 症状の部位が変わり、強さも上がった（内側 → 前、<b>8/16</b>）
+    </div>
+    <div class="facts">
+      <div class="kv"><span class="k">本人からPTへ連絡した日時</span><span class="v">—</span></div>
+      <div class="kv"><span class="k">PTが記録を確認した日時</span><span class="v">—</span></div>
+      <div class="kv"><span class="k">判断</span><span class="v">—</span></div>
+    </div>
+    <button class="act">PTに相談する</button>
+    <p class="lead" style="margin:6px 0 0;font-size:11.5px">
+      送る内容を確認 → この期間を固定したリンクを作成 → 共有 → 連絡日時を記録、まで一続きで行います。</p>
+    <details class="rules">
+      <summary>いま適用しているルール（v1）を見る</summary>
+      <div class="rb"><b>症状の尺度</b>　0〜4 の5段階</div>
+      <div class="rb"><b>A　戻っていない</b>　練習後に増えた症状が、翌朝も当日朝より <b>1以上</b> 高い。
+        痛み・腫れ・こわばりの <b>どれか1つでも</b> 該当。それが <b>3日連続</b> したら該当。</div>
+      <div class="rb"><b>B　部位が変わった</b>　部位が前日と変わり、<b>かつ</b> その日の最も強い症状が前日より <b>1以上</b> 高い。</div>
+      <div class="rb"><b>入力がなかった日</b>　連続を切らずに保留し、その日は該当としない。</div>
+      <div class="rb"><b>再通知</b>　一度止めたあとは、次のいずれかが起きたときだけ。<br>
+        症状が2段階以上悪化した ／ 膝崩れ・ロッキング・新しい外傷が起きた ／ 前回から7日以上あいた</div>
+      <div class="rb"><b>別ルート（この画面を通さず直接ご連絡）</b>　膝崩れ ／ ロッキング ／ 新しい外傷</div>
+      <div class="rb"><b>使わないもの</b>　睡眠・安静時心拍・HRV・呼吸数・SpO2 の5項目。表示のみで、該当の判定には使いません。</div>
+      <div class="rn">2026/08/18 にご確認いただいた内容です。最終承認は、4週間の試算結果（何回該当したか／実際に対応が必要だった件数）をお見せしたうえで、あらためてお願いします。</div>
+    </details>
+  </div>
+
+  <!-- 2 膝の症状 -->
+  <div class="card">
+    <h2>膝の症状</h2>
+    <p class="lead">
+      痛み・腫れ・こわばりを別々に表示しています。まとめた指標は作りません。▲は、その項目自体が翌朝まで戻らなかった日だけに付きます。
+      <button class="hint" id="hDef">？</button>
+    </p>
+
+    <div style="font-weight:600;font-size:13.5px;margin-bottom:2px">該当した日（数字は 朝 → 練習後 → 翌朝）</div>
+    <table id="hitTbl"></table>
+
+    <div style="font-weight:600;font-size:13.5px;margin:14px 0 2px">推移</div>
+    <div class="legend">
+      <span><i style="background:var(--sMorning)"></i>朝</span>
+      <span><i style="background:var(--sPost)"></i>練習後</span>
+      <span><u></u>この項目が翌朝まで戻らなかった日</span>
+    </div>
+    <div id="charts"></div>
+    <p class="lead" style="margin-top:8px">グラフをタップすると、その日の記録が下に出ます。</p>
+
+    <div style="font-weight:600;font-size:13.5px;margin:12px 0 2px">部位の変化</div>
+    <div class="site" id="siteTl"></div>
+  </div>
+
+  <!-- 3 記録上の変化 -->
+  <div class="card">
+    <h2>記録上の変化</h2>
+    <p class="lead">観察された事実だけを並べています。</p>
+    <div id="events"></div>
+  </div>
+
+  <!-- 4 参考情報 -->
+  <div class="card">
+    <details>
+      <summary>参考情報：練習の負荷</summary>
+      <div class="legend" style="margin-top:8px">
+        <span><i style="background:var(--sMorning);border-radius:2px"></i>ジャンプ</span>
+        <span><i style="background:var(--sPost);border-radius:2px"></i>滑走</span>
+      </div>
+      <div id="loadChart"></div>
+      <p class="lead">ジャンプと滑走は足し合わせていません。合計の負荷として扱える根拠がないためです。
+        練習のなかった日は棒がありません。</p>
+    </details>
+    <details>
+      <summary>参考情報：ウェアラブル（5項目）</summary>
+      <p class="lead" style="margin-top:6px">
+        <b>現行の通知ルール（v1・2026-08-18 適用）には使用していません。</b>記録値のみ表示します。</p>
+      <div id="wearables"></div>
+      <p class="lead">HRV の指標種別：<b>SDNN</b>（Amazfit Active Max ／ Apple ヘルスケア経由）。
+        指標種別が変わるときは系列を分けます。</p>
+    </details>
+    <details>
+      <summary>日別の記録</summary>
+      <p class="lead" style="margin-top:6px">日付をタップすると詳細が出ます。</p>
+      <div id="dayList"></div>
+    </details>
+  </div>
+
+  <!-- 5 判断の記録 -->
+  <div class="card">
+    <h2>判断の記録</h2>
+    <p class="lead">該当が出たとき、誰が・何を見て・どう判断したかを残します。
+      これが段階2の線引きの根拠になります。</p>
+    <div id="decisions"></div>
+    <button class="act ghost">この期間の記録をPDFで書き出す</button>
+  </div>
+
+</div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sh"><b id="shTitle">—</b><button class="cl" id="shClose">×</button></div>
+  <div id="shBody" style="font-size:13.5px"></div>
+  <div class="nav"><button id="shPrev">← 前の日</button><button id="shNext">次の日 →</button></div>
+</div>
+
+<script>
+/* ================= データ（サンプル。実データではありません） ================= */
+var START=new Date(2026,6,21), N=28;
+var REST={1:1,4:1,6:1,9:1,12:1,16:1,18:1,22:1};
+var NOINPUT={13:1};                                  /* 未入力の日 */
+var mPain =[0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,1,1, 1,2,3,4];
+var mSwell=[0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0, 0,1,1,2];
+var mStiff=[0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0, 0,0,0,1];
+var ITEMS=[['pain','痛み'],['swell','腫れ',],['stiff','こわばり']];
+
+var days=[];
+for(var i=0;i<N;i++){
+  var d=new Date(START.getTime()); d.setDate(d.getDate()+i);
+  var rest=!!REST[i], big=i>=20, ni=!!NOINPUT[i];
+  var m={pain:mPain[i],swell:mSwell[i],stiff:mStiff[i]};
+  var p=rest?null:{pain:Math.min(4,m.pain+(big?2:1)),
+                   swell:Math.min(4,m.swell+1),
+                   stiff:Math.min(4,m.stiff+1)};
+  days.push({i:i,date:d,rest:rest,noInput:ni,morning:ni?null:m,post:ni?null:p,
+    site:i>=26?'前':'内側', jump:rest?null:(big?24:12), ski:rest?null:(big?12:8)});
+}
+/* 「戻らなかった」＝練習後に上がった項目のうち、翌朝も当日朝より高いものがある日 */
+days.forEach(function(r,i){
+  var nx=days[i+1]; r.notReturned=false; r.why=[]; r.whyKeys=[];
+  if(r.rest||r.noInput||!nx||!nx.morning||!r.morning||!r.post) return;
+  ITEMS.forEach(function(it){
+    var k=it[0];
+    if(r.post[k]>r.morning[k] && nx.morning[k]>r.morning[k]){
+      r.notReturned=true; r.why.push(it[1]); r.whyKeys.push(k); }
+  });
+});
+var SLEEP=[7.4,7.6,7.1,7.5,7.8,7.0,7.3,7.2,6.9,7.5,7.1,7.4,7.6,7.0,7.2,6.8,7.1,7.3,6.9,7.0,6.7,6.9,7.2,6.6,6.8,6.4,6.7,6.5];
+var RHR=[50,49,51,50,49,50,51,50,52,50,51,50,49,51,50,52,51,50,52,51,53,52,51,53,52,54,53,54];
+var HRV=[62,64,59,61,63,60,58,61,57,62,59,60,63,58,60,56,59,57,55,58,54,56,53,55,52,50,53,49];
+var RESP=[14.6,14.4,14.8,14.5,14.3,14.7,14.6,14.4,14.9,14.5,14.6,14.4,14.3,14.8,14.6,14.9,14.5,14.6,14.8,14.5,14.9,14.7,14.6,14.9,14.8,15.1,14.9,15.0];
+var SPO2=[97.4,97.2,97.6,97.3,97.5,97.1,97.4,97.2,96.9,97.5,97.3,97.4,97.6,97.0,97.2,96.8,97.1,97.3,96.9,97.2,97.0,97.1,97.4,96.9,97.1,96.7,97.0,96.8];
+
+var WD=['日','月','火','水','木','金','土'];
+function md(d){return (d.getMonth()+1)+'/'+d.getDate();}
+
+/* ================= 上部 ================= */
+document.getElementById('range').textContent = md(days[0].date)+'–'+md(days[N-1].date);
+document.getElementById('miss').textContent =
+  days.filter(function(r){return r.noInput;}).map(function(r){return md(r.date);}).join('・') || 'なし';
+
+/* ================= 該当した日の表 ================= */
+(function(){
+  var hits=days.filter(function(r){return r.notReturned;}).slice(-3);
+  var h='<tr><th>練習日 → 翌朝</th><th>痛み</th><th>腫れ</th><th>こわばり</th></tr>';
+  var b=hits.map(function(r){
+    var nx=days[r.i+1];
+    function cell(k){
+      var s=r.morning[k]+'→'+r.post[k]+'→'+nx.morning[k];
+      var bad=(r.post[k]>r.morning[k] && nx.morning[k]>r.morning[k]);
+      return '<td class="num"'+(bad?' style="color:var(--amber);font-weight:700"':'')+'>'+s+'</td>';
+    }
+    return '<tr><td class="dt">'+md(r.date)+' → '+md(nx.date)+'</td>'
+      + cell('pain')+cell('swell')+cell('stiff')+'</tr>'
+      + '<tr><td colspan="4" class="why">該当：'+r.why.join('・')+'（朝の値まで戻らず）　部位 '+r.site+'</td></tr>';
+  }).join('');
+  document.getElementById('hitTbl').innerHTML=h+b;
+})();
+
+/* ================= 推移（3つの小グラフ） ================= */
+function drawItem(key,label){
+  var W=346,H=62,PAD=18,BOT=13;
+  var g=(W-PAD)/N, x=function(i){return PAD+i*g+g/2;};
+  var y=function(v){return H-(v/4)*H;};
+  var s='';
+  [0,2,4].forEach(function(v){
+    s+='<g class="grid"><line x1="'+PAD+'" y1="'+y(v)+'" x2="'+W+'" y2="'+y(v)+'"/></g>'
+      +'<g class="axis"><text x="'+(PAD-4)+'" y="'+(y(v)+3)+'" text-anchor="end">'+v+'</text></g>';
+  });
+  var seg=[],cur=[];
+  days.forEach(function(r,i){
+    if(r.morning){cur.push(x(i)+','+y(r.morning[key]));} else {if(cur.length){seg.push(cur);cur=[];}}
+  });
+  if(cur.length)seg.push(cur);
+  seg.forEach(function(p){
+    s+='<polyline points="'+p.join(' ')+'" fill="none" stroke="var(--sMorning)" stroke-width="2" stroke-linejoin="round"/>';
+  });
+  days.forEach(function(r,i){
+    if(r.post) s+='<circle cx="'+x(i)+'" cy="'+y(r.post[key])+'" r="2.6" fill="var(--sPost)"/>';
+  });
+  days.forEach(function(r,i){
+    if(r.whyKeys && r.whyKeys.indexOf(key)>=0)
+      s+='<polygon points="'+(x(i)-4)+','+(H+8)+' '+(x(i)+4)+','+(H+8)+' '+x(i)+','+(H+1)+'" fill="var(--ink)"/>';
+  });
+  [0,7,14,21,27].forEach(function(i){
+    s+='<g class="axis"><text x="'+x(i)+'" y="'+(H+BOT+5)+'" text-anchor="middle">'+md(days[i].date)+'</text></g>';
+  });
+  days.forEach(function(r,i){
+    s+='<rect class="hitzone" data-i="'+i+'" x="'+(PAD+i*g)+'" y="0" width="'+g+'" height="'+(H+BOT)+'" fill="transparent"/>';
+  });
+  return '<div class="gtitle">'+label+'</div>'
+    +'<svg viewBox="0 0 '+W+' '+(H+BOT+8)+'" role="img" aria-label="'+label+'の推移">'+s+'</svg>';
+}
+document.getElementById('charts').innerHTML =
+  ITEMS.map(function(it){return drawItem(it[0],it[1]);}).join('');
+
+/* ================= 部位 ================= */
+(function(){
+  var out=[], prev=null;
+  days.forEach(function(r,i){
+    if(r.site!==prev){
+      out.push('<b class="'+(prev?'chg':'')+'">'+md(r.date)+'〜　'+r.site+'</b>');
+      prev=r.site;
+    }
+  });
+  document.getElementById('siteTl').innerHTML = out.join('<span style="color:var(--sub)">→</span>');
+})();
+
+/* ================= 記録上の変化 ================= */
+document.getElementById('events').innerHTML = [
+  ['7/21〜8/9','ウォータージャンプ 12本・滑走 8本で推移。起床時の痛みは 0〜1',false],
+  ['8/3','入力なし（1日）',false],
+  ['8/10','ウォータージャンプを <b>12 → 24本</b>、滑走を <b>8 → 12本</b> に増やす',false],
+  ['8/14〜8/16','翌朝まで戻らない日が <b>3日続く</b>',true],
+  ['8/16','症状の部位が <b>内側 → 前</b> に変わり、痛みも上がる',true]
+].map(function(e){
+  return '<div class="ev'+(e[2]?' hit':'')+'"><div class="d">'+e[0]+'</div><div class="v">'+e[1]+'</div></div>';
+}).join('');
+
+/* ================= 参考：負荷（並列棒） ================= */
+(function(){
+  var W=346,H=88,PAD=20,BOT=13;
+  var g=(W-PAD)/N, bw=(g-3)/2, max=24;
+  var y=function(v){return H-(v/max)*H;}, x=function(i){return PAD+i*g;};
+  var s='';
+  [0,12,24].forEach(function(v){
+    s+='<g class="grid"><line x1="'+PAD+'" y1="'+y(v)+'" x2="'+W+'" y2="'+y(v)+'"/></g>'
+      +'<g class="axis"><text x="'+(PAD-4)+'" y="'+(y(v)+3)+'" text-anchor="end">'+v+'</text></g>';
+  });
+  days.forEach(function(r,i){
+    if(r.rest)return;
+    s+='<rect x="'+x(i)+'" y="'+y(r.jump)+'" width="'+bw+'" height="'+(H-y(r.jump))+'" rx="2" fill="var(--sMorning)"/>';
+    s+='<rect x="'+(x(i)+bw+1)+'" y="'+y(r.ski)+'" width="'+bw+'" height="'+(H-y(r.ski))+'" rx="2" fill="var(--sPost)"/>';
+  });
+  [0,7,14,21,27].forEach(function(i){
+    s+='<g class="axis"><text x="'+(x(i)+g/2)+'" y="'+(H+BOT+3)+'" text-anchor="middle">'+md(days[i].date)+'</text></g>';
+  });
+  document.getElementById('loadChart').innerHTML=
+    '<svg viewBox="0 0 '+W+' '+(H+BOT+6)+'" role="img" aria-label="練習の負荷">'+s+'</svg>';
+})();
+
+/* ================= 参考：ウェアラブル（5項目・縦配置） ================= */
+(function(){
+  function spark(arr){
+    var W=330,H=26;
+    var mn=Math.min.apply(null,arr),mx=Math.max.apply(null,arr),pad=(mx-mn)*0.15||1;
+    var y=function(v){return H-((v-(mn-pad))/((mx+pad)-(mn-pad)))*H;};
+    var x=function(i){return (i/(arr.length-1))*W;};
+    return '<svg viewBox="0 0 '+W+' '+H+'" style="height:26px" aria-hidden="true">'
+      +'<polyline points="'+arr.map(function(v,i){return x(i)+','+y(v);}).join(' ')
+      +'" fill="none" stroke="var(--slate)" stroke-width="2" stroke-linejoin="round"/>'
+      +'<circle cx="'+x(arr.length-1)+'" cy="'+y(arr[arr.length-1])+'" r="3" fill="var(--slate)"/></svg>';
+  }
+  function mean(a){return a.reduce(function(p,c){return p+c;},0)/a.length;}
+  function sd(a){var m=mean(a);return Math.sqrt(a.reduce(function(p,c){return p+(c-m)*(c-m);},0)/(a.length-1));}
+  var rows=[['睡眠時間',SLEEP,'時間',1],['安静時心拍',RHR,'bpm',0],['HRV（SDNN）',HRV,'ms',0],
+            ['呼吸数',RESP,'回/分',1],['SpO2',SPO2,'%',1]];
+  document.getElementById('wearables').innerHTML=rows.map(function(r){
+    var b=r[1].slice(0,14);
+    return '<div class="wrow"><div class="wtop"><span class="lab">'+r[0]+'</span>'
+      +'<span><span class="val num">'+r[1][N-1].toFixed(r[3])+'</span><span class="unit">'+r[2]+'</span></span></div>'
+      +'<div class="wbase num">基準期間の平均 '+mean(b).toFixed(r[3])+' ／ ばらつき ±'+sd(b).toFixed(1)+'</div>'
+      +spark(r[1])+'</div>';
+  }).join('');
+})();
+
+/* ================= 日別の記録 ================= */
+document.getElementById('dayList').innerHTML = days.slice().reverse().map(function(r){
+  var t = r.noInput ? '入力なし' : (r.rest ? '練習なし'
+        : '痛み '+r.morning.pain+'→'+r.post.pain+'　ジャンプ '+r.jump+'本');
+  return '<button class="dayrow'+(r.notReturned?' hit':'')+'" data-i="'+r.i+'">'
+    +'<span>'+md(r.date)+'（'+WD[r.date.getDay()]+'）</span><span class="r">'+t+'</span></button>';
+}).join('');
+
+/* ================= 判断の記録 ================= */
+document.getElementById('decisions').innerHTML = [
+  {open:true, d:'8/18 07:20', who:'—（未対応）',
+   body:'試行ルールに一致。まだ本人からの連絡も、PTの確認もありません。',
+   saw:'見たもの：—'},
+  {d:'8/11 09:40', who:'担当PT',
+   body:'このまま継続。本数は据え置き。',
+   saw:'見たもの：8/10練習→8/11朝の痛み（1→3→2）、部位 内側、ジャンプ24本'},
+  {d:'8/5 20:10', who:'選手本人 → コーチ',
+   body:'違和感の申告。翌日は滑走のみに変更。',
+   saw:'見たもの：本人の体感のみ（記録上は該当なし）'}
+].map(function(x){
+  return '<div class="dec'+(x.open?' open':'')+'">'
+    + '<div class="dh">'+x.d+'　／　'+x.who+'</div>'
+    + '<div class="db">'+x.body+'</div>'
+    + '<div class="dw">'+x.saw+'</div></div>';
+}).join('');
+
+/* ================= 下から出る詳細パネル ================= */
+var sheet=document.getElementById('sheet'), cur=null;
+function openSheet(i){
+  cur=i; var r=days[i], nx=days[i+1];
+  document.getElementById('shTitle').textContent = md(r.date)+'（'+WD[r.date.getDay()]+'）';
+  var html='';
+  if(r.noInput){ html='<p>入力がありません。連続の数え方では保留として扱い、この日は通知しません。</p>'; }
+  else{
+    html='<table><tr><th></th><th>朝</th><th>練習後</th><th>翌朝</th></tr>'
+      + ITEMS.map(function(it){
+          var k=it[0];
+          return '<tr><td class="dt">'+it[1]+'</td><td class="num">'+r.morning[k]+'</td>'
+            +'<td class="num">'+(r.post?r.post[k]:'—')+'</td>'
+            +'<td class="num">'+(nx&&nx.morning?nx.morning[k]:'—')+'</td></tr>';
+        }).join('')
+      + '</table>'
+      + '<div style="margin-top:8px">部位：<b>'+r.site+'</b></div>'
+      + '<div>'+(r.rest?'練習なし':'ジャンプ '+r.jump+'本 ／ 滑走 '+r.ski+'本')+'</div>'
+      + (r.notReturned?'<div style="margin-top:6px;color:var(--amber);font-weight:700">'
+          +r.why.join('・')+' が翌朝も朝の値まで戻っていません</div>':'');
+  }
+  document.getElementById('shBody').innerHTML=html;
+  sheet.classList.add('on');
+}
+document.getElementById('shClose').onclick=function(){sheet.classList.remove('on');};
+document.getElementById('shPrev').onclick=function(){ if(cur>0) openSheet(cur-1); };
+document.getElementById('shNext').onclick=function(){ if(cur<N-1) openSheet(cur+1); };
+document.addEventListener('click',function(e){
+  var z=e.target.closest?e.target.closest('.hitzone,.dayrow'):null;
+  if(z) openSheet(parseInt(z.getAttribute('data-i'),10));
+});
+/* ================= デモ：ボタンの挙動 ================= */
+var DEMO_MSG={
+  'PTに相談する':'実装時は、この順で進みます。\n\n1. 送る内容を画面で確認\n2. この期間を固定したリンクを作成\n3. 担当PTへ共有（閲覧はご本人のみ・期限つき）\n4. 連絡した日時を記録\n\nデモのため、実際の送信は行いません。',
+  'この期間の記録をPDFで書き出す':'実装時は、表示中の期間をPDFにして保存できます。\n\nデモのため、実際の書き出しは行いません。'
+};
+Array.prototype.forEach.call(document.querySelectorAll('button.act'),function(b){
+  b.addEventListener('click',function(){
+    alert(DEMO_MSG[b.textContent.trim()] || 'デモのため、この操作は行いません。');
+  });
+});
+
+document.getElementById('hDef').onclick=function(){
+  alert('「翌朝まで戻らなかった」とは：\n練習後に上がった項目のうち、翌朝の値が当日朝の値より1以上高いものがある日。\n痛み・腫れ・こわばりのどれか1つでも該当すれば、その日を該当日とします。\n\nこの定義は 2026/08/18 に担当PTがご確認済みです。\n（最終承認は4週間の試算結果をお見せしたうえで、あらためて）\n\n未確定：3日連続の数え方（暦日か練習日か）、休養日をはさんだ場合、\n1日2セッションの場合の扱い。');
+};
+</script>
+</body>
+</html>
