@@ -833,7 +833,7 @@ function applyAirlogJumps(n){
   if (el) el.focus();
 }
 
-/** 「コーチ（城・舘田）」と出す。名前が渡っていなければ「コーチ」だけ */
+/** 名前が渡っていれば「コーチ（〜）」、渡っていなければ「コーチ」だけ */
 function coachPhrase(){
   var c = String(CFG.COACHES || '').trim();
   return (!c || c === 'コーチ') ? 'コーチ' : 'コーチ（' + escapeHtml(c) + '）';
