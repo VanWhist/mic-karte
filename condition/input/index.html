@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>コンディション記録</title>
+<style>
+  :root{
+    --bg:#f5f6fa; --card:#fff; --line:#e3e5ec; --text:#1c1f26; --muted:#6b7280;
+    --accent:#4f46e5; --accent-bg:#eeecfd; --accent-soft:#f6f5ff;
+    --morning:#3b6fd4; --morning-bg:#e9f0fc;
+    --session:#a3620a; --session-bg:#fdf2e3;
+    --danger:#b42318; --danger-bg:#fdecea;
+    --tone:var(--accent); --tone-bg:var(--accent-bg);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+    font-size:16px; line-height:1.55; padding-bottom:150px;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:0 14px}
+
+  /* 上部 ─ 既存アプリに合わせた薄いヘッダー */
+  header.app{background:#fff;border-bottom:1px solid var(--line);padding:12px 14px 10px;position:relative}
+  header.app .inner{max-width:520px;margin:0 auto}
+  header.app .who{font-size:12px;color:var(--muted)}
+  header.app h1{margin:1px 0 0;font-size:19px;letter-spacing:.01em}
+  header.app .back{background:none;border:0;color:var(--accent);font-size:14px;padding:0 0 4px;margin:0 0 2px -2px}
+
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;
+    background:var(--tone-bg);color:var(--tone);margin-left:8px;vertical-align:2px}
+  .badge.grey{background:#eef0f4;color:var(--muted);font-weight:500}
+  .badge.wait{background:var(--session-bg);color:var(--session)}
+  .badge.done{background:#eaf3ec;color:#2f6b45}
+
+  .card{background:var(--card);border-radius:16px;padding:15px 15px 16px;margin:12px 0;
+    box-shadow:0 1px 2px rgba(20,22,30,.05)}
+  .card.toned{border-top:4px solid var(--tone)}
+  .card h2{margin:0 0 3px;font-size:15.5px}
+  .card .hint{margin:0 0 11px;font-size:12.5px;color:var(--muted)}
+
+  /* 0〜4 の5ボタン。絵文字は使わない */
+  .sym{margin-bottom:15px}
+  .sym .name{font-size:15px;font-weight:700}
+  .sym .desc{font-size:12px;color:var(--muted);margin-bottom:7px}
+  .scale{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .scale button{
+    position:relative;height:62px;border:2px solid var(--line);background:#fff;border-radius:12px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:10px;color:var(--muted);padding:2px 1px;line-height:1.15;white-space:nowrap;
+  }
+  .scale button .n{font-size:19px;font-weight:700;color:var(--text)}
+  .scale button[aria-pressed="true"]{border-color:var(--tone);border-width:3px;background:var(--tone-bg);color:var(--tone)}
+  .scale button[aria-pressed="true"] .n{color:var(--tone)}
+  .scale button[aria-pressed="true"]::after{content:"✓";position:absolute;top:3px;right:5px;font-size:11px;font-weight:700;line-height:1}
+  .picked{margin:7px 0 0;font-size:12.5px;color:var(--muted);min-height:1.4em}
+  .picked b{color:var(--text)}
+
+  .allzero{width:100%;min-height:46px;margin-top:2px;border:2px dashed var(--line);
+    background:#fff;border-radius:12px;font-size:14px;color:var(--text)}
+
+  /* 部位：膝の図＋チップ */
+  .knee{display:flex;gap:14px;align-items:center}
+  .knee svg{flex:0 0 132px}
+  .knee .zones{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .zones button{min-height:46px;border:2px solid var(--line);background:#fff;border-radius:12px;font-size:15px}
+  .zones button[aria-pressed="true"]{border-color:var(--tone);border-width:3px;background:var(--tone-bg);color:var(--tone);font-weight:700}
+  svg .zone{fill:#eef0f4;stroke:#d6d9e2;stroke-width:1.5;cursor:pointer}
+  svg .zone.on{fill:var(--tone-bg);stroke:var(--tone);stroke-width:2.5}
+  svg text{font-size:11px;fill:#5b6270;font-family:inherit}
+  svg text.on{fill:var(--tone);font-weight:700}
+  .sidenote{font-size:11.5px;color:var(--muted);margin-top:8px}
+
+  /* 直接連絡 */
+  .events button{width:100%;min-height:52px;text-align:left;padding:0 14px;border:2px solid var(--line);
+    background:#fff;border-radius:12px;font-size:15px;margin-bottom:8px}
+  .events button[aria-pressed="true"]{border-color:var(--danger);border-width:3px;background:var(--danger-bg);color:var(--danger);font-weight:700}
+  .events button[data-none="1"][aria-pressed="true"]{border-color:#2f6b45;background:#eaf3ec;color:#2f6b45}
+  .events button::before{content:"□ "}
+  .events button[aria-pressed="true"]::before{content:"☑ "}
+
+  .alert{border:2px solid var(--danger);background:var(--danger-bg);border-radius:16px;padding:14px;margin:12px 0}
+  .alert h3{margin:0 0 6px;font-size:15.5px;color:var(--danger)}
+  .alert p{margin:0 0 8px;font-size:13px}
+  .alert ol{margin:0 0 10px;padding-left:1.15em;font-size:13px}
+  .alert li{margin-bottom:3px}
+  .alert .go{display:block;text-align:center;background:var(--danger);color:#fff;text-decoration:none;
+    padding:13px;border-radius:12px;font-weight:700;font-size:15.5px}
+  .alert .did{width:100%;margin-top:8px;min-height:48px;border:2px solid var(--danger);background:#fff;
+    color:var(--danger);border-radius:12px;font-size:15px;font-weight:700}
+  .alert .did[aria-pressed="true"]{background:var(--danger);color:#fff}
+  .alert .stamp{font-size:12px;color:var(--danger);margin-top:6px}
+
+  /* 数値・RPE */
+  .num{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .num label{flex:1;font-size:15px}
+  .num input{width:104px;height:46px;border:2px solid var(--line);border-radius:12px;font-size:17px;
+    text-align:center;background:#fff}
+  .num .unit{font-size:14px;color:var(--muted)}
+
+  /* NTエアlogの参考表示。入力欄の値には触らない */
+  .ref{margin:-4px 0 12px;padding:9px 11px;border-radius:10px;background:#f4f6f9;
+       border:1px solid #e2e7ee;font-size:13px;color:#4a5057;line-height:1.5}
+  .ref .h{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .ref .tag{font-size:11px;font-weight:700;color:#fff;background:#8a949f;
+            border-radius:4px;padding:1px 6px;letter-spacing:.02em}
+  .ref .v{font-size:15px;font-weight:700;color:#1b1e22}
+  .ref .sub{display:block;margin-top:3px;font-size:12px;color:#6b737c}
+  .ref .fill{margin-top:7px;height:38px;padding:0 14px;border-radius:9px;
+             border:2px solid var(--tone);background:#fff;color:var(--tone);
+             font-size:14px;font-weight:700}
+  .ref .fill[disabled]{border-color:var(--line);background:#eef1f5;color:#8a949f;font-weight:500}
+  .rpe{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .rpe button{height:46px;border:2px solid var(--line);background:#fff;border-radius:12px;font-size:16px}
+  .rpe button[aria-pressed="true"]{border-color:var(--tone);border-width:3px;background:var(--tone-bg);color:var(--tone);font-weight:700}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chips button{min-height:46px;padding:0 18px;border:2px solid var(--line);background:#fff;border-radius:12px;font-size:15px}
+  .chips button[aria-pressed="true"]{border-color:var(--tone);border-width:3px;background:var(--tone-bg);color:var(--tone);font-weight:700}
+
+  /* 保存バー＋下部タブ */
+  .savebar{position:fixed;left:0;right:0;bottom:62px;background:rgba(255,255,255,.97);
+    border-top:1px solid var(--line);padding:9px 14px}
+  .savebar .inner{max-width:520px;margin:0 auto;display:flex;gap:8px}
+  .btn{flex:1;height:52px;border:0;border-radius:14px;font-size:16px;font-weight:700;background:var(--tone);color:#fff}
+  .btn[disabled]{background:#c9ccd6}
+  .btn.sub{background:#fff;color:var(--tone);border:2px solid var(--tone);flex:0 0 46%;font-size:15px}
+
+  .tabbar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+    display:flex;padding-bottom:env(safe-area-inset-bottom)}
+  .tabbar button{flex:1;height:62px;border:0;background:none;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:3px;font-size:11.5px;color:var(--muted)}
+  .tabbar button .ic{font-size:19px;line-height:1}
+  .tabbar button[aria-selected="true"]{color:var(--accent);font-weight:700}
+
+  /* ホームのタイル */
+  .tile{display:block;width:100%;text-align:left;border:0;background:var(--card);border-radius:16px;
+    padding:15px;margin-bottom:10px;box-shadow:0 1px 2px rgba(20,22,30,.05);position:relative}
+  .tile .t{font-size:16.5px;font-weight:700;display:block}
+  .tile .d{font-size:12.5px;color:var(--muted)}
+  .tile .bar{position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:0 3px 3px 0}
+  .tile.m .bar{background:var(--morning)}
+  .tile.s .bar{background:var(--session)}
+  .tile .st{position:absolute;right:14px;top:16px}
+
+  .plan{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .plan button{min-height:50px;border:2px solid var(--line);background:#fff;border-radius:12px;font-size:15px}
+  .plan button[aria-pressed="true"]{border-color:var(--tone);border-width:3px;background:var(--tone-bg);color:var(--tone);font-weight:700}
+
+  .note{font-size:12px;color:var(--muted);margin:14px 0 0}
+  .err{background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger);
+    border-radius:12px;padding:11px;font-size:13.5px;margin:10px 0}
+  .err ul{margin:6px 0 0;padding-left:18px}
+  .done{background:#eaf3ec;border:1px solid #2f6b45;color:#1f5334;border-radius:12px;padding:13px;font-size:14px}
+  table.rec{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.rec th,table.rec td{border-bottom:1px solid var(--line);padding:8px 4px;text-align:left;vertical-align:top}
+  table.rec th{color:var(--muted);font-weight:500;width:44%}
+
+  .daygroup{margin:0 0 14px}
+  .daygroup .d{font-size:13px;font-weight:700;color:var(--muted);padding:0 0 6px;border-bottom:1px solid var(--line)}
+  .rowbtn{width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);
+    padding:11px 2px;display:flex;gap:8px;align-items:flex-start}
+  .rowbtn .k{flex:0 0 96px;font-size:13px;font-weight:700}
+  .rowbtn .v{flex:1;font-size:13px;color:var(--muted);line-height:1.45}
+  .rowbtn .go{flex:0 0 auto;font-size:12px;color:var(--accent);align-self:center}
+  .demo{background:#fff8dc;border-bottom:1px solid #e8dfae;font-size:12px;padding:6px 14px;text-align:center;color:#6b5b16}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+<div id="demoBar" class="demo">デモ表示：保存先はまだつないでいません</div>
+
+<header class="app"><div class="inner">
+  <button id="backBtn" class="back hidden" type="button">← 戻る</button>
+  <div class="who" id="who"></div>
+  <h1 id="title">コンディション</h1>
+</div></header>
+
+<div class="wrap">
+
+  <!-- ===== 記録タブ ===== -->
+  <section id="view-home">
+    <button class="tile m" type="button" data-go="morning">
+      <span class="bar"></span>
+      <span class="st" id="st-morning"></span>
+      <span class="t">起床時の記録</span>
+      <span class="d">起きてすぐ・目安20秒</span>
+    </button>
+    <button class="tile s" type="button" data-go="session">
+      <span class="bar"></span>
+      <span class="st" id="st-session"></span>
+      <span class="t">練習後の記録</span>
+      <span class="d">練習が終わったら・目安40秒　1日に何回でも</span>
+    </button>
+
+    <div class="card">
+      <h2>今日の予定<span class="badge grey" id="planBadge">未選択</span></h2>
+      <p class="hint">記録がない日と区別するために選びます。あとから変えられます</p>
+      <div class="plan" id="planPick"></div>
+    </div>
+
+    <p class="note">
+      このアプリは練習してよいかを判定しません。判断するのは人です。<br>
+      該当が出ていないことは、練習してよいという意味にはなりません。<br>
+      違和感があれば、記録に関係なく連絡してください。
+    </p>
+  </section>
+
+  <!-- ===== 起床時 ===== -->
+  <section id="view-morning" class="hidden">
+    <div id="m-alert"></div>
+
+    <div class="card toned" id="m-events-card">
+      <h2>前回の記録以降にありましたか？</h2>
+      <p class="hint">ひとつ選んでください</p>
+      <div class="events" id="m-events"></div>
+    </div>
+
+    <div class="card toned">
+      <h2>いまの膝の状態</h2>
+      <p class="hint">3つとも選んでください</p>
+      <div id="m-scales"></div>
+      <button class="allzero" type="button" id="m-allzero">3つとも「0 なし」にする</button>
+    </div>
+
+    <div class="card toned" id="m-site-card">
+      <h2>いちばん気になる部位</h2>
+      <p class="hint">図か、右のボタンから選んでください。前＝お皿のあたり／後ろ＝膝の裏</p>
+      <div class="knee" id="m-knee"></div>
+      <p class="picked" id="m-site-picked"></p>
+      <p class="sidenote" id="m-side-note"></p>
+    </div>
+
+    <div class="card toned" id="m-plan-card">
+      <h2>今日の予定</h2>
+      <p class="hint">練習の有無で記録の扱いが変わります</p>
+      <div class="plan" id="m-plan"></div>
+    </div>
+
+    <div class="card toned hidden" id="m-reason-card">
+      <h2>直す理由（任意）</h2>
+      <p class="hint">元の値と直した日時は履歴に残ります</p>
+      <input id="m-reason" type="text" placeholder="例：入力ミス"
+        style="width:100%;height:46px;border:2px solid var(--line);border-radius:12px;font-size:15px;padding:0 10px">
+    </div>
+
+    <div id="m-errors"></div>
+  </section>
+
+  <!-- ===== 練習後 ===== -->
+  <section id="view-session" class="hidden">
+    <div id="s-alert"></div>
+
+    <div class="card toned">
+      <h2>練習が終わった時刻</h2>
+      <div class="num"><label for="s-time">時刻</label>
+        <input id="s-time" type="time" style="width:132px"></div>
+    </div>
+
+    <div class="card toned" id="s-events-card">
+      <h2>前回の記録以降にありましたか？</h2>
+      <p class="hint">ひとつ選んでください</p>
+      <div class="events" id="s-events"></div>
+    </div>
+
+    <div class="card toned">
+      <h2>いまの膝の状態</h2>
+      <p class="hint">3つとも選んでください</p>
+      <div id="s-scales"></div>
+      <button class="allzero" type="button" id="s-allzero">3つとも「0 なし」にする</button>
+    </div>
+
+    <div class="card toned" id="s-site-card">
+      <h2>いちばん気になる部位</h2>
+      <p class="hint">図か、右のボタンから選んでください。前＝お皿のあたり／後ろ＝膝の裏</p>
+      <div class="knee" id="s-knee"></div>
+      <p class="picked" id="s-site-picked"></p>
+      <p class="sidenote" id="s-side-note"></p>
+    </div>
+
+    <div class="card toned">
+      <h2>この練習の量</h2>
+      <p class="hint">やっていない種目は空欄のままにしてください。0本と空欄は別に記録されます</p>
+      <div class="num"><label for="s-jump">ジャンプ</label>
+        <input id="s-jump" type="number" inputmode="numeric" min="0" step="1" placeholder="—"><span class="unit">本</span></div>
+      <div id="s-jump-ref"></div>
+      <div class="num"><label for="s-ski">滑走</label>
+        <input id="s-ski" type="number" inputmode="numeric" min="0" step="1" placeholder="—"><span class="unit">本</span></div>
+    </div>
+
+    <div class="card toned">
+      <h2>きつさ（RPE）</h2>
+      <p class="hint">0 まったく楽 〜 10 これ以上できない</p>
+      <div class="rpe" id="s-rpe"></div>
+    </div>
+
+    <div class="card toned hidden" id="s-reason-card">
+      <h2>直す理由（任意）</h2>
+      <p class="hint">元の値と直した日時は履歴に残ります</p>
+      <input id="s-reason" type="text" placeholder="例：入力ミス"
+        style="width:100%;height:46px;border:2px solid var(--line);border-radius:12px;font-size:15px;padding:0 10px">
+    </div>
+
+    <div id="s-errors"></div>
+  </section>
+
+  <!-- ===== 保存後 ===== -->
+  <section id="view-saved" class="hidden">
+    <div class="done" id="saved-msg"></div>
+    <div class="card">
+      <h2 id="saved-h2">保存した内容</h2>
+      <table class="rec" id="saved-table"></table>
+    </div>
+    <p class="note">直したいところがあれば、「記録一覧」から修正できます。元の値と修正の日時は履歴に残ります。</p>
+  </section>
+
+  <!-- ===== 記録一覧タブ ===== -->
+  <section id="view-list" class="hidden">
+    <div class="card">
+      <h2>保存した記録</h2>
+      <p class="hint">直近のもの。タップすると修正できます</p>
+      <div id="recentList"></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="savebar hidden" id="savebar"><div class="inner">
+  <button class="btn sub hidden" id="saveSub" type="button"></button>
+  <button class="btn" id="saveBtn" type="button">保存する</button>
+</div></div>
+
+<nav class="tabbar" id="tabbar">
+  <button type="button" data-tab="home" aria-selected="true"><span class="ic">✎</span>記録</button>
+  <button type="button" data-tab="list" aria-selected="false"><span class="ic">☰</span>記録一覧</button>
+</nav>
+
+<script>
+// ---------------------------------------------------------------------------
+// 設定
+// ---------------------------------------------------------------------------
+var CFG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbwWWgMcBfvZnqoPTY4KTV8IhZ1Ftcsyj6I5cl-nlXBOJkKrTyV1wmOmlxgWEI7AFAcFJg/exec',
+  // 以下はこのファイルに書かない。URLの # 以降から受け取る（下の HASH の説明を参照）
+  TOKEN: '',
+  ATHLETE_LABEL: '',           // 例：〇〇選手。空なら画面に名前を出さない
+  KNEE_SIDE: 'right',          // 'right' か 'left'。図の内側・外側の向きが変わる
+  LINE_URL: 'https://line.me/R/',   // LINEを開くだけ（宛先は固定しない）
+  PT_LABEL: '担当PT',           // # で上書きできる（既定は役割名）
+  COACHES: 'コーチ',            // # で上書きできる（既定は役割名）
+  WAIT_MINUTES: 30,
+  TZ: 'Asia/Tokyo'
+};
+/**
+ * トークンと氏名は、このファイルには書かない。
+ *
+ * なぜか：このファイルは公開リポジトリに置く。
+ *   - トークンを書くと誰でも読めてしまい、誰でもこの選手の記録を書き込める。
+ *     PTが判断材料にする記録に他人が値を入れられる状態は避ける。
+ *   - 氏名を書くと、「膝の記録アプリ」と実名が公開ページで結びついてしまう。
+ *     医療に近い記録なので、選手カルテとは扱いを分ける。
+ *
+ * 代わりに URL の # 以降で渡す：
+ *   https://.../input/#t=（トークン）&n=（選手の表示名）
+ *
+ * 任意で上書きできるもの（省略すれば役割名のまま）：
+ *   pt=（PTの呼び方）  co=（コーチの呼び方）  side=right|left
+ *
+ * # 以降はサーバに送られず、アクセスログにもRefererにも残らない。
+ * 選手はこのURLをホーム画面に追加して使う（iOSは # を保持する）。
+ * 保存もしないので端末に残らない。開くたびにURLから読む。
+ */
+function readHashParams(){
+  var out = {};
+  var h = String(location.hash || '').replace(/^#/, '');
+  if (!h) return out;
+  var parts = h.split('&');
+  for (var i = 0; i < parts.length; i++){
+    if (!parts[i]) continue;
+    var eq = parts[i].indexOf('=');
+    var k = eq < 0 ? parts[i] : parts[i].slice(0, eq);
+    var v = eq < 0 ? '' : parts[i].slice(eq + 1);
+    try { out[k] = decodeURIComponent(v); } catch (e) { out[k] = v; }
+  }
+  return out;
+}
+var HASH = readHashParams();
+if (!CFG.TOKEN)         CFG.TOKEN = HASH.t || HASH.token || '';
+if (!CFG.ATHLETE_LABEL) CFG.ATHLETE_LABEL = HASH.n || HASH.name || '';
+if (HASH.pt)   CFG.PT_LABEL = HASH.pt;
+if (HASH.co)   CFG.COACHES  = HASH.co;
+if (HASH.side === 'right' || HASH.side === 'left') CFG.KNEE_SIDE = HASH.side;
+
+var DEMO_MODE = !CFG.API_URL || !CFG.TOKEN;
+var NO_TOKEN = !!CFG.API_URL && !CFG.TOKEN;
+
+// 0〜4 の尺度。朝と練習後で完全に同じ
+var SCALE = [
+  { n:0, label:'なし',      desc:'感じない・見られない' },
+  { n:1, label:'わずか',    desc:'意識すれば分かる' },
+  { n:2, label:'はっきり',  desc:'明確に感じるが、普段の動きは変わらない' },
+  { n:3, label:'強い',      desc:'動き方に影響する' },
+  { n:4, label:'とても強い', desc:'普段どおり動くことが難しい' }
+];
+var SYMPTOMS = [
+  { key:'pain',      label:'痛み',    hint:'いま感じている膝の痛み' },
+  { key:'swelling',  label:'腫れ',    hint:'見た目または張り感で分かる膝まわりの腫れ' },
+  { key:'stiffness', label:'こわばり', hint:'動かし始めや曲げ伸ばしで感じる硬さ' }
+];
+var SITES = [
+  { v:'前', label:'前' },
+  { v:'内', label:'内側' },
+  { v:'外', label:'外側' },
+  { v:'後', label:'後ろ' }
+];
+var EVENTS = ['膝崩れ','ロッキング','新しい外傷'];
+
+// すぐに連絡すべき状態（待たない）
+var URGENT_NOTE = '膝が伸びない・曲がらない、体重をかけられない、その場で崩れた';
+
+// ---------------------------------------------------------------------------
+// 状態
+// ---------------------------------------------------------------------------
+var state = { tab:'home', view:'home', form:null, records:[], queue:[],
+              editing:null, loaded:false, lastAction:'save', plan:null,
+              airlog:{ status:'idle', date:'', data:null } };
+
+function newForm(kind){
+  return { kind:kind, pain:null, swelling:null, stiffness:null, site:null,
+           events:[], eventNone:false, contactOpenedAt:null, contactReportedAt:null,
+           time:nowHM(), jump:'', ski:'', rpe:null, plan:null };
+}
+function formFromRecord(item){
+  var r = item.record;
+  var f = newForm(item.sheet === 'sessions' ? 'session' : 'morning');
+  f.pain = numOrNull(r.pain); f.swelling = numOrNull(r.swelling); f.stiffness = numOrNull(r.stiffness);
+  f.site = r.site || null;
+  f.time = r.local_time || nowHM();
+  f.jump = (r.jump_count === undefined || r.jump_count === '') ? '' : String(r.jump_count);
+  f.ski  = (r.ski_count  === undefined || r.ski_count  === '') ? '' : String(r.ski_count);
+  f.rpe = numOrNull(r.rpe);
+  f.events = []; f.eventNone = true;   // 直接連絡事象は修正対象にしない
+  return f;
+}
+function numOrNull(v){
+  if (v === undefined || v === null || v === '') return null;
+  var n = Number(v); return isFinite(n) ? n : null;
+}
+function escapeHtml(v){
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+function today(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function nowHM(){ var d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function jpDate(s){ var p=String(s).split('-'); return Number(p[1])+'/'+Number(p[2]); }
+function isoNow(){ return new Date().toISOString().replace(/\.\d{3}Z$/,'Z'); }
+function uuid(){
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+function siteLabel(v){
+  for (var i=0;i<SITES.length;i++) if (SITES[i].v === v) return SITES[i].label;
+  return v || '';
+}
+
+// ---------------------------------------------------------------------------
+// 部品
+// ---------------------------------------------------------------------------
+function buildScales(host, prefix){
+  host.innerHTML = '';
+  SYMPTOMS.forEach(function(sym){
+    var box = document.createElement('div');
+    box.className = 'sym';
+    var h = document.createElement('div'); h.className='name'; h.textContent = sym.label;
+    var d = document.createElement('div'); d.className='desc'; d.textContent = sym.hint;
+    var row = document.createElement('div'); row.className='scale';
+    SCALE.forEach(function(s){
+      var b = document.createElement('button');
+      b.type='button'; b.setAttribute('aria-pressed','false');
+      b.dataset.key = sym.key; b.dataset.val = s.n;
+      b.innerHTML = '<span class="n">'+s.n+'</span><span>'+s.label+'</span>';
+      b.addEventListener('click', function(){ state.form[sym.key] = s.n; render(); });
+      row.appendChild(b);
+    });
+    var p = document.createElement('p'); p.className='picked'; p.id = prefix+'-desc-'+sym.key;
+    box.appendChild(h); box.appendChild(d); box.appendChild(row); box.appendChild(p);
+    host.appendChild(box);
+  });
+}
+
+/** 膝を上から見た模式図。前が上、後ろが下。内側・外側は KNEE_SIDE で入れ替わる */
+function buildKnee(host, prefix){
+  var leftIsInner = CFG.KNEE_SIDE === 'right';
+  var innerX = leftIsInner ? 30 : 102, outerX = leftIsInner ? 102 : 30;
+
+  host.innerHTML =
+    '<svg viewBox="0 0 132 132" width="132" height="132" role="img" aria-label="膝の模式図">'
+    + '<path class="zone" data-site="前" d="M66 66 L20 30 A56 56 0 0 1 112 30 Z"></path>'
+    + '<path class="zone" data-site="後" d="M66 66 L20 102 A56 56 0 0 0 112 102 Z"></path>'
+    + '<path class="zone" data-site="' + (leftIsInner ? '内' : '外') + '" d="M66 66 L20 30 A56 56 0 0 0 20 102 Z"></path>'
+    + '<path class="zone" data-site="' + (leftIsInner ? '外' : '内') + '" d="M66 66 L112 30 A56 56 0 0 1 112 102 Z"></path>'
+    + '<circle cx="66" cy="66" r="15" fill="#fff" stroke="#d6d9e2" stroke-width="1.5"></circle>'
+    + '<text x="66" y="26" text-anchor="middle" data-lab="前">前</text>'
+    + '<text x="66" y="112" text-anchor="middle" data-lab="後">後ろ</text>'
+    + '<text x="' + innerX + '" y="70" text-anchor="middle" data-lab="内">内側</text>'
+    + '<text x="' + outerX + '" y="70" text-anchor="middle" data-lab="外">外側</text>'
+    + '</svg>'
+    + '<div class="zones" id="' + prefix + '-zones"></div>';
+
+  host.querySelectorAll('svg .zone').forEach(function(z){
+    z.addEventListener('click', function(){ state.form.site = z.dataset.site; render(); });
+  });
+
+  var zones = host.querySelector('#' + prefix + '-zones');
+  SITES.forEach(function(s){
+    var b = document.createElement('button');
+    b.type='button'; b.dataset.val = s.v; b.textContent = s.label;
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click', function(){ state.form.site = s.v; render(); });
+    zones.appendChild(b);
+  });
+}
+
+function buildEvents(host){
+  host.innerHTML = '';
+  EVENTS.forEach(function(v){
+    var b = document.createElement('button');
+    b.type='button'; b.dataset.val = v; b.textContent = v;
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click', function(){
+      var i = state.form.events.indexOf(v);
+      if (i >= 0) state.form.events.splice(i,1); else state.form.events.push(v);
+      if (state.form.events.length) state.form.eventNone = false;
+      render();
+    });
+    host.appendChild(b);
+  });
+  var none = document.createElement('button');
+  none.type='button'; none.dataset.none='1'; none.textContent='いずれもなし';
+  none.setAttribute('aria-pressed','false');
+  none.addEventListener('click', function(){
+    state.form.eventNone = !state.form.eventNone;
+    if (state.form.eventNone) state.form.events = [];
+    render();
+  });
+  host.appendChild(none);
+}
+
+function buildRpe(host){
+  host.innerHTML = '';
+  for (var i = 0; i <= 10; i++){
+    (function(n){
+      var b = document.createElement('button');
+      b.type='button'; b.dataset.val=n; b.textContent=n;
+      b.setAttribute('aria-pressed','false');
+      b.addEventListener('click', function(){ state.form.rpe = n; render(); });
+      host.appendChild(b);
+    })(i);
+  }
+}
+
+function buildPlan(host, onPick){
+  host.innerHTML = '';
+  [['practice','練習する'],['rest','休養'],['undecided','未定']].forEach(function(p){
+    var b = document.createElement('button');
+    b.type='button'; b.dataset.val = p[0]; b.textContent = p[1];
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click', function(){ onPick(p[0]); render(); });
+    host.appendChild(b);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 表示
+// ---------------------------------------------------------------------------
+function show(id){
+  ['home','morning','session','saved','list'].forEach(function(v){
+    document.getElementById('view-'+v).classList.toggle('hidden', v !== id);
+  });
+}
+function setTone(kind){
+  var s = document.documentElement.style;
+  if (kind === 'session'){ s.setProperty('--tone','var(--session)'); s.setProperty('--tone-bg','var(--session-bg)'); }
+  else if (kind === 'morning'){ s.setProperty('--tone','var(--morning)'); s.setProperty('--tone-bg','var(--morning-bg)'); }
+  else { s.setProperty('--tone','var(--accent)'); s.setProperty('--tone-bg','var(--accent-bg)'); }
+}
+function go(view){
+  state.view = view; state.editing = null;
+  if (view === 'morning' || view === 'session') state.form = newForm(view);
+  if (view === 'session') loadAirlogRef(today());
+  render(); window.scrollTo(0,0);
+}
+function switchTab(tab){
+  state.tab = tab; state.view = tab === 'list' ? 'list' : 'home'; state.editing = null;
+  render(); window.scrollTo(0,0);
+}
+
+function render(){
+  var v = state.view;
+  var bar = document.getElementById('demoBar');
+  bar.classList.toggle('hidden', !DEMO_MODE);
+  bar.textContent = NO_TOKEN
+    ? 'このリンクでは保存できません。コーチから受け取った専用リンクを開いてください'
+    : 'デモ表示：保存先はまだつないでいません';
+  document.getElementById('backBtn').classList.toggle('hidden', v === 'home' || v === 'list');
+  document.querySelectorAll('#tabbar button').forEach(function(b){
+    b.setAttribute('aria-selected', String(b.dataset.tab === state.tab));
+  });
+
+  var shownDate = state.editing ? state.editing.record.local_date : today();
+  document.getElementById('who').textContent =
+    (v === 'home' || v === 'list')
+      ? CFG.ATHLETE_LABEL
+      : (CFG.ATHLETE_LABEL ? CFG.ATHLETE_LABEL + '　' : '') + jpDate(shownDate);
+
+  if (v === 'home'){
+    setTone('home');
+    document.getElementById('title').textContent = 'コンディション';
+    document.getElementById('savebar').classList.add('hidden');
+    renderHome();
+    show('home');
+    return;
+  }
+  if (v === 'list'){
+    setTone('home');
+    document.getElementById('title').textContent = '記録一覧';
+    document.getElementById('savebar').classList.add('hidden');
+    loadRecent(); renderDayList();
+    show('list');
+    return;
+  }
+  if (v === 'saved'){
+    var wasEdit = state.lastAction === 'update';
+    document.getElementById('title').textContent = wasEdit ? '直しました' : '保存しました';
+    document.getElementById('saved-h2').textContent = wasEdit ? '直した内容' : '保存した内容';
+    document.getElementById('savebar').classList.add('hidden');
+    show('saved');
+    return;
+  }
+
+  var isMorning = v === 'morning';
+  var editing = !!state.editing;
+  setTone(isMorning ? 'morning' : 'session');
+  document.getElementById('title').textContent =
+    (isMorning ? '起床時の記録' : '練習後の記録') + (editing ? 'を直す' : '');
+  show(isMorning ? 'morning' : 'session');
+
+  var p = isMorning ? 'm' : 's';
+  var f = state.form;
+
+  document.querySelectorAll('#'+p+'-scales .scale button').forEach(function(b){
+    b.setAttribute('aria-pressed', String(f[b.dataset.key] === Number(b.dataset.val)));
+  });
+  SYMPTOMS.forEach(function(sym){
+    var el = document.getElementById(p+'-desc-'+sym.key);
+    var val = f[sym.key];
+    el.innerHTML = val === null ? '' : '<b>'+SCALE[val].label+'</b>：'+SCALE[val].desc;
+  });
+
+  var allZero = SYMPTOMS.every(function(s){ return f[s.key] === 0; });
+  document.getElementById(p+'-site-card').classList.toggle('hidden', allZero);
+  if (allZero) f.site = null;
+
+  document.querySelectorAll('#'+p+'-knee .zones button').forEach(function(b){
+    b.setAttribute('aria-pressed', String(f.site === b.dataset.val));
+  });
+  document.querySelectorAll('#'+p+'-knee svg .zone').forEach(function(z){
+    z.classList.toggle('on', f.site === z.dataset.site);
+  });
+  document.querySelectorAll('#'+p+'-knee svg text').forEach(function(t){
+    t.classList.toggle('on', f.site === t.dataset.lab);
+  });
+  document.getElementById(p+'-site-picked').innerHTML =
+    f.site ? '選んだ部位：<b>'+siteLabel(f.site)+'</b>' : '';
+  document.getElementById(p+'-side-note').textContent =
+    '図は' + (CFG.KNEE_SIDE === 'right' ? '右' : '左') + '膝を上から見たものです。前が上、膝の裏が下です。';
+
+  document.querySelectorAll('#'+p+'-events button').forEach(function(b){
+    var on = b.dataset.none ? f.eventNone : f.events.indexOf(b.dataset.val) >= 0;
+    b.setAttribute('aria-pressed', String(on));
+  });
+  renderAlert(p, f);
+
+  if (isMorning){
+    document.getElementById('m-plan-card').classList.toggle('hidden', editing);
+    document.querySelectorAll('#m-plan button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(f.plan === b.dataset.val));
+    });
+  } else {
+    var t = document.getElementById('s-time');
+    if (t.value !== f.time) t.value = f.time;
+    var jEl = document.getElementById('s-jump'), kEl = document.getElementById('s-ski');
+    if (jEl.value !== f.jump) jEl.value = f.jump;
+    if (kEl.value !== f.ski) kEl.value = f.ski;
+    document.querySelectorAll('#s-rpe button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(f.rpe === Number(b.dataset.val)));
+    });
+  }
+
+  var bar = document.getElementById('savebar');
+  bar.classList.remove('hidden');
+  var sub = document.getElementById('saveSub');
+  document.getElementById('saveBtn').textContent = editing ? '修正を保存' : '保存する';
+  if (isMorning || editing){ sub.classList.add('hidden'); }
+  else { sub.classList.remove('hidden'); sub.textContent = '保存して続ける'; }
+
+  document.getElementById(p+'-events-card').classList.toggle('hidden', editing);
+  document.getElementById(p+'-reason-card').classList.toggle('hidden', !editing);
+  document.getElementById(p+'-errors').innerHTML = '';
+}
+
+// ---------------------------------------------------------------------------
+// NTエアlogの参考表示
+//
+// 入力欄には触らない。表示するだけ。最終的に本数を打ち込むのは選手本人。
+// エアlogは練習当日の夜や数日後に入力されることがあるため、
+// 「まだ記録なし」は異常ではない。そう読めない文言にしてある。
+// 取得に失敗しても保存は止めない（画面から黙って消えるだけ）。
+// ---------------------------------------------------------------------------
+
+function loadAirlogRef(localDate){
+  if (state.airlog.status === 'loading' && state.airlog.date === localDate) return;
+  state.airlog = { status:'loading', date:localDate, data:null };
+  renderAirlogRef();
+
+  airlogRequest(localDate).then(function(res){
+    if (state.airlog.date !== localDate) return;   // 途中で別の日に移った
+    state.airlog = { status:'done', date:localDate, data:(res && res.ok) ? res : null };
+    renderAirlogRef();
+  })['catch'](function(){
+    if (state.airlog.date !== localDate) return;
+    state.airlog = { status:'done', date:localDate, data:null };
+    renderAirlogRef();
+  });
+}
+
+function airlogRequest(localDate){
+  if (DEMO_MODE){
+    return Promise.resolve({ ok:true, available:true, recorded:true, local_date:localDate,
+      total_jumps:15, entries:2, last_input_at:'2026/08/18 20:41:03',
+      categories:[{ category:'water', label:'ウォータージャンプ', jumps:15 }] });
+  }
+  return send({ token: CFG.TOKEN, action:'airlog_ref', local_date: localDate });
+}
+
+/** 'yyyy/MM/dd HH:mm:ss' を短くする。練習日と同じ日なら時刻だけ */
+function airlogStamp(raw, localDate){
+  var m = String(raw).match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (!m) return String(raw);
+  var ymd = m[1] + '-' + pad(m[2]) + '-' + pad(m[3]);
+  var hm = pad(m[4]) + ':' + m[5];
+  return ymd === localDate ? hm : (Number(m[2]) + '/' + Number(m[3]) + ' ' + hm);
+}
+
+function renderAirlogRef(){
+  var host = document.getElementById('s-jump-ref');
+  if (!host) return;
+  var a = state.airlog;
+
+  if (a.status === 'loading'){
+    host.innerHTML = '<div class="ref">NTエアlogを確認しています…</div>';
+    return;
+  }
+  // 連携が設定されていない・読めない場合は、何も出さない
+  if (a.status !== 'done' || !a.data || !a.data.available){ host.innerHTML = ''; return; }
+
+  var d = a.data;
+  if (!d.recorded){
+    host.innerHTML =
+      '<div class="ref"><div class="h"><span class="tag">NTエアlog</span>'
+      + '<span>この日の記録はまだありません</span></div>'
+      + '<span class="sub">エアlogはあとから入れて大丈夫です。ここは自分で数えた本数を入れてください</span></div>';
+    return;
+  }
+
+  var parts = [];
+  for (var i = 0; i < d.categories.length; i++){
+    parts.push(escapeHtml(d.categories[i].label) + ' ' + d.categories[i].jumps + '本');
+  }
+  var detail = parts.length > 1 ? '<span class="sub">内訳：' + parts.join('　') + '</span>' : '';
+  var stamp = d.last_input_at ? '（' + escapeHtml(airlogStamp(d.last_input_at, d.local_date)) + ' 入力）' : '';
+
+  host.innerHTML =
+    '<div class="ref"><div class="h"><span class="tag">NTエアlog</span>'
+    + '<span class="v">' + d.total_jumps + '本</span>'
+    + '<span>' + stamp + '</span></div>'
+    + detail
+    + '<span class="sub">' + airlogFillNote(d) + '</span>'
+    + airlogFillButton(d)
+    + '</div>';
+
+  var btn = document.getElementById('s-jump-fill');
+  if (btn) btn.addEventListener('click', function(){ applyAirlogJumps(d.total_jumps); });
+}
+
+/** いまの入力欄の値と参考値の関係で、ボタンの出し方を変える */
+function airlogFillState(d){
+  var cur = String((state.form && state.form.jump) || '').trim();
+  if (cur === '') return 'empty';
+  return Number(cur) === Number(d.total_jumps) ? 'same' : 'differs';
+}
+function airlogFillButton(d){
+  var st = airlogFillState(d);
+  if (st === 'same'){
+    return '<button type="button" class="fill" id="s-jump-fill" disabled>入力済み</button>';
+  }
+  var label = st === 'empty'
+    ? d.total_jumps + '本を入れる'
+    : d.total_jumps + '本に置きかえる';
+  return '<button type="button" class="fill" id="s-jump-fill">' + label + '</button>';
+}
+function airlogFillNote(d){
+  var st = airlogFillState(d);
+  if (st === 'same') return '入れたあとで、実際と違えば直してください';
+  if (st === 'differs') return '入れた数と違います。押すと上の欄が置きかわります';
+  return '参考の数字です。押すと上の欄に入ります。違えばそのあと直してください';
+}
+
+/** 参考値を入力欄に入れる。押したときだけ動く。あとから直せる */
+function applyAirlogJumps(n){
+  state.form.jump = String(n);
+  var el = document.getElementById('s-jump');
+  if (el) el.value = state.form.jump;
+  renderAirlogRef();
+  if (el) el.focus();
+}
+
+/** 「コーチ（城・舘田）」と出す。名前が渡っていなければ「コーチ」だけ */
+function coachPhrase(){
+  var c = String(CFG.COACHES || '').trim();
+  return (!c || c === 'コーチ') ? 'コーチ' : 'コーチ（' + escapeHtml(c) + '）';
+}
+
+/** 膝崩れ等が選ばれたときの連絡導線 */
+function renderAlert(p, f){
+  var host = document.getElementById(p+'-alert');
+  if (!f.events.length){ host.innerHTML = ''; return; }
+
+  host.innerHTML =
+    '<div class="alert">'
+    + '<h3>' + f.events.join('・') + 'がありました</h3>'
+    + '<p>この3つは、このアプリの記録とは別に、<b>いますぐご本人から直接ご連絡ください。</b></p>'
+    + '<ol>'
+    + '<li>まず<b>' + CFG.PT_LABEL + 'の個別LINE</b>へ</li>'
+    + '<li><b>' + CFG.WAIT_MINUTES + '分</b>返事がなければ、' + coachPhrase() + 'にも連絡</li>'
+    + '<li><b>' + URGENT_NOTE + '</b>のときと、<b>夜22時〜朝7時</b>は、待たずに全員へ</li>'
+    + '</ol>'
+    + '<p>練習中でコーチがその場にいるときは、まず口頭で伝えてください。</p>'
+    + '<a class="go" id="' + p + '-line" href="' + CFG.LINE_URL + '">LINEを開く</a>'
+    + '<button class="did" type="button" id="' + p + '-did" aria-pressed="' + (!!f.contactReportedAt) + '">'
+    + (f.contactReportedAt ? '✓ 連絡しました' : '連絡しました') + '</button>'
+    + (f.contactReportedAt ? '<p class="stamp">連絡を記録：' + f.contactReportedAt.slice(11,16) + '</p>' : '')
+    + '<p class="stamp">' + (f.contactOpenedAt ? 'LINEを開いた：' + f.contactOpenedAt.slice(11,16) : '') + '</p>'
+    + '</div>';
+
+  document.getElementById(p+'-line').addEventListener('click', function(){
+    if (!state.form.contactOpenedAt) state.form.contactOpenedAt = isoNow();
+    setTimeout(render, 300);
+  });
+  document.getElementById(p+'-did').addEventListener('click', function(){
+    state.form.contactReportedAt = state.form.contactReportedAt ? null : isoNow();
+    render();
+  });
+}
+
+function renderHome(){
+  var m = state.records.filter(function(r){
+    return r.sheet === 'morning' && r.record.local_date === today(); })[0];
+  var s = state.records.filter(function(r){
+    return r.sheet === 'sessions' && r.record.local_date === today(); });
+
+  document.getElementById('st-morning').innerHTML =
+    m ? '<span class="badge done">記録済み</span>' : '<span class="badge grey">まだ</span>';
+  document.getElementById('st-session').innerHTML =
+    s.length ? '<span class="badge done">'+s.length+'本 記録済み</span>' : '<span class="badge grey">まだ</span>';
+
+  var labels = { practice:'練習する', rest:'休養', undecided:'未定' };
+  document.getElementById('planBadge').textContent = state.plan ? labels[state.plan] : '未選択';
+  document.querySelectorAll('#planPick button').forEach(function(b){
+    b.setAttribute('aria-pressed', String(state.plan === b.dataset.val));
+  });
+}
+
+var WEEK = ['日','月','火','水','木','金','土'];
+function weekday(dateStr){
+  var p = dateStr.split('-');
+  return WEEK[new Date(Number(p[0]), Number(p[1])-1, Number(p[2])).getDay()];
+}
+function renderDayList(){
+  var host = document.getElementById('recentList');
+  if (!state.records.length){ host.innerHTML = '<p class="hint" style="margin:0">まだありません</p>'; return; }
+  var days = [], byDate = {};
+  state.records.forEach(function(item){
+    var d = item.record.local_date;
+    if (!byDate[d]){ byDate[d] = []; days.push(d); }
+    byDate[d].push(item);
+  });
+  days.sort().reverse();
+  host.innerHTML = '';
+  days.slice(0,14).forEach(function(d){
+    var g = document.createElement('div'); g.className='daygroup';
+    var head = document.createElement('div'); head.className='d';
+    head.textContent = jpDate(d) + '（' + weekday(d) + '）';
+    g.appendChild(head);
+    byDate[d].sort(function(a,b){
+      return String(a.record.local_time) < String(b.record.local_time) ? -1 : 1;
+    }).forEach(function(item){ g.appendChild(rowButton(item)); });
+    host.appendChild(g);
+  });
+}
+function rowButton(item){
+  var r = item.record;
+  var b = document.createElement('button');
+  b.type='button'; b.className='rowbtn';
+  var editable = r.status === 'recorded';
+  var kind = item.kindLabel + (item.sheet === 'sessions' && r.session_no ? '（'+r.session_no+'本目）' : '');
+  var badge = item.synced ? '' : ' <span class="badge wait">未送信</span>';
+  b.innerHTML = '<span class="k">'+(r.local_time||'')+'<br>'+kind+badge+'</span>'
+    + '<span class="v">'+summaryOf(item)+'</span>'
+    + '<span class="go">'+(editable ? '直す ›' : '')+'</span>';
+  if (editable) b.addEventListener('click', function(){ openEdit(item); });
+  else b.style.opacity = '.75';
+  return b;
+}
+function summaryOf(item){
+  var r = item.record;
+  if (r.status === 'rest') return '休養日として記録';
+  var out = SYMPTOMS.map(function(s){ return s.label+' '+r[s.key]; }).join('／');
+  if (r.site) out += '　部位 ' + siteLabel(r.site);
+  if (item.sheet === 'sessions'){
+    if (r.rpe !== undefined && r.rpe !== '') out += '　RPE ' + r.rpe;
+    if (r.jump_count !== undefined && r.jump_count !== '') out += '　ジャンプ ' + r.jump_count + '本';
+    if (r.ski_count  !== undefined && r.ski_count  !== '') out += '　滑走 ' + r.ski_count + '本';
+  }
+  if (item.events && item.events.length) out += '　' + item.events.join('・');
+  return out;
+}
+function openEdit(item){
+  state.editing = item;
+  state.form = formFromRecord(item);
+  state.view = item.sheet === 'sessions' ? 'session' : 'morning';
+  document.getElementById((state.view === 'session' ? 's' : 'm') + '-reason').value = '';
+  // 修正のときは、その記録の日のエアlogを見る（今日ではない）
+  if (state.view === 'session') loadAirlogRef(item.record.local_date || today());
+  render(); window.scrollTo(0,0);
+}
+
+// ---------------------------------------------------------------------------
+// 検証と保存
+// ---------------------------------------------------------------------------
+function validate(f){
+  var e = [];
+  var missing = SYMPTOMS.filter(function(s){ return f[s.key] === null; });
+  if (missing.length) e.push(missing.map(function(s){ return s.label; }).join('・') + 'が未選択です');
+  var any = SYMPTOMS.some(function(s){ return f[s.key] !== null && f[s.key] > 0; });
+  if (any && !f.site) e.push('部位を選んでください');
+  if (!f.eventNone && !f.events.length) e.push('「前回の記録以降にありましたか？」に答えてください');
+  if (f.kind === 'morning' && !state.editing && !f.plan) e.push('今日の予定を選んでください');
+  if (f.kind === 'session'){
+    if (!f.time) e.push('練習が終わった時刻を入れてください');
+    if (f.rpe === null) e.push('きつさ（RPE）を選んでください');
+  }
+  return e;
+}
+function toNumberOrEmpty(v){
+  var s = String(v).trim();
+  if (s === '') return undefined;
+  var n = Number(s);
+  return isFinite(n) ? Math.floor(n) : undefined;
+}
+function buildPayload(f){
+  var iso = isoNow();
+  var rec = {
+    record_id: uuid(), local_date: today(),
+    local_time: f.kind === 'session' ? f.time : nowHM(),
+    tz: CFG.TZ, occurred_at_utc: iso, entered_at_utc: iso, status:'recorded',
+    pain: f.pain, swelling: f.swelling, stiffness: f.stiffness,
+    site: f.site || '', direct_event_none: !!f.eventNone,
+    direct_events: f.events.slice(),
+    direct_event_record_ids: f.events.map(function(){ return uuid(); }),
+    contact_opened_at_utc: f.contactOpenedAt || '',
+    contacted_at_utc: f.contactReportedAt || ''
+  };
+  if (f.kind === 'session'){
+    var j = toNumberOrEmpty(f.jump), s = toNumberOrEmpty(f.ski);
+    if (j !== undefined) rec.jump_count = j;
+    if (s !== undefined) rec.ski_count = s;
+    rec.rpe = f.rpe;
+  }
+  return { token: CFG.TOKEN, action: f.kind === 'session' ? 'save_session' : 'save_morning', record: rec };
+}
+function send(payload){
+  if (DEMO_MODE) return Promise.resolve({ ok:true, demo:true });
+  return fetch(CFG.API_URL, {
+    method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); });
+}
+
+function doSave(addAnother){
+  var f = state.form;
+  var errs = validate(f);
+  var p = f.kind === 'session' ? 's' : 'm';
+  if (!errs.length && state.editing) return doUpdate();
+  if (errs.length){
+    document.getElementById(p+'-errors').innerHTML =
+      '<div class="err">保存できません<ul><li>'+errs.join('</li><li>')+'</li></ul></div>';
+    document.getElementById(p+'-errors').scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  var payload = buildPayload(f);
+  var entry = {
+    sheet: f.kind === 'session' ? 'sessions' : 'morning',
+    kindLabel: f.kind === 'session' ? '練習後' : '起床時',
+    record: payload.record, events: f.events.slice(), synced:false, payload:payload
+  };
+  var btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '保存中…';
+  send(payload).then(function(res){
+    entry.synced = !!(res && res.ok);
+    if (res && res.session_no) entry.record.session_no = res.session_no;
+    if (!entry.synced) state.queue.push(payload);
+    state.records.push(entry);
+    if (f.kind === 'morning' && f.plan) state.plan = f.plan;
+    afterSave(entry, addAnother);
+  }).catch(function(){
+    state.queue.push(payload);
+    state.records.push(entry);
+    if (f.kind === 'morning' && f.plan) state.plan = f.plan;
+    afterSave(entry, addAnother);
+  }).then(function(){
+    btn.disabled = false; btn.textContent = '保存する';
+  });
+}
+
+function doUpdate(){
+  var item = state.editing, f = state.form;
+  var p = f.kind === 'session' ? 's' : 'm';
+  var r = item.record;
+  var next = { pain:f.pain, swelling:f.swelling, stiffness:f.stiffness,
+               site:f.site || '', local_time:f.time };
+  if (f.kind === 'session'){
+    var j = toNumberOrEmpty(f.jump), k = toNumberOrEmpty(f.ski);
+    next.jump_count = j === undefined ? '' : j;
+    next.ski_count  = k === undefined ? '' : k;
+    next.rpe = f.rpe;
+  }
+  var fields = {};
+  Object.keys(next).forEach(function(key){
+    var before = r[key] === undefined || r[key] === null ? '' : r[key];
+    var after  = next[key] === undefined || next[key] === null ? '' : next[key];
+    if (String(before) !== String(after)) fields[key] = after;
+  });
+  if (!Object.keys(fields).length){
+    document.getElementById(p+'-errors').innerHTML = '<div class="err">変わったところがありません</div>';
+    return;
+  }
+  var payload = { token: CFG.TOKEN, action:'update', target_sheet:item.sheet,
+                  target_record_id:r.record_id, fields:fields, edited_by:'athlete',
+                  reason: document.getElementById(p+'-reason').value || '' };
+  var btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '保存中…';
+  send(payload).then(function(res){
+    if (res && res.ok === false) throw new Error(res.message || '保存できません');
+    Object.keys(fields).forEach(function(key){ r[key] = fields[key]; });
+    item.synced = !!(res && res.ok);
+    if (!item.synced) state.queue.push(payload);
+    afterUpdate(item, fields);
+  }).catch(function(err){
+    document.getElementById(p+'-errors').innerHTML =
+      '<div class="err">保存できませんでした。'+(err && err.message ? err.message : '')+'</div>';
+  }).then(function(){
+    btn.disabled = false; btn.textContent = '修正を保存';
+  });
+}
+
+function afterSave(entry, addAnother){
+  state.lastAction = 'save';
+  if (addAnother){ state.form = newForm('session'); render(); window.scrollTo(0,0); return; }
+  var f = state.form;
+  var msg = jpDate(entry.record.local_date)+' '+entry.kindLabel+'の記録を '+entry.record.local_time+' に保存しました。';
+  if (!entry.synced) msg += ' いまは送信できていないので、つながったときに送ります。';
+  document.getElementById('saved-msg').textContent = msg;
+
+  var rows = SYMPTOMS.map(function(s){
+    return '<tr><th>'+s.label+'</th><td>'+f[s.key]+'　'+SCALE[f[s.key]].label+'</td></tr>';
+  });
+  if (f.site) rows.push('<tr><th>部位</th><td>'+siteLabel(f.site)+'</td></tr>');
+  if (f.kind === 'morning' && f.plan){
+    var pl = { practice:'練習する', rest:'休養', undecided:'未定' };
+    rows.push('<tr><th>今日の予定</th><td>'+pl[f.plan]+'</td></tr>');
+  }
+  if (f.kind === 'session'){
+    rows.push('<tr><th>きつさ（RPE）</th><td>'+f.rpe+'</td></tr>');
+    var j = toNumberOrEmpty(f.jump), k = toNumberOrEmpty(f.ski);
+    rows.push('<tr><th>ジャンプ</th><td>'+(j===undefined?'入力なし':j+'本')+'</td></tr>');
+    rows.push('<tr><th>滑走</th><td>'+(k===undefined?'入力なし':k+'本')+'</td></tr>');
+  }
+  rows.push('<tr><th>膝崩れ・ロッキング・新しい外傷</th><td>'
+    + (f.events.length ? f.events.join('・') : 'いずれもなし') + '</td></tr>');
+  if (f.events.length){
+    rows.push('<tr><th>連絡</th><td>'
+      + (f.contactReportedAt ? '連絡したと記録しました' : 'まだ記録していません')
+      + (f.contactOpenedAt ? '（LINEを開きました）' : '') + '</td></tr>');
+  }
+  document.getElementById('saved-table').innerHTML = rows.join('');
+  state.view = 'saved'; render(); window.scrollTo(0,0);
+}
+
+function afterUpdate(item, fields){
+  var r = item.record;
+  document.getElementById('saved-msg').textContent =
+    jpDate(r.local_date)+' '+item.kindLabel+'の記録を直しました。元の値と日時は履歴に残ります。';
+  var LABELS = { pain:'痛み', swelling:'腫れ', stiffness:'こわばり', site:'部位',
+                 local_time:'時刻', jump_count:'ジャンプ', ski_count:'滑走', rpe:'きつさ（RPE）' };
+  document.getElementById('saved-table').innerHTML =
+    Object.keys(fields).map(function(key){
+      var v = fields[key] === '' ? '入力なし' : (key === 'site' ? siteLabel(fields[key]) : fields[key]);
+      return '<tr><th>'+(LABELS[key]||key)+'</th><td>'+v+'</td></tr>';
+    }).join('');
+  state.editing = null; state.lastAction = 'update';
+  state.view = 'saved'; render(); window.scrollTo(0,0);
+}
+
+/** ホームの「今日の予定」で休養を選んだときだけ、休養日として保存する */
+function savePlanFromHome(plan){
+  state.plan = plan;
+  if (plan !== 'rest') { render(); return; }
+  var already = state.records.some(function(r){
+    return r.sheet === 'morning' && r.record.local_date === today(); });
+  if (already) { render(); return; }
+  var payload = { token: CFG.TOKEN, action:'save_morning', record:{
+    record_id: uuid(), local_date: today(), local_time: nowHM(), tz: CFG.TZ,
+    occurred_at_utc: isoNow(), entered_at_utc: isoNow(), status:'rest' }};
+  var entry = { sheet:'morning', kindLabel:'休養日', record:payload.record,
+                events:[], synced:false, payload:payload };
+  send(payload).then(function(res){
+    entry.synced = !!(res && res.ok);
+    if (!entry.synced) state.queue.push(payload);
+  }).catch(function(){ state.queue.push(payload); }).then(function(){
+    state.records.push(entry);
+    render();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 一覧の取り込み
+// ---------------------------------------------------------------------------
+function daysAgo(n){
+  var d = new Date(); d.setDate(d.getDate()-n);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function seedDemo(){
+  state.records = [
+    { sheet:'morning', kindLabel:'起床時', synced:true, events:[], record:{
+      record_id:'demo-m1', local_date:daysAgo(2), local_time:'07:05',
+      status:'recorded', pain:1, swelling:0, stiffness:2, site:'内' } },
+    { sheet:'sessions', kindLabel:'練習後', synced:true, events:[], record:{
+      record_id:'demo-s1', local_date:daysAgo(2), local_time:'16:30', session_no:1,
+      status:'recorded', pain:2, swelling:1, stiffness:2, site:'内',
+      jump_count:14, ski_count:'', rpe:6 } },
+    { sheet:'morning', kindLabel:'休養日', synced:true, events:[], record:{
+      record_id:'demo-m2', local_date:daysAgo(1), local_time:'08:10', status:'rest' } }
+  ];
+}
+function loadRecent(){
+  if (DEMO_MODE || state.loaded) return;
+  state.loaded = true;
+  send({ token: CFG.TOKEN, action:'recent', days: 14 }).then(function(res){
+    if (!res || !res.ok || !res.records) return;
+    var out = [];
+    (res.records.morning || []).forEach(function(r){
+      out.push({ sheet:'morning', kindLabel: r.status === 'rest' ? '休養日' : '起床時',
+                 record:r, events:[], synced:true });
+    });
+    (res.records.sessions || []).forEach(function(r){
+      out.push({ sheet:'sessions', kindLabel:'練習後', record:r, events:[], synced:true });
+    });
+    state.records = out;
+    renderDayList(); renderHome();
+  }).catch(function(){ state.loaded = false; });
+}
+
+// ---------------------------------------------------------------------------
+// 起動
+// ---------------------------------------------------------------------------
+buildScales(document.getElementById('m-scales'), 'm');
+buildScales(document.getElementById('s-scales'), 's');
+buildKnee(document.getElementById('m-knee'), 'm');
+buildKnee(document.getElementById('s-knee'), 's');
+buildEvents(document.getElementById('m-events'));
+buildEvents(document.getElementById('s-events'));
+buildRpe(document.getElementById('s-rpe'));
+buildPlan(document.getElementById('m-plan'), function(v){ state.form.plan = v; });
+buildPlan(document.getElementById('planPick'), function(v){ savePlanFromHome(v); });
+
+document.querySelectorAll('[data-go]').forEach(function(b){
+  b.addEventListener('click', function(){ go(b.dataset.go); });
+});
+document.querySelectorAll('#tabbar button').forEach(function(b){
+  b.addEventListener('click', function(){ switchTab(b.dataset.tab); });
+});
+document.getElementById('backBtn').addEventListener('click', function(){ switchTab(state.tab); });
+document.getElementById('saveBtn').addEventListener('click', function(){ doSave(false); });
+document.getElementById('saveSub').addEventListener('click', function(){ doSave(true); });
+document.getElementById('m-allzero').addEventListener('click', function(){
+  state.form.pain=0; state.form.swelling=0; state.form.stiffness=0; state.form.site=null; render(); });
+document.getElementById('s-allzero').addEventListener('click', function(){
+  state.form.pain=0; state.form.swelling=0; state.form.stiffness=0; state.form.site=null; render(); });
+document.getElementById('s-time').addEventListener('change', function(e){ state.form.time = e.target.value; });
+document.getElementById('s-jump').addEventListener('input', function(e){
+  state.form.jump = e.target.value; renderAirlogRef();
+});
+document.getElementById('s-ski').addEventListener('input', function(e){ state.form.ski = e.target.value; });
+
+if (DEMO_MODE) seedDemo();
+render();
+</script>
+</body>
+</html>
