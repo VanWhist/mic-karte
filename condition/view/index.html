@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>経過｜コンディション記録</title>
+<style>
+/* ==========================================================================
+   経過（閲覧）画面
+   見た目は claude/コンディション入力画面_source.html に揃えている。
+
+   守っていること（claude/通知ルールv1_確定仕様_20260818.md）
+   - このアプリは練習の可否を判定しない。判断するのは人
+   - 該当が出ていないことを「練習してよい」の根拠にしない
+   - 合計・平均・最大値を「症状スコア」として表示しない
+   - APIが返す文言（rules / scale / symptoms / notice / detail）は言い換えない
+   - local_date は文字列のまま扱う
+   - 実名・トークンをこのファイルに書かない
+   ========================================================================== */
+:root{
+  --bg:#f5f6fa; --card:#fff; --line:#e3e5ec; --text:#1c1f26; --muted:#6b7280;
+  --accent:#4f46e5; --accent-bg:#eeecfd; --accent-soft:#f6f5ff;
+  --morning:#3b6fd4; --morning-bg:#e9f0fc;
+  --session:#a3620a; --session-bg:#fdf2e3;
+  --danger:#b42318; --danger-bg:#fdecea;
+  --amber:#a3620a; --amber-bg:#fdf2e3; --amber-line:#e6c48a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  font-size:16px; line-height:1.55; padding-bottom:40px;
+}
+.wrap{max-width:520px;margin:0 auto;padding:0 14px}
+
+#demoBar{background:#2b2f38;color:#fff;padding:8px 14px;font-size:12px}
+#demoBar.hidden{display:none}
+#warnBar{background:var(--danger-bg);color:var(--danger);border-bottom:1px solid #f3c6c0;
+  padding:9px 14px;font-size:13px;font-weight:600}
+#warnBar.hidden{display:none}
+
+header.app{background:#fff;border-bottom:1px solid var(--line);padding:12px 14px 10px}
+header.app .inner{max-width:520px;margin:0 auto}
+header.app .who{font-size:12px;color:var(--muted)}
+header.app h1{margin:1px 0 0;font-size:17px;letter-spacing:.01em}
+header.app .stage{margin-top:4px;font-size:12px;color:var(--muted)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:14px;margin:12px 0}
+h2{margin:0 0 4px;font-size:15px}
+.lead{margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600;text-align:right}
+.kv .v.none{color:var(--muted);font-weight:500}
+
+.note{font-size:12px;color:var(--muted);line-height:1.65;margin:8px 0 0}
+.note.strong{color:var(--text);font-weight:600}
+
+.stage-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.stage-row:last-child{border-bottom:0}
+.stage-row .sn{flex:none;width:58px;font-size:12px;font-weight:700;color:var(--accent)}
+.stage-row .sn em{display:block;font-style:normal;font-weight:500;color:var(--muted);font-size:11px}
+.stage-row .sd{font-size:12.5px;line-height:1.6}
+
+.principle{background:var(--accent-soft);border:1px solid #ddd9fb;border-radius:9px;
+  padding:10px 11px;margin-top:10px;font-size:12.5px;line-height:1.65}
+
+.hit{border:1.5px solid var(--amber-line);background:var(--amber-bg);border-radius:11px;
+  padding:12px;margin-bottom:10px}
+.hit .ht{font-size:14px;font-weight:700;color:var(--amber)}
+.hit .hd{font-size:12.5px;margin-top:4px;line-height:1.65}
+.hit .hsup{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6}
+
+.facts{border:1px solid var(--line);border-radius:9px;background:#fff;padding:4px 11px;margin-top:10px}
+.facts .kv{border-bottom:1px solid var(--line)}
+.facts .kv:last-child{border-bottom:0}
+
+button.act{display:block;width:100%;min-height:46px;border-radius:10px;font-size:15px;
+  border:0;background:var(--accent);color:#fff;margin-top:12px;font-weight:600;cursor:pointer;
+  font-family:inherit}
+button.act.ghost{background:#fff;color:var(--text);border:1px solid var(--line);font-weight:500}
+
+.gtitle{font-size:13px;font-weight:700;margin:14px 0 2px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:2px 0 4px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}
+.legend u{display:inline-block;width:0;height:0;text-decoration:none;
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-bottom:8px solid var(--amber);margin-right:4px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+
+details.acc{background:#fff;border:1px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}
+details.acc>summary{list-style:none;cursor:pointer;padding:13px 14px;font-size:14px;font-weight:700}
+details.acc>summary::-webkit-details-marker{display:none}
+details.acc>summary .sub{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-top:2px}
+.accbody{padding:0 14px 14px;border-top:1px solid var(--line)}
+
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:5px 4px;text-align:center}
+th{background:#f7f8fa;color:var(--muted);font-weight:600;font-size:11px}
+td.d{text-align:left;white-space:nowrap;font-weight:600}
+td.na{color:var(--muted)}
+tr.hitrow td{background:var(--amber-bg)}
+
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:2px 6px;border:1px solid}
+.badge.rest{color:var(--muted);background:#f4f5f7;border-color:var(--line)}
+.badge.missing{color:var(--muted);background:#fff;border-color:var(--line);border-style:dashed}
+.badge.ev{color:var(--danger);background:var(--danger-bg);border-color:#f3c6c0}
+.badge.hit{color:var(--amber);background:var(--amber-bg);border-color:var(--amber-line)}
+.badge.pending{color:#4f46e5;background:var(--accent-soft);border-color:#ddd9fb}
+.badge.unknown{color:var(--muted);background:#f4f5f7;border-color:#d5d8de}
+
+ul.scale{margin:6px 0 0;padding-left:18px}
+ul.scale li{font-size:12.5px;margin-bottom:2px}
+
+.err-card{background:var(--danger-bg);border:1px solid #f3c6c0;border-radius:12px;padding:14px;margin:12px 0}
+.err-card h2{color:var(--danger)}
+.err-card .msg{font-size:12.5px;margin-top:6px;line-height:1.65}
+.foot{font-size:11.5px;color:var(--muted);text-align:center;padding:20px 0 10px;line-height:1.8}
+.stored{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+  font-size:11.5px;color:var(--muted);padding:0 0 24px}
+.stored button{font-family:inherit;font-size:11.5px;color:var(--muted);background:#fff;
+  border:1px solid var(--line);border-radius:7px;padding:6px 10px;min-height:32px;cursor:pointer}
+.loading{padding:60px 20px;text-align:center;color:var(--muted);font-size:13px}
+
+dialog{border:0;border-radius:12px;padding:0;max-width:440px;width:calc(100% - 28px)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+.dlg{padding:16px}
+.dlg h3{margin:0 0 8px;font-size:15px}
+.dlg pre{background:#f5f6fa;border:1px solid var(--line);border-radius:8px;padding:10px;
+  font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin:0;
+  font-family:inherit;max-height:38vh;overflow:auto}
+</style>
+</head>
+<body>
+<div id="demoBar" class="hidden"></div>
+<div id="warnBar" class="hidden"></div>
+<header class="app">
+  <div class="inner">
+    <div class="who" id="who"></div>
+    <h1>この画面は判定しません。判断するのは人です</h1>
+    <div class="stage" id="stageLine">いまの判断者：担当PT　／　段階 1 / 3</div>
+  </div>
+</header>
+<div class="wrap"><div id="app"><div class="loading">読み込み中…</div></div></div>
+
+<dialog id="dlg"><div class="dlg">
+  <h3 id="dlgTitle"></h3>
+  <pre id="dlgBody"></pre>
+  <button class="act" id="dlgCopy">この内容をコピー</button>
+  <button class="act ghost" id="dlgClose">閉じる</button>
+</div></dialog>
+
+<script>
+"use strict";
+
+/* --------------------------------------------------------------------------
+   1. 設定
+   トークンと氏名はこのファイルに書かない。URLの # 以降から受け取る。
+   このファイルは公開リポジトリ（VanWhist/mic-karte）に置くため。
+   -------------------------------------------------------------------------- */
+var CFG = {
+  // 閲覧API（read_api.gs）のウェブアプリURL
+  API_URL: 'https://script.google.com/macros/s/AKfycbzlqIb9METFtLrmnC1c9bfHt13HOSBzLnEfZl1AqXzYZOvBz5G9Oee2lZRG82ZWiioq/exec',
+  TOKEN: '',
+  ATHLETE_LABEL: '',
+  PT_LABEL: '担当PT',
+  COACHES: 'コーチ',
+  DAYS: 28,
+  // 「判断の記録」Googleフォーム。未設定ならリンクを出さない。
+  DECISION_FORM_URL: ''
+};
+
+/* 入力画面 claude/コンディション入力画面_source.html の readHashParams() をそのまま流用 */
+function readHashParams(){
+  var out = {};
+  var h = String(location.hash || '').replace(/^#/, '');
+  if (!h) return out;
+  var parts = h.split('&');
+  for (var i = 0; i < parts.length; i++){
+    if (!parts[i]) continue;
+    var eq = parts[i].indexOf('=');
+    var k = eq < 0 ? parts[i] : parts[i].slice(0, eq);
+    var v = eq < 0 ? '' : parts[i].slice(eq + 1);
+    try { out[k] = decodeURIComponent(v); } catch (e) { out[k] = v; }
+  }
+  return out;
+}
+var HASH = readHashParams();
+
+/* --------------------------------------------------------------------------
+   1-2. トークンを端末に保存する
+   共有リンクにトークンを載せないぶん、一度自分のリンクで開いた端末では
+   次から開けるようにする。
+
+   保存するのはトークンだけ。記録データ（days など）は保存しない。
+   古い記録が端末に残ると、更新されていない値を見て判断する事故が起きる。
+
+   localStorage が使えない環境（プライベートブラウズ等）でも画面が壊れないよう、
+   読み書きはすべて try / catch で囲む。使えなければ「保存しない」だけで動く。
+   -------------------------------------------------------------------------- */
+var TOKEN_KEY = 'mic_condition_view_token';
+function tokenLoad(){
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
+}
+function tokenSave(v){
+  try { localStorage.setItem(TOKEN_KEY, v); return true; } catch (e) { return false; }
+}
+function tokenClear(){
+  try { localStorage.removeItem(TOKEN_KEY); return true; } catch (e) { return false; }
+}
+
+var HASH_TOKEN = HASH.t || HASH.token || '';
+var TOKEN_FROM_STORE = false;
+if (HASH_TOKEN){
+  // # に付いているほうを優先して上書きする（役割を切り替えたときのため）
+  CFG.TOKEN = HASH_TOKEN;
+  tokenSave(HASH_TOKEN);
+} else {
+  var saved = tokenLoad();
+  if (saved){ CFG.TOKEN = saved; TOKEN_FROM_STORE = true; }
+}
+
+if (!CFG.ATHLETE_LABEL) CFG.ATHLETE_LABEL = HASH.n || HASH.name || '';
+if (HASH.pt) CFG.PT_LABEL = HASH.pt;
+if (HASH.co) CFG.COACHES  = HASH.co;
+
+/* 共有リンクの #from= / #to= を受ける。無ければ既定の日数で取る。 */
+var RANGE_FROM = HASH.from || '';
+var RANGE_TO   = HASH.to || '';
+
+var MOCK_MODE = HASH.mock || '';
+var NO_TOKEN  = !MOCK_MODE && !CFG.TOKEN;
+
+/* --------------------------------------------------------------------------
+   2. 小道具
+   -------------------------------------------------------------------------- */
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+/* local_date は文字列のまま扱う。表示用の切り出しも文字列操作だけで行う。 */
+function mdLabel(ymd){
+  var p = String(ymd).split('-');
+  return (+p[1]) + '/' + (+p[2]);
+}
+/* 前後の日付を求めるためだけのUTC計算。求めた結果も yyyy-MM-dd の文字列。 */
+function shiftYmd(ymd, n){
+  var p = String(ymd).split('-');
+  var d = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0,10);
+}
+/* UTCのISO文字列を日本時間の表示にする */
+function jstLabel(iso){
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  var j = new Date(d.getTime() + 9*3600*1000);
+  return (j.getUTCMonth()+1) + '/' + j.getUTCDate() + ' ' +
+    ('0'+j.getUTCHours()).slice(-2) + ':' + ('0'+j.getUTCMinutes()).slice(-2);
+}
+function hasValue(v){ return v !== null && v !== undefined && v !== ''; }
+
+/* --------------------------------------------------------------------------
+   3. モックデータ
+   実APIにつながずに画面を確認するためのもの。#mock=1 で使う。
+   形は claude/閲覧API契約_見本レスポンス.json に合わせている。
+   氏名は入れない（athlete_id はダミー）。
+   -------------------------------------------------------------------------- */
+function buildMock(){
+  var CALC = '2026-09-15T00:00:00Z';
+  function m(date, o){
+    o = o || {};
+    return {
+      record_id:'m-'+date, local_time:'07:10', status:o.status || 'recorded',
+      pain:o.pain==null?null:o.pain, swelling:o.swelling==null?null:o.swelling,
+      stiffness:o.stiffness==null?null:o.stiffness,
+      site:o.site || '', note:o.note || '', entered_at_utc:'2026-09-01T00:00:00Z'
+    };
+  }
+  function s(date, no, o){
+    return {
+      record_id:'s-'+date+'-'+no, local_time:o.time||'16:40', status:'recorded', session_no:no,
+      pain:o.pain, swelling:o.swelling, stiffness:o.stiffness, site:o.site||'',
+      jump_count:o.jump==null?null:o.jump, ski_count:o.ski==null?null:o.ski,
+      rpe:o.rpe==null?null:o.rpe, note:o.note||'',
+      morning_record_id:'m-'+date, entered_at_utc:''
+    };
+  }
+  function ev(o){
+    return {
+      rule_version:'v1', engine_version:'e1', phase:'trial', calculated_at_utc:CALC,
+      evaluable: o.evaluable !== false, evaluable_reason:o.evaluable_reason||'',
+      rule_a_hit:!!o.a_hit, rule_a_items:o.a_items||'', rule_a_streak:o.a_streak==null?null:o.a_streak,
+      rule_b_hit:!!o.b_hit, rule_b_detail:o.b_detail||'',
+      matched:!!o.matched, notified:!!o.notified, suppressed_reason:o.suppressed||'',
+      detail:o.detail||''
+    };
+  }
+  var days = [];
+  // 09-01 通常
+  // 翌朝（9/02）が記録なしのため、ルールAを評価できない
+  days.push({local_date:'2026-09-01', morning:m('2026-09-01',{pain:1,swelling:0,stiffness:1,site:'内'}),
+    sessions:[s('2026-09-01',1,{pain:1,swelling:0,stiffness:1,site:'内',jump:10,rpe:5})],
+    events:[], evaluation:ev({evaluable:false, evaluable_reason:'翌朝の入力がない',
+      detail:'評価できない日（翌朝の入力がない）'})});
+  // 09-02 記録が1件もない日
+  days.push({local_date:'2026-09-02', morning:null, sessions:[], events:[], evaluation:null});
+  // 09-03 休養日
+  days.push({local_date:'2026-09-03', morning:m('2026-09-03',{status:'rest'}),
+    sessions:[], events:[], evaluation:null});
+  // 09-04 ルールA 1日目
+  days.push({local_date:'2026-09-04', morning:m('2026-09-04',{pain:1,swelling:0,stiffness:1,site:'内'}),
+    sessions:[s('2026-09-04',1,{pain:3,swelling:0,stiffness:1,site:'内',jump:12,rpe:6})],
+    events:[], evaluation:ev({a_hit:true,a_items:'痛み',a_streak:1,detail:'ルールA：該当（1回目。3回で一致）'})});
+  // 09-05 ルールA 2日目
+  days.push({local_date:'2026-09-05', morning:m('2026-09-05',{pain:2,swelling:0,stiffness:1,site:'内'}),
+    sessions:[s('2026-09-05',1,{pain:4,swelling:1,stiffness:1,site:'内',jump:12,rpe:7})],
+    events:[], evaluation:ev({a_hit:true,a_items:'痛み',a_streak:2,detail:'ルールA：該当（2回目。3回で一致）'})});
+  // 09-06 1日2セッション ＋ ルールA該当（3日目）
+  days.push({local_date:'2026-09-06', morning:m('2026-09-06',{pain:3,swelling:0,stiffness:0,site:'内'}),
+    sessions:[ s('2026-09-06',1,{pain:1,swelling:0,stiffness:0,site:'内',jump:12,rpe:6}),
+               s('2026-09-06',2,{pain:4,swelling:0,stiffness:0,site:'内',jump:12,rpe:6}) ],
+    events:[],
+    evaluation:ev({a_hit:true,a_items:'痛み',a_streak:3,matched:true,notified:true,
+      detail:'試行ルールに一致しました　ルールA：痛みが練習後に増え、翌朝も戻っていない日が3回続いた'})});
+  // 09-07 通常
+  // 朝の痛みは 4。9/6（朝3）のルールA成立に必要（翌朝 ≧ 当日朝+1）。
+  // この日自体は 朝4 → 練習後2 で増えていないため、ルールA非該当。
+  days.push({local_date:'2026-09-07', morning:m('2026-09-07',{pain:4,swelling:0,stiffness:1,site:'内'}),
+    sessions:[s('2026-09-07',1,{pain:2,swelling:0,stiffness:1,site:'内',jump:8,rpe:5})],
+    // 翌朝（9/08）が未入力のため、ルールAを評価できない
+    events:[], evaluation:ev({evaluable:false, evaluable_reason:'翌朝の入力がない',
+      detail:'評価できない日（翌朝の入力がない）'})});
+  // 09-08 未入力日
+  days.push({local_date:'2026-09-08', morning:m('2026-09-08',{status:'missing'}),
+    sessions:[], events:[], evaluation:null});
+  // 09-09 ルールA該当（1回目）
+  // 朝の値は 9/10 の rule_b_detail が書いている前日の値（痛み1・腫れ0・こわばり1・部位 内）に合わせる
+  days.push({local_date:'2026-09-09', morning:m('2026-09-09',{pain:1,swelling:0,stiffness:1,site:'内'}),
+    sessions:[s('2026-09-09',1,{pain:2,swelling:1,stiffness:2,site:'内',jump:10,rpe:6})],
+    events:[], evaluation:ev({a_hit:true, a_items:'痛み・腫れ', a_streak:1,
+      detail:'ルールA：該当（1回目。3回で一致）'})});
+  // 09-10 ルールB該当 ＋ 再通知の抑制
+  // 膝崩れはこの日に置かない。膝崩れが起きた一致日は再通知条件(2)で必ず通知されるため、
+  // 同じ日に「抑制」と並べると、システムが黙って通知を止めたように見えてしまう。
+  days.push({local_date:'2026-09-10',
+    morning:m('2026-09-10',{pain:2,swelling:1,stiffness:1,site:'外',note:'階段でひっかかる感じ'}),
+    sessions:[s('2026-09-10',1,{pain:3,swelling:1,stiffness:3,site:'外',jump:8,rpe:7})],
+    events:[],
+    evaluation:ev({evaluable:false,evaluable_reason:'翌朝の入力がない',
+      b_hit:true,
+      b_detail:'部位が 内 → 外　痛み 1→2 ／ 腫れ 0→1 ／ こわばり 1→1',
+      matched:true,notified:false,
+      suppressed:'前回（2026-09-06）の通知から4日。再通知の条件に当たらないため出さない',
+      detail:'評価できない日（翌朝の入力がない）　ルールB：部位が 内 → 外　痛み 1→2 ／ 腫れ 0→1 ／ こわばり 1→1　※ 前回（2026-09-06）の通知から4日。再通知の条件に当たらないため出さない'})});
+  // 09-11 未入力。9/10 の detail が「翌朝の入力がない」と書いているため、それに合わせる
+  days.push({local_date:'2026-09-11', morning:m('2026-09-11',{status:'missing'}),
+    sessions:[], events:[], evaluation:null});
+  // 09-12 膝崩れが起きた日。この日は一致していないので再通知の判定には入らない。
+  // 膝崩れ・ロッキング・新しい外傷は、この仕組みを通さず本人からPTへ直接連絡する。
+  days.push({local_date:'2026-09-12', morning:m('2026-09-12',{pain:1,swelling:1,stiffness:1,site:'外'}),
+    sessions:[s('2026-09-12',1,{pain:1,swelling:1,stiffness:1,site:'外',jump:8,rpe:5})],
+    events:[{record_id:'e-1',local_time:'17:02',event_type:'膝崩れ',source_screen:'session',
+      contact_opened_at_utc:'2026-09-12T08:02:00Z', contacted_at_utc:'2026-09-12T08:05:00Z'}],
+    evaluation:ev({})});
+  // 09-13 通常
+  days.push({local_date:'2026-09-13', morning:m('2026-09-13',{pain:1,swelling:0,stiffness:1,site:'外'}),
+    sessions:[s('2026-09-13',1,{pain:1,swelling:0,stiffness:1,site:'外',jump:8,rpe:5})],
+    events:[], evaluation:ev({})});
+  // 09-14 最終日。翌朝（9/15）がまだ来ていないので、判定エンジンがまだ計算していない
+  days.push({local_date:'2026-09-14', morning:m('2026-09-14',{pain:1,swelling:0,stiffness:0,site:'外'}),
+    sessions:[s('2026-09-14',1,{pain:1,swelling:0,stiffness:0,site:'外',jump:8,rpe:5})],
+    events:[], evaluation:null});
+
+  return {
+    ok:true, action:'series', api_version:'r1', generated_at_utc:'2026-09-15T03:00:00Z',
+    role:'pt', athlete_id:'demo-athlete', from:'2026-09-01', to:'2026-09-14',
+    scale:{ version:'s1', levels:[
+      {n:0,label:'なし',desc:'感じない・見られない'},
+      {n:1,label:'わずか',desc:'意識すれば分かる'},
+      {n:2,label:'はっきり',desc:'明確に感じるが、普段の動きは変わらない'},
+      {n:3,label:'強い',desc:'動き方に影響する'},
+      {n:4,label:'とても強い',desc:'普段どおり動くことが難しい'}
+    ]},
+    symptoms:[{key:'pain',label:'痛み'},{key:'swelling',label:'腫れ'},{key:'stiffness',label:'こわばり'}],
+    days:days,
+    rules:{
+      version:'v1', engine:'e1', phase:'trial',
+      a:{ streak:3, text:'練習後に増えた症状が、翌朝も当日朝より1以上高い。痛み・腫れ・こわばりのどれか1つでも該当し、それが評価できる練習日で3日続いたとき' },
+      b:{ text:'部位が前日と変わり、かつその日の最も強い症状が前日より1以上高いとき' },
+      renotify:{ days:7, worsen:2, text:'一度該当したあとは、次のいずれかが起きたときだけ再び該当とする。（1）前回の同じ項目より2以上高い（2）膝崩れ・ロッキング・新しい外傷が起きた（3）前回から7日以上あき、いまも条件が続いている' },
+      pending:'休養日と未入力日は連続を切らず保留。その日は該当としない',
+      direct:'膝崩れ・ロッキング・新しい外傷は、この仕組みを通さず本人から直接連絡する'
+    },
+    notice:'この画面は練習の可否を判定しない。判断するのは人。該当が出ていないことは、練習してよいという意味にはならない。',
+    code:200
+  };
+}
+
+/* --------------------------------------------------------------------------
+   4. 通信
+   POST 一本。Content-Type は text/plain;charset=utf-8。
+   application/json はCORSプリフライトで必ず失敗する（2026-08-19に実測済み）。
+   トークンはURLのクエリではなく本文に入れる。
+   -------------------------------------------------------------------------- */
+function fetchSeries(){
+  var payload = { token:CFG.TOKEN, action:'series' };
+  if (RANGE_FROM && RANGE_TO){
+    payload.from = RANGE_FROM;   // 共有リンクで期間を固定して開いた場合
+    payload.to   = RANGE_TO;
+  } else {
+    payload.days = CFG.DAYS;
+  }
+  return fetch(CFG.API_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); });
+}
+
+/* --------------------------------------------------------------------------
+   5. データの読み取り補助
+   ここでは症状値の合計・平均・最大を作らない。
+   ルールBの max はAPI側の内部計算で、画面には持ち込まない。
+   -------------------------------------------------------------------------- */
+function dayStatus(d){
+  if (!d.morning) return 'norecord';
+  var st = d.morning.status;
+  if (st === 'rest') return 'rest';
+  if (st === 'missing') return 'missing';
+  if (st === 'pending') return 'pending';
+  if (st === 'sync_failed') return 'sync_failed';
+  return 'recorded';
+}
+/* 該当日（試行ルールに一致した日）だけを拾う。判定はAPIが済ませている。 */
+function matchedDays(days){
+  return days.filter(function(d){ return d.evaluation && d.evaluation.matched; });
+}
+/* rule_a_items は「痛み」「痛み・腫れ」のような文言。項目ラベルで突き合わせる。 */
+function itemHit(d, label){
+  if (!d.evaluation || !d.evaluation.rule_a_hit) return false;
+  var s = String(d.evaluation.rule_a_items || '');
+  if (!s) return false;
+  return s.split('・').indexOf(label) >= 0;
+}
+/* 該当日を「1日」ではなく「2日の組」として書く。組の取り方はルールごとに違う。
+   ルールA：練習後の値と翌朝の値をくらべる → 「M/D練習 → 翌日朝」
+   ルールB：起床時の記録どうしをくらべる（練習後ではない）
+            → 「前日朝 → M/D朝」
+   claude/通知ルールv1_確定仕様_20260818.md の「3. ルールB／細部」に合わせている。 */
+function hitPairLabel(d){
+  var e = d.evaluation || {};
+  if (e.rule_a_hit){
+    return mdLabel(d.local_date) + '練習 → ' + mdLabel(shiftYmd(d.local_date, 1)) + '朝';
+  }
+  if (e.rule_b_hit){
+    return mdLabel(shiftYmd(d.local_date, -1)) + '朝 → ' + mdLabel(d.local_date) + '朝';
+  }
+  return mdLabel(d.local_date);
+}
+
+/* 本人からPTへ連絡した日時。direct_events の contacted_at_utc から取る。 */
+function contactedAt(days){
+  var out = '';
+  days.forEach(function(d){
+    (d.events || []).forEach(function(e){
+      if (e.contacted_at_utc) out = e.contacted_at_utc;
+    });
+  });
+  return out;
+}
+
+/* --------------------------------------------------------------------------
+   6. グラフ
+   - 背景の色帯は使わない
+   - ▲はその項目自体が戻らなかった日（rule_a_items に入っている日）にだけ出す
+   - 朝は線、練習後は点。1日2セッションなら点を2つ打つ（最大値にまとめない）
+   -------------------------------------------------------------------------- */
+function chart(days, sym){
+  var W = 340, H = 104, padL = 20, padR = 6, padT = 14, padB = 18;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var n = days.length;
+  var slot = plotW / n;
+  /* x, y は座標の計算。症状の合計や平均ではない。 */
+  function x(i){ return padL + slot * i + slot / 2; }
+  function y(v){ return padT + plotH - (v / 4) * plotH; }
+
+  var g = '';
+  [0, 2, 4].forEach(function(t){
+    g += '<line x1="' + padL + '" y1="' + y(t).toFixed(1) + '" x2="' + (W - padR) +
+         '" y2="' + y(t).toFixed(1) + '" stroke="#e3e5ec" stroke-width="1"/>';
+    g += '<text x="' + (padL - 4) + '" y="' + (y(t) + 3.5).toFixed(1) +
+         '" font-size="9" fill="#9aa1ac" text-anchor="end">' + t + '</text>';
+  });
+
+  // 朝の値：記録がある区間だけ線でつなぐ
+  var seg = [], segs = [];
+  days.forEach(function(d, i){
+    var v = (d.morning && hasValue(d.morning[sym.key])) ? d.morning[sym.key] : null;
+    if (v === null){ if (seg.length) segs.push(seg); seg = []; return; }
+    seg.push([x(i), y(v)]);
+  });
+  if (seg.length) segs.push(seg);
+  segs.forEach(function(pts){
+    if (pts.length === 1){
+      g += '<circle cx="' + pts[0][0].toFixed(1) + '" cy="' + pts[0][1].toFixed(1) +
+           '" r="2.6" fill="#3b6fd4"/>';
+      return;
+    }
+    g += '<polyline fill="none" stroke="#3b6fd4" stroke-width="2" stroke-linejoin="round" ' +
+         'stroke-linecap="round" points="' +
+         pts.map(function(p){ return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '"/>';
+  });
+  days.forEach(function(d, i){
+    var v = (d.morning && hasValue(d.morning[sym.key])) ? d.morning[sym.key] : null;
+    if (v === null) return;
+    g += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="2.4" fill="#3b6fd4"/>';
+  });
+
+  // 練習後の値：セッションごとに点を打つ。2セッションなら2つ。
+  days.forEach(function(d, i){
+    var ss = d.sessions || [];
+    ss.forEach(function(s, k){
+      if (!hasValue(s[sym.key])) return;
+      /* 同じ日に複数セッションがあるとき、点が重ならないよう横にずらす（表示上の都合） */
+      var off = (ss.length > 1) ? (k === 0 ? -3 : 3) : 0;
+      g += '<circle cx="' + (x(i) + off).toFixed(1) + '" cy="' + y(s[sym.key]).toFixed(1) +
+           '" r="2.8" fill="#a3620a"/>';
+    });
+  });
+
+  // ▲：その項目自体が戻らなかった日だけ
+  days.forEach(function(d, i){
+    if (!itemHit(d, sym.label)) return;
+    var cx = x(i), cy = padT - 5;
+    g += '<polygon points="' + cx.toFixed(1) + ',' + (cy - 4) + ' ' +
+         (cx - 4).toFixed(1) + ',' + (cy + 3) + ' ' + (cx + 4).toFixed(1) + ',' + (cy + 3) +
+         '" fill="#a3620a"/>';
+  });
+
+  // 日付ラベル（両端と中央）
+  [0, Math.floor(n / 2), n - 1].forEach(function(i){
+    if (i < 0 || i >= n) return;
+    g += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 5) +
+         '" font-size="9" fill="#9aa1ac" text-anchor="middle">' + mdLabel(days[i].local_date) + '</text>';
+  });
+
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
+         esc(sym.label) + 'の推移">' + g + '</svg>';
+}
+
+/* --------------------------------------------------------------------------
+   7. 画面
+   -------------------------------------------------------------------------- */
+var DATA = null;
+
+function render(res){
+  DATA = res;
+  var days = res.days || [];
+  var rules = res.rules || {};
+  var trial = (rules.phase === 'trial');
+  var html = '';
+
+  document.getElementById('who').textContent = CFG.ATHLETE_LABEL || '';
+  document.getElementById('stageLine').textContent =
+    'いまの判断者：' + CFG.PT_LABEL + '　／　段階 1 / 3';
+
+  /* --- 期間と日付整合 ------------------------------------------------- */
+  var calc = '';
+  days.forEach(function(d){
+    if (d.evaluation && d.evaluation.calculated_at_utc) calc = d.evaluation.calculated_at_utc;
+  });
+  html += '<div class="card">';
+  html += '<h2>表示している期間</h2>';
+  html += '<div class="kv"><span class="k">対象</span><span class="v">' +
+          esc(res.from) + ' 〜 ' + esc(res.to) + '</span></div>';
+  html += '<div class="kv"><span class="k">通知ルール</span><span class="v">' +
+          esc(rules.version || '—') + (trial ? '（試行中）' : '') + '</span></div>';
+  if (calc){
+    html += '<p class="note">通知ルール ' + esc(rules.version || '') +
+            ' で過去の記録を再計算しました　／　計算日時 ' + esc(jstLabel(calc)) +
+            '　／　対象 ' + esc(mdLabel(res.from)) + '–' + esc(mdLabel(res.to)) + '</p>';
+  } else {
+    html += '<p class="note">この期間には、まだ判定を行っていない日があります。</p>';
+  }
+  html += '</div>';
+
+  /* --- いま、誰が判断するか ------------------------------------------- */
+  html += '<div class="card">';
+  html += '<h2>いま、誰が判断するか</h2>';
+  html += '<div class="stage-row"><div class="sn">段階 1<em>いま</em></div>' +
+          '<div class="sd">判断はすべて' + esc(CFG.PT_LABEL) +
+          '。画面は記録と表示を行い、該当した日と、誰がどう判断したかを残します。</div></div>';
+  html += '<div class="stage-row"><div class="sn">段階 2</div>' +
+          '<div class="sd">溜まった判断の記録をもとに、「ここまでは選手と' + esc(CFG.COACHES) +
+          'が判断してよい」という線を' + esc(CFG.PT_LABEL) + 'が引きます。</div></div>';
+  html += '<div class="stage-row"><div class="sn">段階 3</div>' +
+          '<div class="sd">線の内側は選手とスタッフが判断し、記録します。線の外側は、これまでどおり' +
+          esc(CFG.PT_LABEL) + 'に確認します。</div></div>';
+  html += '<div class="principle">段階3でも変えない原則<br>' +
+          '・該当が出ていないことは、練習してよいという意味にはしません<br>' +
+          '・違和感があれば、記録に関係なく連絡してください</div>';
+  html += '</div>';
+
+  /* --- 該当した日 ------------------------------------------------------ */
+  var hits = matchedDays(days);
+  html += '<div class="card">';
+  html += '<h2>' + (trial ? '試行ルールに一致した日' : '通知条件に一致した日') + '</h2>';
+  if (!hits.length){
+    html += '<p class="lead">この期間に一致した日はありません。</p>';
+    html += '<div class="principle">' + esc(res.notice || '') + '</div>';
+  } else {
+    hits.slice().reverse().forEach(function(d){
+      var e = d.evaluation;
+      html += '<div class="hit">';
+      // 見出しは日付の組だけにする。
+      // 「試行ルールに一致しました」は detail の先頭にAPIの文言として入っているため、
+      // 見出しにも出すと同じ文が2回並ぶ。detail は削れないので、見出しのほうを日付にする。
+      // 何のカードかは、セクション見出し「試行ルールに一致した日」で分かる。
+      // 1日ではなく2日の組であることを示す。組の取り方はルールごとに違う。
+      html += '<div class="ht">' + esc(hitPairLabel(d)) + '</div>';
+      // detail は判定エンジンが作った文言。そのまま全文を出す。
+      // 要約や、折り返しを整えるための削除はしない。
+      if (e.detail) html += '<div class="hd">' + esc(e.detail) + '</div>';
+      // detail には evaluable_reason と suppressed_reason が既に含まれる。
+      // 同じ文を別行で繰り返さず、状態だけを短く添える。
+      if (!e.notified && e.suppressed_reason){
+        html += '<div class="hsup">自動の通知は出していません（理由は上の「※」）。</div>';
+      } else if (trial){
+        html += '<div class="hsup">自動の通知は送っていません。試行中のため、画面に記録として残しています。</div>';
+      }
+      html += '</div>';
+    });
+    html += '<div class="principle">' + esc(res.notice || '') + '</div>';
+  }
+
+  /* --- 事実欄（評価的な語を使わない） --------------------------------- */
+  var ca = contactedAt(days);
+  html += '<div class="facts">';
+  html += '<div class="kv"><span class="k">本人からPTへ連絡した日時</span><span class="v' +
+          (ca ? '' : ' none') + '">' + (ca ? esc(jstLabel(ca)) : '—') + '</span></div>';
+  html += '<div class="kv"><span class="k">PTが記録を確認した日時</span><span class="v none">—</span></div>';
+  html += '<div class="kv"><span class="k">判断</span><span class="v none">—</span></div>';
+  html += '</div>';
+  html += '<p class="note">下の2つは、いまの版では記録していません。</p>';
+
+  html += '<button class="act" id="btnConsult">PTに相談する</button>';
+  html += '</div>';
+
+  /* --- グラフ ---------------------------------------------------------- */
+  html += '<div class="card">';
+  html += '<h2>症状の経過</h2>';
+  html += '<p class="lead">痛み・腫れ・こわばりは、それぞれ別の観察値です。合計や平均は出しません。</p>';
+  html += '<div class="legend">' +
+          '<span><i style="background:#3b6fd4"></i>朝</span>' +
+          '<span><i style="background:#a3620a"></i>練習後（セッションごと）</span>' +
+          '<span><u></u>その項目が翌朝まで戻らなかった日</span></div>';
+  (res.symptoms || []).forEach(function(sym){
+    html += '<div class="gtitle">' + esc(sym.label) + '</div>';
+    html += chart(days, sym);
+  });
+  html += '<p class="note">▲は、その項目自体が戻らなかった日にだけ付けています。' +
+          '1つの出来事を3つの異常として数えないためです。</p>';
+  html += '</div>';
+
+  /* --- いま適用しているルール（APIの文言をそのまま出す） --------------- */
+  html += '<details class="acc"><summary>いま適用しているルール（' + esc(rules.version || '') + '）' +
+          '<span class="sub">' + (trial ? '試行中' : '正式運用') + '　／　文言はPTが承認したもの</span></summary>';
+  html += '<div class="accbody">';
+  if (rules.a) html += '<p class="note strong">A　翌朝まで戻らない</p><p class="note">' + esc(rules.a.text) + '</p>';
+  if (rules.b) html += '<p class="note strong">B　部位が変わった</p><p class="note">' + esc(rules.b.text) + '</p>';
+  if (rules.renotify) html += '<p class="note strong">再通知</p><p class="note">' + esc(rules.renotify.text) + '</p>';
+  if (rules.pending) html += '<p class="note strong">休養日・未入力日</p><p class="note">' + esc(rules.pending) + '</p>';
+  if (rules.direct) html += '<p class="note strong">別ルート（この仕組みを通さず直接連絡）</p><p class="note">' + esc(rules.direct) + '</p>';
+  if (res.scale && res.scale.levels){
+    html += '<p class="note strong">症状の尺度（0〜4）</p><ul class="scale">';
+    res.scale.levels.forEach(function(l){
+      html += '<li><b>' + l.n + '　' + esc(l.label) + '</b>　' + esc(l.desc) + '</li>';
+    });
+    html += '</ul>';
+    html += '<p class="note">順序尺度です。1段階を同じ量として扱いません。</p>';
+  }
+  html += '</div></details>';
+
+  /* --- 日別の記録 ------------------------------------------------------ */
+  html += '<details class="acc"><summary>日別の記録<span class="sub">' +
+          days.length + '日分</span></summary><div class="accbody">';
+  html += dayTable(days, res.symptoms || []);
+  html += '</div></details>';
+
+  /* --- 判断の記録（未連携） ------------------------------------------- */
+  html += '<div class="card">';
+  html += '<h2>判断の記録</h2>';
+  html += '<p class="lead">誰が・いつ・何を見て・どう判断したか</p>';
+  html += '<div class="principle"><b>まだつないでいません。</b><br>' +
+          '回答は別のスプレッドシートにあり、この画面からは読んでいません。' +
+          'いまの版では、下の項目をGoogleフォームに記録していただく運用です。</div>';
+  html += '<div class="kv"><span class="k">誰が</span><span class="v none">—</span></div>';
+  html += '<div class="kv"><span class="k">いつ</span><span class="v none">—</span></div>';
+  html += '<div class="kv"><span class="k">何を見て</span><span class="v none">—</span></div>';
+  html += '<div class="kv"><span class="k">どう判断したか</span><span class="v none">—</span></div>';
+  if (CFG.DECISION_FORM_URL){
+    html += '<a class="act ghost" style="display:block;text-align:center;line-height:46px;' +
+            'text-decoration:none" href="' + esc(CFG.DECISION_FORM_URL) +
+            '" target="_blank" rel="noopener">判断の記録フォームを開く</a>';
+  } else {
+    html += '<p class="note">フォームのリンクは未設定です。</p>';
+  }
+  html += '</div>';
+
+  html += '<div class="foot">' + esc(res.notice || '') + '</div>';
+  html += storedNotice();
+
+  document.getElementById('app').innerHTML = html;
+  var btn = document.getElementById('btnConsult');
+  if (btn) btn.addEventListener('click', openConsult);
+  bindDialog();
+  bindForget();
+}
+
+/* このブラウザにリンクを保存していることの表示と、消すボタン。
+   目立たせる必要はないが、保存していることは隠さない。
+   トークンの値そのものは画面に出さない。 */
+function storedNotice(){
+  if (MOCK_MODE) return '';
+  if (!tokenLoad()) return '';
+  return '<div class="stored">' +
+    '<span>このブラウザにリンクを保存しています</span>' +
+    '<button type="button" id="btnForget">この端末から消す</button>' +
+  '</div>';
+}
+function bindForget(){
+  var b = document.getElementById('btnForget');
+  if (!b || b.dataset.bound) return;
+  b.dataset.bound = '1';
+  b.addEventListener('click', function(){
+    tokenClear();
+    CFG.TOKEN = '';
+    // 保存を消したら、トークンなしの画面に戻す
+    var warnBar = document.getElementById('warnBar');
+    warnBar.classList.remove('hidden');
+    warnBar.textContent = 'このリンクでは記録を開けません。ご自身のリンクをお開きください';
+    showError('記録を表示できません',
+      'この端末から保存を消しました。通信は行っていません。',
+      'ご自身のリンクから開いてください。一度開くと、この端末では次から開けるようになります。');
+    window.scrollTo(0, 0);
+  });
+}
+
+/* 日別の表。症状は項目名のまま並べる。合計や平均は作らない。 */
+function dayTable(days, symptoms){
+  var h = '<table><thead><tr><th>日付</th><th>状態</th>';
+  symptoms.forEach(function(s){ h += '<th>' + esc(s.label) + '</th>'; });
+  h += '<th>部位</th><th>ジャンプ</th></tr></thead><tbody>';
+  days.slice().reverse().forEach(function(d){
+    var st = dayStatus(d);
+    var hit = d.evaluation && d.evaluation.matched;
+    h += '<tr class="' + (hit ? 'hitrow' : '') + '">';
+    h += '<td class="d">' + esc(mdLabel(d.local_date)) + '</td>';
+    if (st === 'norecord'){
+      h += '<td colspan="' + (symptoms.length + 3) + '" class="na">記録なし</td></tr>';
+      return;
+    }
+    if (st === 'rest'){
+      h += '<td><span class="badge rest">休養</span></td>' +
+           '<td colspan="' + (symptoms.length + 2) + '" class="na">練習なし</td></tr>';
+      return;
+    }
+    if (st === 'missing'){
+      h += '<td><span class="badge missing">未入力</span></td>' +
+           '<td colspan="' + (symptoms.length + 2) + '" class="na">入力がありません</td></tr>';
+      return;
+    }
+    var tags = '';
+    if (hit) tags += '<span class="badge hit">一致</span>';
+    if ((d.events || []).length) tags += '<span class="badge ev">' + esc(d.events[0].event_type) + '</span>';
+    // 「まだ判定していない日」と「判定して該当しなかった日」は意味が違うので分ける。
+    // さらに「判定に必要な記録がそろわず評価できなかった日」も別に示す。
+    // 空欄の「—」が「確認して問題なかった」と読まれるのが、いちばん避けたい誤解。
+    if (!d.evaluation) tags += '<span class="badge pending">未判定</span>';
+    // 文言は「評価できず」で固定し、理由は title に入れる。
+    // evaluable_reason が「翌朝の入力がない」以外になっても壊れないようにするため。
+    else if (d.evaluation.evaluable === false){
+      tags += '<span class="badge unknown" title="' + esc(d.evaluation.evaluable_reason || '') +
+              '">評価できず</span>';
+    }
+    if (!tags) tags = '<span class="na">—</span>';
+    h += '<td>' + tags + '</td>';
+    // 朝 → 練習後（セッションごと）を、項目ごとに並べる
+    symptoms.forEach(function(s){
+      var mv = (d.morning && hasValue(d.morning[s.key])) ? d.morning[s.key] : null;
+      var post = (d.sessions || []).map(function(x){
+        return hasValue(x[s.key]) ? String(x[s.key]) : '—';
+      }).join('/');
+      h += '<td>' + (mv === null ? '—' : mv) + (post ? '→' + post : '') + '</td>';
+    });
+    h += '<td>' + esc((d.morning && d.morning.site) || '—') + '</td>';
+    var jumps = (d.sessions || []).map(function(x){
+      return hasValue(x.jump_count) ? String(x.jump_count) : '—';
+    }).join('/');
+    h += '<td>' + (jumps || '—') + '</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  h += '<p class="note">「→」の左が朝、右が練習後です。1日に2セッションある日は「/」で並べています。' +
+       'まとめた数字は作っていません。<br>' +
+       '「未判定」は、まだ判定を行っていない日です。該当しなかったという意味ではありません。<br>' +
+       '「評価できず」は、判定に必要な記録がそろわなかった日です。該当しなかったという意味ではありません。</p>';
+  return h;
+}
+
+/* --------------------------------------------------------------------------
+   8. 「PTに相談する」
+   送る内容の確認 → この期間を固定したリンク → 共有。
+   いまの版では記録の書き戻しをしない。
+   -------------------------------------------------------------------------- */
+function openConsult(){
+  var res = DATA;
+  if (!res) return;
+  var trial = (res.rules && res.rules.phase === 'trial');
+  var lines = [];
+  lines.push('【コンディション記録の共有】');
+  lines.push('対象期間：' + res.from + ' 〜 ' + res.to);
+  var hits = matchedDays(res.days || []);
+  if (hits.length){
+    lines.push('');
+    lines.push(trial ? '試行ルールに一致した日：' : '通知条件に一致した日：');
+    hits.forEach(function(d){
+      lines.push('・' + hitPairLabel(d));
+      if (d.evaluation && d.evaluation.detail) lines.push('　' + d.evaluation.detail);
+    });
+  } else {
+    lines.push('');
+    lines.push('この期間に一致した日はありません。');
+  }
+  var evs = [];
+  (res.days || []).forEach(function(d){
+    (d.events || []).forEach(function(e){
+      evs.push('・' + mdLabel(d.local_date) + ' ' + e.local_time + '　' + e.event_type);
+    });
+  });
+  if (evs.length){
+    lines.push('');
+    lines.push('直接連絡の対象：');
+    lines = lines.concat(evs);
+  }
+  lines.push('');
+  lines.push(res.notice || '');
+  lines.push('');
+  lines.push('この期間を固定したリンク：');
+  lines.push(fixedLink(res));
+  lines.push('');
+  lines.push('※ 初めて開くときは、ご自身のリンクから開いてください。');
+
+  document.getElementById('dlgTitle').textContent = '送る内容の確認';
+  document.getElementById('dlgBody').textContent = lines.join('\n');
+  document.getElementById('dlg').showModal();
+}
+/* 期間を固定したリンク。トークンは載せない（URLに載せると共有先に漏れるため）。 */
+function fixedLink(res){
+  var base = location.origin + location.pathname;
+  return base + '#from=' + res.from + '&to=' + res.to;
+}
+function bindDialog(){
+  var dlg = document.getElementById('dlg');
+  var close = document.getElementById('dlgClose');
+  var copy = document.getElementById('dlgCopy');
+  if (close && !close.dataset.bound){
+    close.dataset.bound = '1';
+    close.addEventListener('click', function(){ dlg.close(); });
+  }
+  if (copy && !copy.dataset.bound){
+    copy.dataset.bound = '1';
+    copy.addEventListener('click', function(){
+      var t = document.getElementById('dlgBody').textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(t).then(function(){ copy.textContent = 'コピーしました'; },
+          function(){ copy.textContent = 'コピーできませんでした'; });
+      } else {
+        copy.textContent = 'この端末ではコピーできません';
+      }
+    });
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. 失敗したときの表示
+   画面を壊さず、何が起きたかが分かるようにする。
+   -------------------------------------------------------------------------- */
+function showError(title, msg, detail){
+  var html = '<div class="err-card"><h2>' + esc(title) + '</h2>' +
+    '<div class="msg">' + esc(msg) + '</div>';
+  if (detail) html += '<div class="msg" style="color:#6b7280;font-size:11.5px">' + esc(detail) + '</div>';
+  html += '</div>';
+  html += '<div class="card"><h2>この画面について</h2>' +
+    '<p class="note">この画面は練習の可否を判定しません。判断するのは人です。' +
+    '記録が表示されていないことは、練習してよいという意味にはなりません。</p></div>';
+  document.getElementById('app').innerHTML = html;
+}
+
+/* エラー種別ごとの案内。read_api.gs が返す error の値に合わせている。 */
+var ERROR_TEXT = {
+  unauthorized:'このリンクでは記録を開けません。受け取った専用リンクをもう一度お開きください。',
+  forbidden:'このリンクでは、この選手の記録は見られません。',
+  bad_json:'サーバーへの要求が正しく届きませんでした。',
+  empty_body:'サーバーへの要求が正しく届きませんでした。',
+  unknown_action:'サーバーへの要求が正しく届きませんでした。',
+  bad_from:'期間の指定が正しくありません。',
+  bad_to:'期間の指定が正しくありません。',
+  bad_range:'期間の指定が正しくありません（開始が終了より後）。',
+  too_long:'一度に表示できる日数を超えています。',
+  server_error:'サーバー側で問題が起きています。'
+};
+
+/* --------------------------------------------------------------------------
+   10. 起動
+   -------------------------------------------------------------------------- */
+/* 同じ画面を開いたまま別のリンク（#from=… や #t=…）をタップされたとき、
+   ハッシュだけが変わってもページは読み込み直されない。
+   その場合に何も起きないと「リンクが効かない」ように見えるので、読み直す。 */
+window.addEventListener('hashchange', function(){ location.reload(); });
+
+(function init(){
+  var demoBar = document.getElementById('demoBar');
+  var warnBar = document.getElementById('warnBar');
+
+  if (MOCK_MODE){
+    demoBar.classList.remove('hidden');
+    demoBar.textContent = 'サンプルデータ表示中（実データではありません）';
+  }
+  if (NO_TOKEN){
+    // トークンが無いときは通信しない（入力画面と同じ挙動）
+    warnBar.classList.remove('hidden');
+    warnBar.textContent = 'このリンクでは記録を開けません。受け取った専用リンクをお開きください';
+    showError('記録を表示できません',
+      'このリンクでは記録を開けません。通信は行っていません。',
+      'ご自身のリンクから開いてください。一度開くと、この端末では次から開けるようになります。');
+    return;
+  }
+
+  if (MOCK_MODE === 'error'){
+    // 通信に失敗したときの見え方を確認するための状態
+    showError('記録を取得できませんでした',
+      '通信に失敗しました。電波の状況を確かめて、もう一度お試しください。',
+      'TypeError: Failed to fetch');
+    return;
+  }
+  if (MOCK_MODE){
+    try {
+      var mock = buildMock();
+      // 共有リンク（#from= / #to=）で開かれたときの見え方も確かめられるようにする
+      if (RANGE_FROM && RANGE_TO){
+        mock.days = mock.days.filter(function(d){
+          return d.local_date >= RANGE_FROM && d.local_date <= RANGE_TO;
+        });
+        mock.from = RANGE_FROM;
+        mock.to   = RANGE_TO;
+      }
+      render(mock);
+    }
+    catch (e){ showError('画面の表示に失敗しました', String(e && e.message || e), ''); }
+    return;
+  }
+
+  if (!CFG.API_URL){
+    showError('接続先が未設定です',
+      'この画面の CFG.API_URL に、閲覧API（read_api.gs）のウェブアプリURLを設定してください。',
+      '');
+    return;
+  }
+
+  fetchSeries().then(function(res){
+    if (!res || res.ok !== true){
+      var key = res && res.error;
+      showError('記録を取得できませんでした',
+        (ERROR_TEXT[key] || 'サーバーからの応答を読み取れませんでした。'),
+        res && res.message ? String(res.message) : '');
+      return;
+    }
+    render(res);
+  }).catch(function(e){
+    showError('記録を取得できませんでした',
+      '通信に失敗しました。電波の状況を確かめて、もう一度お試しください。',
+      String(e && e.message || e));
+  });
+})();
+</script>
+</body>
+</html>
