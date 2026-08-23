@@ -745,6 +745,12 @@
 // URLに ?token=... が付いている場合はライブモードで動作し、
 // 付いていない場合は従来どおりプロトタイプバー(役割セレクト)によるデモモードのまま動作する。
 // ============================================================
+// 月経・周期に関するUIを一旦すべて非表示にしている(2026/08/23、Van様の指示)。
+// 対象は「生理・周期」カード / ダッシュボードの「周期」カード / 共有設定タブ の3つ。
+// 入力済みデータ・保存処理・バックエンド(savePeriod等)はそのまま残してあるので、
+// この定数を true に戻すだけで元通りになる。
+const PERIOD_FEATURES_ENABLED = false;
+
 const API_URL = 'https://script.google.com/macros/s/AKfycbz3zl7u2qkUswG3KOGq8IJe9tDXOyr8YKe9PnF5aZwaQsBY_lrKtAkGMV43A2jK83gT4g/exec';
 const LIVE_TOKEN = new URLSearchParams(location.search).get('token');
 const DEMO_MODE = !LIVE_TOKEN;
@@ -1532,7 +1538,7 @@ function switchTab(tab){
   const isCoachView = DEMO_MODE ? document.getElementById('roleSelect').value.startsWith('coach') : (LIVE && LIVE.type === 'coach');
   if(tab === 'dashboard' && isCoachView){
     document.getElementById('screen-coach').classList.add('active');
-  } else if(tab === 'share' && !isFemaleView()){
+  } else if(tab === 'share' && (!PERIOD_FEATURES_ENABLED || !isFemaleView())){
     document.getElementById('noAccessState').style.display = 'block';
   } else {
     document.getElementById('noAccessState').style.display = 'none';
@@ -1550,10 +1556,10 @@ function onRoleChange(){
   const cycleCard = document.getElementById('cycleCard');
   const adviceBanner = document.getElementById('adviceBanner');
 
-  shareBtn.style.display = (role === 'female_self') ? 'flex' : 'none';
-  periodCard.style.display = (role === 'female_self' || role.startsWith('coach')) ? '' : 'none';
+  shareBtn.style.display = (PERIOD_FEATURES_ENABLED && role === 'female_self') ? 'flex' : 'none';
+  periodCard.style.display = (PERIOD_FEATURES_ENABLED && (role === 'female_self' || role.startsWith('coach'))) ? '' : 'none';
   // 周期カードは女子選手のみ。「今日のコンディション」「今日のひとこと」は男女とも共通表示。
-  if(cycleCard) cycleCard.style.display = (role === 'female_self') ? '' : 'none';
+  if(cycleCard) cycleCard.style.display = (PERIOD_FEATURES_ENABLED && role === 'female_self') ? '' : 'none';
   if(adviceBanner) adviceBanner.style.display = role.startsWith('coach') ? 'none' : '';
   document.querySelector('nav.tabbar button[data-tab="record"]').style.display = role.startsWith('coach') ? 'none' : 'flex';
 
@@ -1640,9 +1646,9 @@ function applyLiveAthleteMode(data){
 
   whoLabel.textContent = data.name + '選手';
   document.getElementById('headerTitle').textContent = 'コンディション';
-  shareBtn.style.display = isFemale ? 'flex' : 'none';
-  if(periodCard) periodCard.style.display = isFemale ? '' : 'none';
-  if(cycleCard) cycleCard.style.display = isFemale ? '' : 'none';
+  shareBtn.style.display = (PERIOD_FEATURES_ENABLED && isFemale) ? 'flex' : 'none';
+  if(periodCard) periodCard.style.display = (PERIOD_FEATURES_ENABLED && isFemale) ? '' : 'none';
+  if(cycleCard) cycleCard.style.display = (PERIOD_FEATURES_ENABLED && isFemale) ? '' : 'none';
   document.querySelector('nav.tabbar button[data-tab="record"]').style.display = 'flex';
 
   LIVE_ATHLETE_BIRTHDATE = data.birthdate || null;
