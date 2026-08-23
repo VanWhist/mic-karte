@@ -325,6 +325,88 @@
     padding: 4px 2px 10px;
   }
 
+
+  /* ===== コンディションカード(2026/08/23追加。MICコンディション管理アプリと連携) ===== */
+  .cond-fresh {
+    display: inline-flex; align-items: center;
+    font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px;
+    background: #e6f6ec; color: #14653c;
+  }
+  .cond-fresh.warn { background: #fdf3e0; color: #8a5200; }
+  .cond-fresh.none { background: #eff0f3; color: #5f646c; }
+
+  .cond-tiles { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .cond-tile { background: var(--accent-soft); border-radius: 10px; padding: 9px 6px; text-align: center; }
+  .cond-tile .k { font-size: 10px; color: var(--blue-450); font-weight: 700; margin-bottom: 3px; }
+  .cond-tile .v { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--text-primary); }
+  .cond-tile .v.txt { font-size: 12px; line-height: 1.35; }
+  .cond-tile .u { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+
+  .cond-sub { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--gridline); }
+  .cond-sub .h { font-size: 10.5px; color: var(--text-muted); font-weight: 700; margin-bottom: 5px; letter-spacing: 0.02em; }
+  .cond-sub .l { font-size: 12.5px; line-height: 1.6; color: var(--text-primary); }
+  .cond-sub .l .d { color: var(--text-muted); font-size: 11px; }
+
+  .cond-strip { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .cond-strip .dots { display: flex; gap: 4px; }
+  .cond-strip .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--gridline); display: block; }
+  .cond-strip .dots i.on { background: var(--blue-450); opacity: 0.75; }
+  .cond-strip .dots i.today { box-shadow: 0 0 0 2px rgba(42,120,214,0.35); }
+  .cond-strip .tx { font-size: 11px; color: var(--text-muted); }
+
+  .cond-cta {
+    display: block; width: 100%; margin-top: 10px; background: var(--blue-450); color: #fff;
+    border: none; border-radius: 10px; padding: 11px 12px; font-size: 13.5px; font-weight: 700;
+    font-family: inherit; text-align: center; text-decoration: none;
+  }
+  .cond-cta.secondary { background: var(--page); color: var(--blue-550); border: 1px solid var(--border); }
+
+  .cond-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .cond-legend span { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--text-secondary); }
+  .cond-legend i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+
+  .cond-row {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 10px 0; border-top: 1px solid var(--gridline);
+    background: none; border-left: none; border-right: none; border-bottom: none;
+    font-family: inherit; text-align: left; cursor: pointer;
+  }
+  .cond-row:first-of-type { border-top: none; }
+  .cond-row:active { opacity: 0.55; }
+  .cond-row .sig {
+    flex: none; width: 52px; text-align: center; border-radius: 8px; padding: 5px 2px;
+    font-size: 10px; font-weight: 700; line-height: 1.25;
+  }
+  .cond-row .mid { flex: 1; min-width: 0; display: block; }
+  .cond-row .nm { display: block; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .cond-row .l1 { display: block; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
+  .cond-row .l2 { display: block; font-size: 10.5px; color: var(--text-muted); line-height: 1.5; margin-top: 1px; }
+  .cond-row .chev { flex: none; font-size: 19px; color: var(--blue-450); opacity: 0.55; font-weight: 700; }
+
+  .sig.green { background: #e6f6ec; color: #14653c; box-shadow: inset 0 0 0 1px #1f9d55; }
+  .sig.amber { background: #fdf3e0; color: #8a5200; box-shadow: inset 0 0 0 1px #e08a00; }
+  .sig.red   { background: #fdeae9; color: #8f2b2b; box-shadow: inset 0 0 0 1px #d64545; }
+  .sig.gray  { background: #eff0f3; color: #5f646c; box-shadow: inset 0 0 0 1px #9aa0a8; }
+
+  .cond-banner { border-radius: 10px; padding: 10px 11px; margin-bottom: 10px; }
+  .cond-banner .lb { font-size: 13.5px; font-weight: 700; }
+  .cond-banner .ex { font-size: 11px; opacity: 0.85; margin-top: 1px; line-height: 1.5; }
+  .cond-banner.green { background: #e6f6ec; color: #14653c; }
+  .cond-banner.amber { background: #fdf3e0; color: #8a5200; }
+  .cond-banner.red   { background: #fdeae9; color: #8f2b2b; }
+  .cond-banner.gray  { background: #eff0f3; color: #5f646c; }
+
+  .cond-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cond-kv .b { background: var(--page); border-radius: 10px; padding: 9px 10px; }
+  .cond-kv .b .k { font-size: 10.5px; color: var(--text-muted); font-weight: 700; margin-bottom: 2px; }
+  .cond-kv .b .v { font-size: 14px; font-weight: 700; }
+  .cond-kv .b .v small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+  .cond-back {
+    display: inline-block; font-size: 12.5px; font-weight: 600; color: var(--blue-450);
+    background: none; border: none; padding: 0 0 8px; font-family: inherit; cursor: pointer;
+  }
+
   /* ===== 短期目標カード 新レイアウト(2026/08: 今回/前回の比較表示) ===== */
 
   /* 今回/前回のヘッダー行 */
@@ -442,6 +524,13 @@ const STG_SHEET_URL = "https://docs.google.com/spreadsheets/d/1LaYW7XDurwSUDFplH
 const MANDALA_API_URL = "https://script.google.com/macros/s/AKfycbxzrgZf1C3vqfGwbeS3hUr1P9U3txbuVfiRBvxWzlAeKdnfIp7QaJ0C1MhE-drLwk31/exec";
 const AIRLOG_API_URL = "https://script.google.com/macros/s/AKfycbyH7nX_nhgJ4z7W_QCLGnZqwLp8GkCdRzof2RaaR3fLK2gKVpeF8P0lATS2uzzKJhP0ag/exec";
 const AIRLOG_APP_URL = "https://vanwhist.github.io/mic-air-log/";
+// コンディション管理(MICコンディション管理アプリ)。カルテと同じ?token=をそのまま受け付けるため、
+// このカードのために新しいトークンを配る必要はない。
+//   選手トークン -> getAthleteData(本人の記録のみ)
+//   コーチトークン -> getCoachView(在籍選手の要約のみ。睡眠・気分・メモ・月経は含まれない)
+// 別のコンディション管理システムを使っている選手には、APIが external:true を返す。
+const CONDITION_API_URL = "https://script.google.com/macros/s/AKfycbz3zl7u2qkUswG3KOGq8IJe9tDXOyr8YKe9PnF5aZwaQsBY_lrKtAkGMV43A2jK83gT4g/exec";
+const CONDITION_APP_URL = "https://vanwhist.github.io/mic-karte/condition/";
 // 濵田匠真専用のウエイトトレーニングログアプリ(まだ全選手共通化されておらず、名簿リゾルバの
 // 管理対象外の一時的な例外。matchNameで引く。他の選手にトレーニングログアプリができたら
 // ここに追記する)。
@@ -527,6 +616,10 @@ const seasonCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', d
 const mandalaCache = {}; // athlete名 -> { status: 'loading'|'loaded'|'error', data, error }
 let airLogDrill = null; // MICエアlogで現在ドリルダウン中のカテゴリ("water"|"trampoline"、nullなら全体表示)
 const airLogCache = {}; // apiUrl -> { status: 'loading'|'loaded'|'error', records, error }（全選手共通APIのためathlete名ではなくapiUrlをキーにする）
+// コンディションカード用。トークン単位で1回だけ取得する(選手モードは1名、コーチモードは全員分が1レスポンス)。
+const conditionCache = {}; // token -> { status: 'loading'|'loaded'|'error', data, error }
+let conditionCoachOpen = null; // コーチ用一覧で詳細を開いている選手名(nullなら一覧)
+var VIEW_TOKEN = null;         // URLの?token=。コンディションAPIにそのまま渡す
 
 function renderSelector() {
   const el = document.getElementById("selector");
@@ -802,6 +895,14 @@ function render() {
 
   const body = document.getElementById("appBody");
   body.innerHTML = "";
+
+  // コンディションカード (2026/08/23追加)。毎日見るものなので先頭に置く。
+  //   コーチモード: 在籍選手の一覧(タップで選手ごとの詳細)
+  //   選手モード  : 本人の直近の記録の要約
+  const conditionCard = (VIEW_MODE === "coach") ? makeConditionCoachCard() : makeConditionAthleteCard();
+  if (conditionCard) body.appendChild(conditionCard);
+  // コーチ用で選手ごとの詳細を開いている間は、他のカードを出さずに詳細だけを見せる
+  if (VIEW_MODE === "coach" && conditionCoachOpen) return;
 
   // 競技についてカード (2026/07/26追加)
   body.appendChild(makeCompeteCard(a, seasonState, current));
@@ -2100,6 +2201,287 @@ function makeCard(title, tone, innerHTML) {
   return card;
 }
 
+
+// ============================================================
+// コンディションカード(2026/08/23追加)
+// ------------------------------------------------------------
+// 表示するのは要約だけで、記録・修正は必ずコンディション管理アプリ側で行う。
+// 月経・周期に関する情報と共有設定は、選手用・コーチ用のどちらにも出さない。
+// ============================================================
+
+function loadCondition(token, action) {
+  const key = action + ":" + token;
+  if (conditionCache[key]) return; // 読み込み中 or 読み込み済み
+  conditionCache[key] = { status: "loading" };
+  fetch(CONDITION_API_URL + "?token=" + encodeURIComponent(token) + "&action=" + action)
+    .then(res => res.json())
+    .then(data => {
+      conditionCache[key] = { status: "loaded", data: data };
+      render();
+    })
+    .catch(err => {
+      conditionCache[key] = { status: "error", error: String(err) };
+      render();
+    });
+}
+window.retryCondition = function(token, action) {
+  delete conditionCache[action + ":" + token];
+  render();
+};
+window.condOpenAthlete = function(name) {
+  conditionCoachOpen = name;
+  render();
+  window.scrollTo({ top: 0, behavior: "auto" });
+};
+window.condBackToList = function() {
+  conditionCoachOpen = null;
+  render();
+};
+
+// ローカル日付(端末のタイムゾーン)で yyyy-MM-dd を作る。UTCずれを避けるためtoISOStringは使わない。
+function condToday() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+function condShiftDate(dateStr, delta) {
+  const p = dateStr.split("-").map(Number);
+  const d = new Date(p[0], p[1] - 1, p[2] + delta);
+  const q = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + q(d.getMonth() + 1) + "-" + q(d.getDate());
+}
+function condDaysAgo(dateStr) {
+  if (!dateStr) return null;
+  const p = String(dateStr).split("-").map(Number);
+  if (p.length !== 3 || isNaN(p[0])) return null;
+  const then = new Date(p[0], p[1] - 1, p[2]);
+  const now = new Date();
+  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((t0 - then) / 86400000);
+}
+function condMD(dateStr) {
+  const p = String(dateStr).split("-");
+  return p.length === 3 ? (Number(p[1]) + "/" + Number(p[2])) : dateStr;
+}
+
+// 確認優先度の判定。「体調の判定」ではなく「今日どの選手から声をかけるか」の目安。
+// 記録が足りない選手は色を出さず“情報不足”として分ける(「危険」と「分からない」を同じ意味にしないため)。
+function condJudge(r) {
+  const days = r.daysSinceLastRecord;
+  if (days === null || days === undefined || days >= 3 || (r.recentRecordCount || 0) < 2) {
+    return { key: "gray", label: "記録不足", why: "最近の記録が足りないため、状態を判断する材料がありません。" };
+  }
+  const lf = (r.latestFatigue === null || r.latestFatigue === undefined) ? null : Number(r.latestFatigue);
+  const af = (r.avgFatigue === null || r.avgFatigue === undefined) ? null : Number(r.avgFatigue);
+  const high = (lf !== null && lf >= 5) || (af !== null && af >= 4.0);
+  const elevated = (lf !== null && lf >= 4) || (af !== null && af >= 3.5);
+  if (high && r.hasInjury) {
+    return { key: "red", label: "優先確認", why: "疲労が高い記録と、ケガ・違和感の記録が重なっています。早めに本人に声をかけたい状態です。" };
+  }
+  if (elevated || r.hasInjury) {
+    const bits = [];
+    if (elevated) bits.push("疲労が高めの記録");
+    if (r.hasInjury) bits.push("ケガ・違和感の記録");
+    return { key: "amber", label: "確認あり", why: bits.join("と") + "があります。本人に聞いてみてください。" };
+  }
+  return { key: "green", label: "通常確認", why: "いまのところ、特に確認が必要な記録はありません。" };
+}
+function condFreshText(days) {
+  if (days === null || days === undefined) return "記録なし";
+  if (days === 0) return "今日 記録済み";
+  if (days === 1) return "昨日まで記録";
+  return days + "日前が最後";
+}
+
+// 別システムで管理している選手に出す導線だけのカード
+function makeConditionExternalCard(data) {
+  const name = escHtml(data.systemName || "別のコンディション管理システム");
+  const url = data.systemUrl || CONDITION_APP_URL;
+  return makeCard("コンディション", "gold",
+    `<div class="mandala-empty">この選手は <b>${name}（別ツール）</b>で管理しています。<br>MICコンディション管理には記録されません。</div>
+     <a class="cond-cta secondary" href="${url}" target="_blank" rel="noopener">${name}を開く →</a>`);
+}
+
+// ---- 選手用 -------------------------------------------------
+function makeConditionAthleteCard() {
+  const token = VIEW_TOKEN;
+  if (!token) return null;
+  loadCondition(token, "getAthleteData");
+  const cache = conditionCache["getAthleteData:" + token];
+
+  if (!cache || cache.status === "loading") {
+    return makeCard("コンディション", "green", `<div class="mandala-empty">読み込み中…</div>`);
+  }
+  if (cache.status === "error") {
+    return makeCard("コンディション", "green",
+      `<div class="mandala-empty">データを取得できませんでした（${escHtml(cache.error)}）。</div>
+       <div class="mandala-summary"><a class="mandala-link" href="javascript:void(0)" onclick="window.retryCondition('${token}','getAthleteData')">再読み込み →</a>
+       <a class="mandala-link" href="${CONDITION_APP_URL}?token=${token}" target="_blank" rel="noopener">アプリを開く →</a></div>`);
+  }
+
+  const data = cache.data || {};
+  if (data.external) return makeConditionExternalCard(data);
+  if (data.error) {
+    return makeCard("コンディション", "green",
+      `<div class="mandala-empty">コンディション管理の情報を取得できませんでした。</div>`);
+  }
+
+  const appUrl = CONDITION_APP_URL + "?token=" + token;
+  const records = (data.records || []).slice().sort((a, b) => a.date < b.date ? 1 : -1);
+  const today = condToday();
+
+  if (!records.length) {
+    return makeCard("コンディション", "green",
+      `<div class="mandala-empty">まだコンディションの記録がありません。<br>アプリで記録をつけると、今日の状態がここにまとまります。</div>
+       <a class="cond-cta" href="${appUrl}" target="_blank" rel="noopener">今日の記録をつける →</a>
+       <div class="mandala-summary" style="margin-top:8px;"><span>睡眠・疲労感・気分・食欲・筋肉痛の部位・ケガや違和感を、1日1回タップで記録します。</span></div>`);
+  }
+
+  const last = records[0];
+  const days = condDaysAgo(last.date);
+  const isToday = days === 0;
+
+  let fresh;
+  if (isToday) fresh = `<span class="cond-fresh">今日 記録済み</span>`;
+  else if (days === 1) fresh = `<span class="cond-fresh warn">昨日が最後の記録です</span>`;
+  else fresh = `<span class="cond-fresh warn">${days}日 記録が空いています</span>`;
+
+  const stamp = isToday ? "" : condMD(last.date);
+  const tiles = [
+    ["睡眠", last.sleep || "—", stamp],
+    ["疲労感", (last.fatigue || last.fatigue === 0) ? String(last.fatigue) : "—", last.fatigue ? "5段階中" : ""],
+    ["気分", (last.mood || last.mood === 0) ? String(last.mood) : "—", last.mood ? "5段階中" : ""],
+    ["食欲", last.appetite || "—", ""]
+  ];
+  let tilesHtml = `<div class="cond-tiles">`;
+  tiles.forEach(t => {
+    const isTxt = !/^[0-9]+(\.[0-9]+)?$/.test(t[1]) && t[1].length > 4;
+    tilesHtml += `<div class="cond-tile"><div class="k">${escHtml(t[0])}</div>` +
+                 `<div class="v${isTxt ? " txt" : ""}">${escHtml(t[1])}</div>` +
+                 (t[2] ? `<div class="u">${escHtml(t[2])}</div>` : "") + `</div>`;
+  });
+  tilesHtml += `</div>`;
+
+  // からだの記録。「いつの記録か」を必ず添えて、過去の記録が現在の症状に見えないようにする。
+  const injuries = (data.injuries || []).slice().sort((a, b) => a.date < b.date ? 1 : -1);
+  const latestInj = injuries.length ? injuries[0] : null;
+  let sub = "";
+  if (last.muscleParts || latestInj) {
+    sub += `<div class="cond-sub"><div class="h">からだの記録</div>`;
+    if (last.muscleParts) {
+      sub += `<div class="l">筋肉痛：${escHtml(last.muscleParts)}${isToday ? "" : ` <span class="d">${condMD(last.date)}の記録</span>`}</div>`;
+    }
+    if (latestInj) {
+      sub += `<div class="l">違和感：${escHtml(latestInj.part || "")} ${escHtml(String(latestInj.severity || "-"))}/5 <span class="d">${condMD(latestInj.date)}の記録</span></div>`;
+    }
+    sub += `</div>`;
+  }
+
+  // 直近7日の記録有無。継続性の確認用なので小さく脇に置く。
+  const dateSet = {};
+  records.forEach(r => { dateSet[r.date] = true; });
+  let dots = `<div class="dots">`;
+  let count7 = 0;
+  for (let i = 6; i >= 0; i--) {
+    const d = condShiftDate(today, -i);
+    const on = !!dateSet[d];
+    if (on) count7++;
+    dots += `<i class="${on ? "on" : ""}${i === 0 ? " today" : ""}"></i>`;
+  }
+  dots += `</div>`;
+
+  const html =
+    fresh + tilesHtml + sub +
+    `<div class="cond-strip">${dots}<span class="tx">直近7日：${count7}日 記録</span></div>` +
+    (isToday ? "" : `<a class="cond-cta" href="${appUrl}" target="_blank" rel="noopener">今日の記録をつける →</a>`) +
+    `<div class="mandala-summary"><a class="mandala-link" href="${appUrl}" target="_blank" rel="noopener">コンディション管理を開く →</a></div>`;
+
+  return makeCard("コンディション", "green", html);
+}
+
+// ---- コーチ用 -----------------------------------------------
+function makeConditionCoachCard() {
+  const token = VIEW_TOKEN;
+  if (!token) {
+    return makeCard("コンディション", "green",
+      `<div class="mandala-empty">コンディションを表示するには、コーチ用トークン付きのURL（<code>/coach/?token=…</code>）で開いてください。</div>
+       <a class="cond-cta secondary" href="${CONDITION_APP_URL}" target="_blank" rel="noopener">コンディション管理を開く →</a>`);
+  }
+  loadCondition(token, "getCoachView");
+  const cache = conditionCache["getCoachView:" + token];
+
+  if (!cache || cache.status === "loading") {
+    return makeCard("コンディション", "green", `<div class="mandala-empty">読み込み中…</div>`);
+  }
+  if (cache.status === "error") {
+    return makeCard("コンディション", "green",
+      `<div class="mandala-empty">データを取得できませんでした（${escHtml(cache.error)}）。</div>
+       <div class="mandala-summary"><a class="mandala-link" href="javascript:void(0)" onclick="window.retryCondition('${token}','getCoachView')">再読み込み →</a></div>`);
+  }
+  const data = cache.data || {};
+  if (data.error || !data.athletes) {
+    return makeCard("コンディション", "green",
+      `<div class="mandala-empty">コンディションの一覧を取得できませんでした。コーチ用トークンかどうかご確認ください。</div>`);
+  }
+
+  const rows = data.athletes.slice();
+  const appUrl = CONDITION_APP_URL + "?token=" + token;
+
+  // ---- 詳細（行をタップした状態）----
+  if (conditionCoachOpen) {
+    const r = rows.filter(x => x.name === conditionCoachOpen)[0];
+    if (r) {
+      const j = condJudge(r);
+      const html =
+        `<button class="cond-back" onclick="window.condBackToList()">← 一覧に戻る</button>
+         <div class="cond-banner ${j.key}"><div class="lb">${escHtml(j.label)}</div><div class="ex">${escHtml(j.why)}</div></div>
+         <div class="cond-kv">
+           <div class="b"><div class="k">疲労感（最新）</div><div class="v">${r.latestFatigue == null ? "—" : escHtml(String(r.latestFatigue)) + ' <small>/ 5</small>'}</div></div>
+           <div class="b"><div class="k">疲労感（7日平均）</div><div class="v">${r.avgFatigue == null ? "—" : escHtml(String(r.avgFatigue)) + ' <small>/ 5</small>'}</div></div>
+           <div class="b"><div class="k">ケガ・違和感</div><div class="v">${r.hasInjury ? "記録あり" : "記録なし"}</div></div>
+           <div class="b"><div class="k">記録の状況</div><div class="v">${escHtml(String(r.recentRecordCount || 0))}<small> 日 / 7日</small></div></div>
+         </div>
+         <div class="mandala-summary"><span>最終記録：${escHtml(condFreshText(r.daysSinceLastRecord))}${r.lastRecordDate ? "（" + escHtml(condMD(r.lastRecordDate)) + "）" : ""}</span></div>
+         <div class="mandala-empty" style="padding-top:2px;">この画面に出るのはこの4項目だけです。睡眠・気分・自由メモ・部位などの詳細と、月経に関する情報は含まれません。</div>
+         <a class="cond-cta secondary" href="${appUrl}" target="_blank" rel="noopener">コンディション管理（コーチ画面）を開く →</a>`;
+      return makeCard("コンディション／" + escHtml(r.name), "green", html);
+    }
+    conditionCoachOpen = null; // 選手が見つからない場合は一覧へ戻す
+  }
+
+  // ---- 一覧 ----
+  const order = { red: 0, amber: 1, gray: 2, green: 3 };
+  rows.sort((a, b) => order[condJudge(a).key] - order[condJudge(b).key]);
+
+  let html = `<div class="cond-legend">
+      <span><i style="background:#1f9d55"></i>通常確認</span>
+      <span><i style="background:#e08a00"></i>確認あり</span>
+      <span><i style="background:#d64545"></i>優先確認</span>
+      <span><i style="background:#9aa0a8"></i>記録不足</span>
+    </div>`;
+  rows.forEach(r => {
+    const j = condJudge(r);
+    const bits = [];
+    if (r.latestFatigue != null) bits.push("疲労 最新" + r.latestFatigue + (r.avgFatigue != null ? " / 7日平均" + r.avgFatigue : ""));
+    else if (r.avgFatigue != null) bits.push("疲労 7日平均" + r.avgFatigue);
+    if (r.hasInjury) bits.push("違和感あり");
+    const nameAttr = escHtml(escAttrJs(r.name));
+    html += `<button class="cond-row" onclick="window.condOpenAthlete('${nameAttr}')">
+        <span class="sig ${j.key}">${escHtml(j.label)}</span>
+        <span class="mid">
+          <span class="nm">${escHtml(r.name)}</span>
+          <span class="l1">${escHtml(bits.length ? bits.join("　/　") : "記録がありません")}</span>
+          <span class="l2">${escHtml(condFreshText(r.daysSinceLastRecord) + "　・　直近7日 " + (r.recentRecordCount || 0) + "日")}</span>
+        </span>
+        <span class="chev">›</span>
+      </button>`;
+  });
+  html += `<div class="mandala-empty" style="padding-top:10px;">色は体調の判定ではなく、<b>今日どの選手から声をかけるか</b>の目安です。練習の可否は判定しません。</div>`;
+  html += `<a class="cond-cta secondary" href="${appUrl}" target="_blank" rel="noopener">コンディション管理（コーチ画面）を開く →</a>`;
+
+  return makeCard("コンディション（在籍" + rows.length + "名）", "green", html);
+}
+
 // トークン解決に失敗した場合(無効なリンク)や、リゾルバ自体への通信が失敗した場合に
 // 選手切り替えタブ・更新日表示を隠し、appBodyにエラーメッセージのみを表示する。
 function renderFatalError(message) {
@@ -2113,6 +2495,7 @@ function renderFatalError(message) {
 // 名簿リゾルバAPIから実データを取得してATHLETESを組み立ててから初回render()を呼ぶ。
 async function initApp() {
   const urlToken = new URLSearchParams(location.search).get("token");
+  VIEW_TOKEN = urlToken; // コンディション管理APIにそのまま渡す
   let singlePerson = null;
 
   try {
