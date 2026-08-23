@@ -461,7 +461,7 @@
         <textarea id="commonMemo" placeholder="気になることがあれば自由に書いてください" onblur="maybeSaveLiveRecord()">今日は少し脚が重い感じがした。</textarea>
       </div>
 
-      <div class="card period-card" id="periodCard">
+      <div class="card period-card" id="periodCard" data-period-ui style="display:none;">
         <h2>生理・周期 <span class="tag female">女子選手向け・任意</span></h2>
         <div class="phase-badge" id="phaseBadge">🌙 黄体期 3日目（予測）</div>
         <button class="btn female" id="periodStartBtn" onclick="openPeriodDateInput()" style="margin-bottom:10px;">生理が始まった日を記録する</button>
@@ -607,7 +607,7 @@
         <div class="msg">黄体期は疲労やイライラを感じやすい時期です。強度よりフォーム確認を重視した練習が向いています。</div>
       </div>
 
-      <div class="card quiet" id="cycleCard">
+      <div class="card quiet" id="cycleCard" data-period-ui style="display:none;">
         <h2>周期</h2>
         <div class="cycle-track">
           <div class="cycle-seg" style="width:18%; background:#D03B3B;">月経期</div>
@@ -732,7 +732,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="5" height="8" rx="1.2"/><rect x="10" y="7" width="5" height="13" rx="1.2"/><rect x="17" y="3" width="5" height="17" rx="1.2"/></svg>
       ダッシュボード
     </button>
-    <button data-tab="share" id="shareTabBtn" onclick="switchTab('share')">
+    <button data-tab="share" id="shareTabBtn" data-period-ui style="display:none;" onclick="switchTab('share')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
       共有設定
     </button>
@@ -749,6 +749,8 @@
 // 対象は「生理・周期」カード / ダッシュボードの「周期」カード / 共有設定タブ の3つ。
 // 入力済みデータ・保存処理・バックエンド(savePeriod等)はそのまま残してあるので、
 // この定数を true に戻すだけで元通りになる。
+// 対象の3要素にはHTML側で style="display:none" を付けてある。JSが動く前(API応答待ちの数秒)に
+// 一瞬見えてしまうのを防ぐため。フラグをtrueに戻すとJSが display='' にして表示に戻す。
 const PERIOD_FEATURES_ENABLED = false;
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbz3zl7u2qkUswG3KOGq8IJe9tDXOyr8YKe9PnF5aZwaQsBY_lrKtAkGMV43A2jK83gT4g/exec';
