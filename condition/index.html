@@ -223,6 +223,12 @@
   .slider-row input[type=range]{flex:1; accent-color:var(--rose);}
   .slider-row .val{font-size:12px; color:var(--text-secondary); width:56px; text-align:right;}
 
+  .severity-row{margin-top:10px; padding:10px 12px; border-radius:12px; background:var(--page);}
+  .severity-row .severity-row-label{font-size:12.5px; font-weight:700; color:var(--text-primary);}
+  .severity-row .slider-row{margin-top:6px;}
+  .severity-row .slider-row .val{width:74px; white-space:nowrap;}
+  .severity-empty{font-size:12px; color:var(--text-muted); margin-top:8px;}
+
   /* --- ダッシュボード --- */
   .advice-banner{
     background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; border-radius:20px;
@@ -539,12 +545,8 @@
           </div>
         </div>
 
-        <div class="field-label">痛みの強さ</div>
-        <div class="slider-row">
-          <input type="range" min="1" max="5" value="3" id="injurySeverity"
-            oninput="updateSliderLabel(this,['','軽い','やや軽い','中くらい','強い','かなり強い'])">
-          <span class="val" id="injurySeverityVal">中くらい</span>
-        </div>
+        <div class="field-label">痛みの強さ（部位ごと）</div>
+        <div id="injurySeverityList"></div>
         <div class="field-label">発生状況</div>
         <div class="chip-row" id="occurrenceRow">
           <span class="chip sel" onclick="selectSingle(this)">練習中</span>
@@ -981,6 +983,38 @@ function toggleBodyPart(el){
 function updateSelectedPartLabel(){
   const sel = [...document.querySelectorAll('#injuryBodyParts .chip.sel')].map(c => c.textContent.trim());
   document.getElementById('selectedPartLabel').textContent = sel.length ? sel.join('、') : '未選択';
+  renderInjurySeverityList();
+}
+
+// --- ケガ・違和感: 部位ごとの痛みの強さ入力欄を、現在選択中の部位に合わせて再構築する。
+//     選択中の部位が変わっていない行は既存の入力値を保持し、無関係な部位の変更で値が
+//     リセットされないようにする ---
+const INJURY_SEVERITY_LABELS = ['', '軽い', 'やや軽い', '中くらい', '強い', 'かなり強い'];
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderInjurySeverityList(){
+  const list = document.getElementById('injurySeverityList');
+  const selectedParts = [...document.querySelectorAll('#injuryBodyParts .chip.sel')].map(c => c.textContent.trim());
+  const prevValues = new Map([...list.querySelectorAll('.severity-row')].map(row =>
+    [row.dataset.part, row.querySelector('input[type=range]').value]));
+
+  if(!selectedParts.length){
+    list.innerHTML = '<div class="severity-empty">部位を選択すると、部位ごとに痛みの強さを入力できます</div>';
+    return;
+  }
+
+  list.innerHTML = selectedParts.map(part => {
+    const val = prevValues.get(part) || 3;
+    return `<div class="severity-row" data-part="${escapeHtml(part)}">
+      <div class="severity-row-label">${escapeHtml(part)}</div>
+      <div class="slider-row">
+        <input type="range" min="1" max="5" value="${val}"
+          oninput="updateSliderLabel(this,INJURY_SEVERITY_LABELS)">
+        <span class="val">${INJURY_SEVERITY_LABELS[val]}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // --- ケガ・違和感: 「その他」でプリセットにない部位を自分で入力できるようにする（複数選択に追加） ---
@@ -1117,31 +1151,52 @@ async function confirmPeriodStart(){
   }
 }
 
-// --- ケガ・違和感の記録（都度追加） ---
+// --- ケガ・違和感の記録（都度追加）。部位ごとに痛みの強さが異なるため、選択中の部位1つにつき
+//     1件のレコードとしてバックエンドに保存する（発生状況・メモは全部位で共通）。
+//     部位が1つも選択されていない場合は、従来どおり「（部位未選択）」として1件のみ保存する ---
 let injuries = [];
 async function saveInjury(){
-  const partEls = [...document.querySelectorAll('#injuryBodyParts .chip.sel')];
+  const severityRows = [...document.querySelectorAll('#injurySeverityList .severity-row')];
   const occEl = document.querySelector('#occurrenceRow .chip.sel');
-  const sev = document.getElementById('injurySeverity').value;
-  const part = partEls.length ? partEls.map(c => c.textContent.trim()).join('、') : '（部位未選択）';
   const occ = occEl ? occEl.textContent.trim() : '（状況未選択）';
   const memo = (document.getElementById('injuryMemo') || {}).value || '';
   const time = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
   const btn = document.getElementById('saveInjuryBtn');
 
+  // 部位ごとの (part, severity) の組み立て。未選択時は従来どおり単一のプレースホルダー1件とする
+  const entries = severityRows.length
+    ? severityRows.map(row => ({ part: row.dataset.part, sev: row.querySelector('input[type=range]').value }))
+    : [{ part: '（部位未選択）', sev: '3' }];
+
+  const saved = [];
+  let failed = false;
   if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
     if(btn) btn.disabled = true; // 連打による二重送信を防ぐ
-    try{
-      await apiPost('saveInjury', { date: todayStrLocal(), part, occasion: occ, severity: sev, memo });
-    }catch(e){
-      if(btn) btn.disabled = false;
-      toast('保存できませんでした。通信状況をご確認のうえ、もう一度お試しください');
-      return; // 保存が失敗した場合はログに追加せず、「記録しました」も表示しない
+    for(const entry of entries){
+      try{
+        await apiPost('saveInjury', { date: todayStrLocal(), part: entry.part, occasion: occ, severity: entry.sev, memo });
+        saved.push(entry);
+      }catch(e){
+        failed = true;
+        break; // 途中で失敗した場合はそれ以降の部位は送信しない（既に保存できた分はログに反映する）
+      }
     }
     if(btn) btn.disabled = false;
+  } else {
+    saved.push(...entries);
   }
-  injuries.push({part, occ, sev, time, memo});
-  renderInjuryLog();
+
+  if(saved.length){
+    saved.forEach(entry => injuries.push({part: entry.part, occ, sev: entry.sev, time, memo}));
+    renderInjuryLog();
+  }
+
+  if(failed){
+    toast(saved.length
+      ? '一部の部位を保存できませんでした。通信状況をご確認のうえ、もう一度お試しください'
+      : '保存できませんでした。通信状況をご確認のうえ、もう一度お試しください');
+    return;
+  }
   toast('ケガ・違和感を記録しました');
 }
 function renderInjuryLog(){
@@ -1812,6 +1867,10 @@ function applyLiveCoachMode(data){
 
   switchTab('dashboard');
 }
+
+// ケガ・違和感カードの部位チップは静的HTMLで初期選択済みのため、
+// 部位ごとの痛みの強さ入力欄もページ読み込み時に一度合わせて構築しておく
+updateSelectedPartLabel();
 
 if(DEMO_MODE){
   renderCoachList();
