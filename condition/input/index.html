@@ -100,6 +100,10 @@
     text-align:center;background:#fff}
   .num .unit{font-size:14px;color:var(--muted)}
 
+  /* 過去の日として記録するときの注意書き */
+  .backfill{margin:8px 0 0;padding:9px 11px;border-radius:10px;background:#fff6e6;
+    border:1px solid #f0d9ac;font-size:13px;color:#6b5326;line-height:1.5}
+
   /* NTエアlogの参考表示。入力欄の値には触らない */
   .ref{margin:-4px 0 12px;padding:9px 11px;border-radius:10px;background:#f4f6f9;
        border:1px solid #e2e7ee;font-size:13px;color:#4a5057;line-height:1.5}
@@ -213,6 +217,16 @@
   <section id="view-morning" class="hidden">
     <div id="m-alert"></div>
 
+    <div class="card toned" id="m-when-card">
+      <h2 id="m-when-head">いつの記録ですか</h2>
+      <p class="hint" id="m-when-hint">ふだんは今日のままで大丈夫です。入れ忘れた日があるときだけ変えてください</p>
+      <div class="num"><label for="m-date">日付</label>
+        <input id="m-date" type="date" style="width:168px"></div>
+      <div class="num hidden" id="m-time-row"><label for="m-time">起きた時刻</label>
+        <input id="m-time" type="time" style="width:132px"></div>
+      <div class="backfill hidden" id="m-backfill"></div>
+    </div>
+
     <div class="card toned" id="m-events-card">
       <h2>前回の記録以降にありましたか？</h2>
       <p class="hint">ひとつ選んでください</p>
@@ -220,7 +234,7 @@
     </div>
 
     <div class="card toned">
-      <h2>いまの膝の状態</h2>
+      <h2 id="m-state-head">いまの膝の状態</h2>
       <p class="hint">3つとも選んでください</p>
       <div id="m-scales"></div>
       <button class="allzero" type="button" id="m-allzero">3つとも「0 なし」にする</button>
@@ -254,10 +268,14 @@
   <section id="view-session" class="hidden">
     <div id="s-alert"></div>
 
-    <div class="card toned">
-      <h2>練習が終わった時刻</h2>
-      <div class="num"><label for="s-time">時刻</label>
+    <div class="card toned" id="s-when-card">
+      <h2 id="s-when-head">いつの練習ですか</h2>
+      <p class="hint" id="s-when-hint">ふだんは今日のままで大丈夫です。入れ忘れた日があるときだけ変えてください</p>
+      <div class="num"><label for="s-date">日付</label>
+        <input id="s-date" type="date" style="width:168px"></div>
+      <div class="num"><label for="s-time">練習が終わった時刻</label>
         <input id="s-time" type="time" style="width:132px"></div>
+      <div class="backfill hidden" id="s-backfill"></div>
     </div>
 
     <div class="card toned" id="s-events-card">
@@ -267,7 +285,7 @@
     </div>
 
     <div class="card toned">
-      <h2>いまの膝の状態</h2>
+      <h2 id="s-state-head">いまの膝の状態</h2>
       <p class="hint">3つとも選んでください</p>
       <div id="s-scales"></div>
       <button class="allzero" type="button" id="s-allzero">3つとも「0 なし」にする</button>
@@ -406,7 +424,7 @@ var SCALE = [
   { n:4, label:'とても強い', desc:'普段どおり動くことが難しい' }
 ];
 var SYMPTOMS = [
-  { key:'pain',      label:'痛み',    hint:'いま感じている膝の痛み' },
+  { key:'pain',      label:'痛み',    hint:'膝に感じる痛み' },
   { key:'swelling',  label:'腫れ',    hint:'見た目または張り感で分かる膝まわりの腫れ' },
   { key:'stiffness', label:'こわばり', hint:'動かし始めや曲げ伸ばしで感じる硬さ' }
 ];
@@ -429,13 +447,16 @@ var state = { tab:'home', view:'home', form:null, records:[], queue:[],
               airlog:{ status:'idle', date:'', data:null } };
 
 function newForm(kind){
-  return { kind:kind, pain:null, swelling:null, stiffness:null, site:null,
+  return { kind:kind, date:today(), pain:null, swelling:null, stiffness:null, site:null,
            events:[], eventNone:false, contactOpenedAt:null, contactReportedAt:null,
            time:nowHM(), jump:'', ski:'', rpe:null, plan:null };
 }
+/** その画面がいま「過去の日」を指しているか */
+function isBackfill(f){ return !!f && f.date !== today(); }
 function formFromRecord(item){
   var r = item.record;
   var f = newForm(item.sheet === 'sessions' ? 'session' : 'morning');
+  f.date = r.local_date || today();
   f.pain = numOrNull(r.pain); f.swelling = numOrNull(r.swelling); f.stiffness = numOrNull(r.stiffness);
   f.site = r.site || null;
   f.time = r.local_time || nowHM();
@@ -458,6 +479,42 @@ function pad(n){ return String(n).padStart(2,'0'); }
 function today(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function nowHM(){ var d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
 function jpDate(s){ var p=String(s).split('-'); return Number(p[1])+'/'+Number(p[2]); }
+
+/* 入れ忘れた日をあとから記録するための範囲。ここより古い日は選べない。
+   記憶で入れた数字が判定を動かすのを避けるため、無制限にはしない。 */
+var BACKFILL_DAYS = 7;
+function shiftDate(dateStr, n){
+  var p = String(dateStr).split('-');
+  var d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+  d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function minDate(){ return shiftDate(today(), -BACKFILL_DAYS); }
+
+/* local_date と local_time から、実際にその症状があった時刻をUTCで組み立てる。
+   いままで「保存した時刻」を入れていたが、それだと前の日の分を入れたときに
+   occurred_at_utc が入力時刻になってしまい、確定仕様（occurred＝評価した時刻、
+   entered＝入力した時刻）と食い違う。
+
+   解釈は端末のタイムゾーンに任せる。オフセットを日本で固定すると、
+   11月のオーストリア遠征で朝7時の記録が前日の夜として保存される（実測で8時間ずれ）。
+   日本国内では、固定していたときと出力は変わらない。 */
+function occurredIso(dateStr, hm){
+  var p = String(dateStr).split('-');
+  var t = /^\d{2}:\d{2}$/.test(String(hm)) ? String(hm).split(':') : ['00','00'];
+  var d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2]), Number(t[0]), Number(t[1]), 0, 0);
+  return isFinite(d.getTime()) ? d.toISOString().replace(/\.\d{3}Z$/,'Z') : isoNow();
+}
+
+/* その記録がどのタイムゾーンの「いま」なのかを残す。
+   遠征中に Asia/Tokyo と書いてしまうと、local_date と local_time が
+   どこの時刻なのか後から分からなくなる。取れない端末では従来どおり。 */
+function deviceTz(){
+  try {
+    var z = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return z || CFG.TZ;
+  } catch (e){ return CFG.TZ; }
+}
 function isoNow(){ return new Date().toISOString().replace(/\.\d{3}Z$/,'Z'); }
 function uuid(){
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -615,7 +672,8 @@ function render(){
     b.setAttribute('aria-selected', String(b.dataset.tab === state.tab));
   });
 
-  var shownDate = state.editing ? state.editing.record.local_date : today();
+  var shownDate = state.editing ? state.editing.record.local_date
+                : ((state.form && state.form.date) || today());
   document.getElementById('who').textContent =
     (v === 'home' || v === 'list')
       ? CFG.ATHLETE_LABEL
@@ -656,6 +714,8 @@ function render(){
   var p = isMorning ? 'm' : 's';
   var f = state.form;
 
+  renderWhen(p, f, editing);
+
   document.querySelectorAll('#'+p+'-scales .scale button').forEach(function(b){
     b.setAttribute('aria-pressed', String(f[b.dataset.key] === Number(b.dataset.val)));
   });
@@ -690,7 +750,7 @@ function render(){
   renderAlert(p, f);
 
   if (isMorning){
-    document.getElementById('m-plan-card').classList.toggle('hidden', editing);
+    document.getElementById('m-plan-card').classList.toggle('hidden', editing || isBackfill(f));
     document.querySelectorAll('#m-plan button').forEach(function(b){
       b.setAttribute('aria-pressed', String(f.plan === b.dataset.val));
     });
@@ -712,7 +772,8 @@ function render(){
   if (isMorning || editing){ sub.classList.add('hidden'); }
   else { sub.classList.remove('hidden'); sub.textContent = '保存して続ける'; }
 
-  document.getElementById(p+'-events-card').classList.toggle('hidden', editing);
+  // 過去の日を記録するときは、膝崩れ・ロッキング・新しい外傷を選ばせない（renderWhen の注記を参照）
+  document.getElementById(p+'-events-card').classList.toggle('hidden', editing || isBackfill(f));
   document.getElementById(p+'-reason-card').classList.toggle('hidden', !editing);
   document.getElementById(p+'-errors').innerHTML = '';
 }
@@ -840,6 +901,58 @@ function coachPhrase(){
 }
 
 /** 膝崩れ等が選ばれたときの連絡導線 */
+/**
+ * 日付カードの描画。
+ *   ・修正のときは日付を変えられない（入力APIは日付の付け替えに対応していない）
+ *   ・過去の日を選んだときだけ、起床時の時刻欄を出す（その日の朝の時刻を聞くため）
+ *   ・過去の日では、膝崩れ・ロッキング・新しい外傷は選べないようにする。
+ *     これらは「この仕組みを通さず、その場で直接連絡する」項目で、
+ *     あとから静かに記録が増えるのは設計に反するため（通知ルールv1の別ルート）
+ */
+function renderWhen(p, f, editing){
+  var dEl = document.getElementById(p+'-date');
+  if (!dEl) return;
+  var back = isBackfill(f);
+
+  dEl.min = minDate();
+  dEl.max = today();
+  dEl.disabled = !!editing;
+  if (dEl.value !== f.date) dEl.value = f.date;
+
+  var head = document.getElementById(p+'-when-head');
+  if (head) head.textContent = editing ? 'この記録の日時' : 'いつの記録ですか';
+  var hint = document.getElementById(p+'-when-hint');
+  if (hint) hint.textContent = editing
+    ? '日付は変えられません。時刻は直せます'
+    : 'ふだんは今日のままで大丈夫です。入れ忘れた日があるときだけ変えてください';
+
+  if (p === 'm'){
+    var row = document.getElementById('m-time-row');
+    row.classList.toggle('hidden', !(back || editing));
+    var tEl = document.getElementById('m-time');
+    if (tEl.value !== f.time) tEl.value = f.time;
+  }
+
+  if (back && !editing){ f.events = []; f.eventNone = true; }
+
+  // 「いま」の値を聞いている画面なので、過去の日を選んだら見出しを言い換える。
+  // 今日の感覚を前の日の欄に入れてしまうのを防ぐため。
+  var sh = document.getElementById(p+'-state-head');
+  if (sh) sh.textContent = back
+    ? jpDate(f.date) + (p === 'm' ? ' の朝' : ' の練習が終わったとき') + 'の膝の状態'
+    : 'いまの膝の状態';
+
+  var note = document.getElementById(p+'-backfill');
+  if (note){
+    note.classList.toggle('hidden', !back);
+    if (back){
+      note.innerHTML = '<b>' + jpDate(f.date) + ' の記録として保存します。</b><br>'
+        + '思い出して入れた値であることが、あとから分かるように残ります。<br>'
+        + '膝崩れ・ロッキング・新しい外傷は、その場で直接連絡する項目なので、この画面では選べません。';
+    }
+  }
+}
+
 function renderAlert(p, f){
   var host = document.getElementById(p+'-alert');
   if (!f.events.length){ host.innerHTML = ''; return; }
@@ -958,12 +1071,16 @@ function openEdit(item){
 // ---------------------------------------------------------------------------
 function validate(f){
   var e = [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(f.date || ''))) e.push('日付を選んでください');
+  else if (f.date > today()) e.push('先の日付は記録できません');
+  else if (f.date < minDate()) e.push(BACKFILL_DAYS + '日より前の日はこの画面から記録できません');
   var missing = SYMPTOMS.filter(function(s){ return f[s.key] === null; });
   if (missing.length) e.push(missing.map(function(s){ return s.label; }).join('・') + 'が未選択です');
   var any = SYMPTOMS.some(function(s){ return f[s.key] !== null && f[s.key] > 0; });
   if (any && !f.site) e.push('部位を選んでください');
   if (!f.eventNone && !f.events.length) e.push('「前回の記録以降にありましたか？」に答えてください');
-  if (f.kind === 'morning' && !state.editing && !f.plan) e.push('今日の予定を選んでください');
+  if (f.kind === 'morning' && !state.editing && !isBackfill(f) && !f.plan) e.push('今日の予定を選んでください');
+  if (f.kind === 'morning' && isBackfill(f) && !f.time) e.push('起きた時刻を入れてください');
   if (f.kind === 'session'){
     if (!f.time) e.push('練習が終わった時刻を入れてください');
     if (f.rpe === null) e.push('きつさ（RPE）を選んでください');
@@ -979,9 +1096,9 @@ function toNumberOrEmpty(v){
 function buildPayload(f){
   var iso = isoNow();
   var rec = {
-    record_id: uuid(), local_date: today(),
-    local_time: f.kind === 'session' ? f.time : nowHM(),
-    tz: CFG.TZ, occurred_at_utc: iso, entered_at_utc: iso, status:'recorded',
+    record_id: uuid(), local_date: f.date,
+    local_time: f.time,
+    tz: deviceTz(), occurred_at_utc: occurredIso(f.date, f.time), entered_at_utc: iso, status:'recorded',
     pain: f.pain, swelling: f.swelling, stiffness: f.stiffness,
     site: f.site || '', direct_event_none: !!f.eventNone,
     direct_events: f.events.slice(),
@@ -997,6 +1114,17 @@ function buildPayload(f){
   }
   return { token: CFG.TOKEN, action: f.kind === 'session' ? 'save_session' : 'save_morning', record: rec };
 }
+/** サーバが断った理由を、選手に伝わる言葉にする */
+function rejectReason(res, f){
+  if (res.error === 'already_exists')
+    return jpDate(f.date) + ' の起床時の記録はすでにあります。直すときは「記録一覧」から開いてください';
+  if (res.error === 'invalid' && res.messages && res.messages.length)
+    return res.messages.map(escapeHtml).join('</li><li>');
+  if (res.error === 'unauthorized')
+    return 'このリンクでは保存できません。コーチから受け取った専用リンクを開いてください';
+  return escapeHtml(res.message || '保存できませんでした。しばらくしてからもう一度試してください');
+}
+
 function send(payload){
   if (DEMO_MODE) return Promise.resolve({ ok:true, demo:true });
   return fetch(CFG.API_URL, {
@@ -1025,6 +1153,14 @@ function doSave(addAnother){
   var btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.textContent = '保存中…';
   send(payload).then(function(res){
+    // サーバが「保存しなかった」と答えたときは、保存済みのように見せない。
+    // 前の日の分を入れられるようにしたことで、同じ日の起床時が二重になる場面が出るため。
+    if (res && res.ok === false){
+      document.getElementById(p+'-errors').innerHTML =
+        '<div class="err">保存できません<ul><li>' + rejectReason(res, f) + '</li></ul></div>';
+      document.getElementById(p+'-errors').scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
     entry.synced = !!(res && res.ok);
     if (res && res.session_no) entry.record.session_no = res.session_no;
     if (!entry.synced) state.queue.push(payload);
@@ -1084,7 +1220,14 @@ function doUpdate(){
 
 function afterSave(entry, addAnother){
   state.lastAction = 'save';
-  if (addAnother){ state.form = newForm('session'); render(); window.scrollTo(0,0); return; }
+  if (addAnother){
+    var keepDate = entry.record.local_date || today();
+    state.form = newForm('session');
+    state.form.date = keepDate;              // 同じ日の2本目を続けて入れられるようにする
+    if (keepDate !== today()) state.form.time = '16:00';
+    loadAirlogRef(keepDate);
+    render(); window.scrollTo(0,0); return;
+  }
   var f = state.form;
   var msg = jpDate(entry.record.local_date)+' '+entry.kindLabel+'の記録を '+entry.record.local_time+' に保存しました。';
   if (!entry.synced) msg += ' いまは送信できていないので、つながったときに送ります。';
@@ -1138,7 +1281,7 @@ function savePlanFromHome(plan){
     return r.sheet === 'morning' && r.record.local_date === today(); });
   if (already) { render(); return; }
   var payload = { token: CFG.TOKEN, action:'save_morning', record:{
-    record_id: uuid(), local_date: today(), local_time: nowHM(), tz: CFG.TZ,
+    record_id: uuid(), local_date: today(), local_time: nowHM(), tz: deviceTz(),
     occurred_at_utc: isoNow(), entered_at_utc: isoNow(), status:'rest' }};
   var entry = { sheet:'morning', kindLabel:'休養日', record:payload.record,
                 events:[], synced:false, payload:payload };
@@ -1216,6 +1359,24 @@ document.getElementById('m-allzero').addEventListener('click', function(){
 document.getElementById('s-allzero').addEventListener('click', function(){
   state.form.pain=0; state.form.swelling=0; state.form.stiffness=0; state.form.site=null; render(); });
 document.getElementById('s-time').addEventListener('change', function(e){ state.form.time = e.target.value; });
+document.getElementById('m-time').addEventListener('change', function(e){ state.form.time = e.target.value; });
+
+/** 日付を変えたとき。前の日を選んだら、起床時の時刻は既定を朝に寄せる */
+function onDateChange(kind, value){
+  var f = state.form;
+  if (!f) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return;
+  var wasToday = !isBackfill(f);
+  f.date = value;
+  // 「いまの時刻」は前の日の記録には合わないので、それらしい既定値に置きかえる。
+  // どちらも本人が直せる。
+  if (isBackfill(f) && wasToday) f.time = (kind === 'morning') ? '07:00' : '16:00';
+  if (!isBackfill(f) && !wasToday) f.time = nowHM();
+  if (kind === 'session') loadAirlogRef(f.date);
+  render();
+}
+document.getElementById('m-date').addEventListener('change', function(e){ onDateChange('morning', e.target.value); });
+document.getElementById('s-date').addEventListener('change', function(e){ onDateChange('session', e.target.value); });
 document.getElementById('s-jump').addEventListener('input', function(e){
   state.form.jump = e.target.value; renderAirlogRef();
 });
