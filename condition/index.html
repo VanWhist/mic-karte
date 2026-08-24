@@ -184,7 +184,10 @@
   .chip.sel{background:var(--accent); color:#fff;}
   .chip.sel.female{background:var(--rose); color:#fff;}
 
-  .field-label{font-size:12px; color:var(--text-secondary); margin:16px 0 8px; font-weight:700;}
+  .field-label{
+    font-size:12.5px; color:var(--accent-dark); margin:18px 0 8px; font-weight:800;
+    letter-spacing:.01em; padding-left:9px; border-left:3px solid var(--accent); line-height:1.3;
+  }
   textarea{
     width:100%; border-radius:14px; border:1.5px solid var(--border); padding:12px;
     font-family:inherit; font-size:13px; resize:vertical; min-height:56px; background:var(--page);
@@ -502,27 +505,27 @@
 
         <div class="field-label">部位</div>
         <div class="body-parts" id="injuryBodyParts">
-          <span class="chip" onclick="selectBodyChip(this)">頭頸部</span>
-          <span class="chip" onclick="selectBodyChip(this)">肩</span>
-          <span class="chip" onclick="selectBodyChip(this)">肩甲帯</span>
-          <span class="chip" onclick="selectBodyChip(this)">上腕</span>
-          <span class="chip" onclick="selectBodyChip(this)">肘</span>
-          <span class="chip" onclick="selectBodyChip(this)">前腕</span>
-          <span class="chip" onclick="selectBodyChip(this)">手首</span>
-          <span class="chip" onclick="selectBodyChip(this)">手</span>
-          <span class="chip" onclick="selectBodyChip(this)">胸郭</span>
-          <span class="chip" onclick="selectBodyChip(this)">背部</span>
-          <span class="chip" onclick="selectBodyChip(this)">腰</span>
-          <span class="chip" onclick="selectBodyChip(this)">骨盤</span>
-          <span class="chip" onclick="selectBodyChip(this)">股関節</span>
-          <span class="chip" onclick="selectBodyChip(this)">鼠径部</span>
-          <span class="chip" onclick="selectBodyChip(this)">大腿前</span>
-          <span class="chip" onclick="selectBodyChip(this)">大腿後</span>
-          <span class="chip sel" onclick="selectBodyChip(this)">膝</span>
-          <span class="chip" onclick="selectBodyChip(this)">下腿前</span>
-          <span class="chip" onclick="selectBodyChip(this)">ふくらはぎ</span>
-          <span class="chip" onclick="selectBodyChip(this)">足首</span>
-          <span class="chip" onclick="selectBodyChip(this)">足部</span>
+          <span class="chip" onclick="toggleBodyPart(this)">頭頸部</span>
+          <span class="chip" onclick="toggleBodyPart(this)">肩</span>
+          <span class="chip" onclick="toggleBodyPart(this)">肩甲帯</span>
+          <span class="chip" onclick="toggleBodyPart(this)">上腕</span>
+          <span class="chip" onclick="toggleBodyPart(this)">肘</span>
+          <span class="chip" onclick="toggleBodyPart(this)">前腕</span>
+          <span class="chip" onclick="toggleBodyPart(this)">手首</span>
+          <span class="chip" onclick="toggleBodyPart(this)">手</span>
+          <span class="chip" onclick="toggleBodyPart(this)">胸郭</span>
+          <span class="chip" onclick="toggleBodyPart(this)">背部</span>
+          <span class="chip" onclick="toggleBodyPart(this)">腰</span>
+          <span class="chip" onclick="toggleBodyPart(this)">骨盤</span>
+          <span class="chip" onclick="toggleBodyPart(this)">股関節</span>
+          <span class="chip" onclick="toggleBodyPart(this)">鼠径部</span>
+          <span class="chip" onclick="toggleBodyPart(this)">大腿前</span>
+          <span class="chip" onclick="toggleBodyPart(this)">大腿後</span>
+          <span class="chip sel" onclick="toggleBodyPart(this)">膝</span>
+          <span class="chip" onclick="toggleBodyPart(this)">下腿前</span>
+          <span class="chip" onclick="toggleBodyPart(this)">ふくらはぎ</span>
+          <span class="chip" onclick="toggleBodyPart(this)">足首</span>
+          <span class="chip" onclick="toggleBodyPart(this)">足部</span>
           <span class="chip" id="injuryPartOtherBtn" onclick="openInjuryPartOtherInput()">その他</span>
         </div>
         <div class="selected-part-label">選択中の部位：<b id="selectedPartLabel">膝</b></div>
@@ -967,24 +970,27 @@ function maybeSaveLiveRecord(){
   }, 400);
 }
 
-// --- ケガ・違和感: 部位選択（部位チップの一覧から単一選択。以前は前面/背面の人体図タップと連動していたが、
-//     部位数を22種類に拡張したのに伴い、人体図への正確なドット配置が難しくなったためチップ一覧のみに統一した） ---
-function selectBodyChip(el){
-  const row = el.parentElement;
-  [...row.children].forEach(c=>c.classList.remove('sel'));
-  el.classList.add('sel');
-  document.getElementById('selectedPartLabel').textContent = el.textContent.trim();
+// --- ケガ・違和感: 部位選択（部位チップの一覧から複数選択可。以前は前面/背面の人体図タップと連動していたが、
+//     部位数を22種類に拡張したのに伴い、人体図への正確なドット配置が難しくなったためチップ一覧のみに統一した。
+//     実際のケガは複数部位にまたがることがあるため、チップは個別にON/OFFできる複数選択とした） ---
+function toggleBodyPart(el){
+  el.classList.toggle('sel');
+  updateSelectedPartLabel();
   // 部位の選択はまだ保存されていないため、ここではトーストを出さない(保存は「＋この記録を保存」時のみ)
 }
+function updateSelectedPartLabel(){
+  const sel = [...document.querySelectorAll('#injuryBodyParts .chip.sel')].map(c => c.textContent.trim());
+  document.getElementById('selectedPartLabel').textContent = sel.length ? sel.join('、') : '未選択';
+}
 
-// --- ケガ・違和感: 「その他」でプリセットにない部位を自分で入力できるようにする（単一選択） ---
+// --- ケガ・違和感: 「その他」でプリセットにない部位を自分で入力できるようにする（複数選択に追加） ---
 function addInjuryPartChip(label, selected){
   const row = document.getElementById('injuryBodyParts');
   const otherBtn = document.getElementById('injuryPartOtherBtn');
   const chip = document.createElement('span');
   chip.className = 'chip custom' + (selected ? ' sel' : '');
   chip.textContent = label;
-  chip.onclick = () => selectBodyChip(chip);
+  chip.onclick = () => toggleBodyPart(chip);
   row.insertBefore(chip, otherBtn);
   return chip;
 }
@@ -1009,7 +1015,8 @@ function confirmInjuryPartOther(){
   }
   const existing = [...document.querySelectorAll('#injuryBodyParts .chip:not(#injuryPartOtherBtn)')].find(c => c.textContent.trim() === label);
   const chip = existing || addInjuryPartChip(label, false);
-  selectBodyChip(chip);
+  chip.classList.add('sel');
+  updateSelectedPartLabel();
   document.getElementById('injuryPartOtherPanel').hidden = true;
 }
 
@@ -1113,10 +1120,10 @@ async function confirmPeriodStart(){
 // --- ケガ・違和感の記録（都度追加） ---
 let injuries = [];
 async function saveInjury(){
-  const partEl = document.querySelector('#injuryBodyParts .chip.sel');
+  const partEls = [...document.querySelectorAll('#injuryBodyParts .chip.sel')];
   const occEl = document.querySelector('#occurrenceRow .chip.sel');
   const sev = document.getElementById('injurySeverity').value;
-  const part = partEl ? partEl.textContent.trim() : '（部位未選択）';
+  const part = partEls.length ? partEls.map(c => c.textContent.trim()).join('、') : '（部位未選択）';
   const occ = occEl ? occEl.textContent.trim() : '（状況未選択）';
   const memo = (document.getElementById('injuryMemo') || {}).value || '';
   const time = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
@@ -1340,7 +1347,7 @@ function buildTodayMessage(t){
 
   // レベル2: 年齢帯特有の部位注意（中学生・膝／すね／足首の違和感が数日連続している場合。病名は一切示唆しない）
   if(bandParams){
-    const cautionInjury = injuries.find(i => bandParams.growthCautionParts.includes(i.part));
+    const cautionInjury = injuries.find(i => String(i.part).split('、').some(p => bandParams.growthCautionParts.includes(p)));
     if(cautionInjury){
       const streak = injuryStreakDays(cautionInjury.part);
       if(streak >= bandParams.growthCautionStreakDays){
