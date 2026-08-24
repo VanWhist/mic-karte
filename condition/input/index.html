@@ -202,7 +202,8 @@
 
     <div class="card">
       <h2>今日の予定<span class="badge grey" id="planBadge">未選択</span></h2>
-      <p class="hint">記録がない日と区別するために選びます。あとから変えられます</p>
+      <p class="hint">記録がない日と区別するために選びます。あとから変えられます<br>
+        「休養」を選ぶと、起床時の記録に進みます。<b>休養日の朝も、痛み・腫れ・こわばりは入れてください。</b>前日の練習を見るために必要です</p>
       <div class="plan" id="planPick"></div>
     </div>
 
@@ -649,9 +650,11 @@ function setTone(kind){
   else if (kind === 'morning'){ s.setProperty('--tone','var(--morning)'); s.setProperty('--tone-bg','var(--morning-bg)'); }
   else { s.setProperty('--tone','var(--accent)'); s.setProperty('--tone-bg','var(--accent-bg)'); }
 }
-function go(view){
+/** presetPlan：ホームの「休養」から入ったときに「今日の予定」を選んだ状態で開く */
+function go(view, presetPlan){
   state.view = view; state.editing = null;
   if (view === 'morning' || view === 'session') state.form = newForm(view);
+  if (view === 'morning' && presetPlan) state.form.plan = presetPlan;
   if (view === 'session') loadAirlogRef(today());
   render(); window.scrollTo(0,0);
 }
@@ -1106,6 +1109,13 @@ function buildPayload(f){
     contact_opened_at_utc: f.contactOpenedAt || '',
     contacted_at_utc: f.contactReportedAt || ''
   };
+  // 休養日だったことを残す。
+  // plan 専用の列がまだ無いので note に入れている（列の追加はサーバ側の変更と
+  // 再デプロイが要るため、試行開始後に行う）。
+  // これがあると「もともと休養日」と「練習の予定だったが実際にはしなかった日」を
+  // あとから区別できる。どちらも「朝の記録があって練習後の記録がない日」になるため。
+  if (f.kind === 'morning' && f.plan === 'rest') rec.note = '休養日';
+
   if (f.kind === 'session'){
     var j = toNumberOrEmpty(f.jump), s = toNumberOrEmpty(f.ski);
     if (j !== undefined) rec.jump_count = j;
@@ -1273,25 +1283,32 @@ function afterUpdate(item, fields){
   state.view = 'saved'; render(); window.scrollTo(0,0);
 }
 
-/** ホームの「今日の予定」で休養を選んだときだけ、休養日として保存する */
+/**
+ * ホームの「今日の予定」。
+ *
+ * 休養を選んだときは、その場で保存せず、起床時の記録へ進む。
+ *
+ * なぜか：以前はここで status='rest' の記録（症状なし）を保存していた。
+ * すると判定側で「翌朝の入力がない」と見なされ、**前日の練習日がルールAで
+ * 評価できなくなる**。確定仕様2節は休養日を「保留（リセットしない）」とし、
+ * 「月 該当／火 休養／水 該当／木 休養／金 該当 → 土曜の朝で3回目」という
+ * 例まで挙げているが、症状のない休養日を挟むとこの例が成立しなかった。
+ * 一日おきに練習する時期は、ルールAが一度も成立しないことになる。
+ *
+ * 「休養日でも起床時の3項目は記録する」という方針は 2026-08-18 に担当PTへ
+ * 報告済み。入力画面側の対応がこれ。
+ *
+ * 休養日は status='recorded'（症状あり・練習後の記録なし）として保存される。
+ * 判定側ではその日自体は「練習後の入力がない」ため評価対象外＝保留になり、
+ * 連続はリセットされない。仕様どおりの扱いになる。
+ *
+ * 休養日だったことは note に残す。plan 列がまだ無いため（列の追加はサーバ側の
+ * 変更と再デプロイが要る。試行開始後に別途行う）。
+ */
 function savePlanFromHome(plan){
   state.plan = plan;
   if (plan !== 'rest') { render(); return; }
-  var already = state.records.some(function(r){
-    return r.sheet === 'morning' && r.record.local_date === today(); });
-  if (already) { render(); return; }
-  var payload = { token: CFG.TOKEN, action:'save_morning', record:{
-    record_id: uuid(), local_date: today(), local_time: nowHM(), tz: deviceTz(),
-    occurred_at_utc: isoNow(), entered_at_utc: isoNow(), status:'rest' }};
-  var entry = { sheet:'morning', kindLabel:'休養日', record:payload.record,
-                events:[], synced:false, payload:payload };
-  send(payload).then(function(res){
-    entry.synced = !!(res && res.ok);
-    if (!entry.synced) state.queue.push(payload);
-  }).catch(function(){ state.queue.push(payload); }).then(function(){
-    state.records.push(entry);
-    render();
-  });
+  go('morning', 'rest');
 }
 
 // ---------------------------------------------------------------------------
