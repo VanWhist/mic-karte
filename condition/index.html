@@ -578,6 +578,8 @@
           <span class="chip" onclick="selectSingle(this)">日常生活</span>
           <span class="chip" onclick="selectSingle(this)">学校</span>
         </div>
+        <div class="field-label">自由メモ（任意）</div>
+        <textarea id="injuryMemo" placeholder="気になることがあれば自由に書いてください（例：練習前から張りがあった、着地でひねった）"></textarea>
         <button class="btn ghost" id="saveInjuryBtn" onclick="saveInjury()" style="margin-top:12px;">＋ この記録を保存</button>
         <div id="injuryLog"></div>
       </div>
@@ -1139,13 +1141,14 @@ async function saveInjury(){
   const sev = document.getElementById('injurySeverity').value;
   const part = partEl ? partEl.textContent.trim() : '（部位未選択）';
   const occ = occEl ? occEl.textContent.trim() : '（状況未選択）';
+  const memo = (document.getElementById('injuryMemo') || {}).value || '';
   const time = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
   const btn = document.getElementById('saveInjuryBtn');
 
   if(!DEMO_MODE && LIVE && LIVE.type === 'athlete'){
     if(btn) btn.disabled = true; // 連打による二重送信を防ぐ
     try{
-      await apiPost('saveInjury', { date: todayStrLocal(), part, occasion: occ, severity: sev });
+      await apiPost('saveInjury', { date: todayStrLocal(), part, occasion: occ, severity: sev, memo });
     }catch(e){
       if(btn) btn.disabled = false;
       toast('保存できませんでした。通信状況をご確認のうえ、もう一度お試しください');
@@ -1153,7 +1156,7 @@ async function saveInjury(){
     }
     if(btn) btn.disabled = false;
   }
-  injuries.push({part, occ, sev, time});
+  injuries.push({part, occ, sev, time, memo});
   renderInjuryLog();
   toast('ケガ・違和感を記録しました');
 }
@@ -1161,7 +1164,7 @@ function renderInjuryLog(){
   const wrap = document.getElementById('injuryLog');
   if(!injuries.length){ wrap.innerHTML = ''; return; }
   wrap.innerHTML = '<div class="field-label">今日記録した内容（' + injuries.length + '件）</div>' +
-    injuries.map(i => `<div class="day-detail" style="margin-top:6px;">${i.time}　${i.part}・${i.occ}・痛み ${i.sev}/5</div>`).join('');
+    injuries.map(i => `<div class="day-detail" style="margin-top:6px;">${i.time}　${i.part}・${i.occ}・痛み ${i.sev}/5${i.memo ? '<br>メモ: ' + i.memo : ''}</div>`).join('');
 }
 
 // ============================================================
@@ -1415,7 +1418,7 @@ function applyTodayToDashboard(){
   let note = `睡眠: ${t.sleepLabel}　疲労感: ${t.fatigueLabel}　気分: ${t.moodLabel}　食欲: ${t.appetiteLabel}`;
   if(t.memo) note += `<br>メモ: ${t.memo}`;
   if(periodLoggedToday) note += `<br>生理: 今日を開始日として記録${symptomTexts.length ? '（症状: ' + symptomTexts.join('、') + '）' : ''}`;
-  if(injuries.length) note += `<br>ケガ・違和感: ${injuries.map(i => `${i.part}(${i.occ}・痛み${i.sev}/5)`).join('、')}`;
+  if(injuries.length) note += `<br>ケガ・違和感: ${injuries.map(i => `${i.part}(${i.occ}・痛み${i.sev}/5)${i.memo ? '「' + i.memo + '」' : ''}`).join('、')}`;
   DAY_NOTES[TODAY_D] = note;
 
   renderCalendar(TODAY_D);
@@ -1685,12 +1688,12 @@ function applyLiveAthleteMode(data){
     };
     let note = `睡眠: ${r.sleep || '未記録'}　疲労感: ${r.fatigue || '-'}　気分: ${r.mood || '-'}　食欲: ${r.appetite || '-'}`;
     if(r.memo) note += `<br>メモ: ${r.memo}`;
-    if(injuriesByDate[r.date]) note += `<br>ケガ・違和感: ${injuriesByDate[r.date].map(i => `${i.part}(${i.occasion}・痛み${i.severity}/5)`).join('、')}`;
+    if(injuriesByDate[r.date]) note += `<br>ケガ・違和感: ${injuriesByDate[r.date].map(i => `${i.part}(${i.occasion}・痛み${i.severity}/5)${i.memo ? '「' + i.memo + '」' : ''}`).join('、')}`;
     DAY_NOTES[day] = note;
   });
 
   // 今日のケガ・違和感/生理記録の状態を反映
-  injuries = (injuriesByDate[todayStr] || []).map(i => ({ part: i.part, occ: i.occasion, sev: i.severity, time: i.time }));
+  injuries = (injuriesByDate[todayStr] || []).map(i => ({ part: i.part, occ: i.occasion, sev: i.severity, time: i.time, memo: i.memo || '' }));
   renderInjuryLog();
   periodLoggedToday = periodDates.has(todayStr);
   if(periodLoggedToday){
