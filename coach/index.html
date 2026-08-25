@@ -516,7 +516,7 @@
 <div class="app-body" id="appBody"></div>
 
 <div class="draft-banner" id="draftBanner">
-  これはドラフト版です。「ウエイトトレーニング」「短期目標（〜7月末）」「将来ビジョン」「今年のシーズン目標」「自己分析」「生活習慣・サポート」「マンダラチャート」はすべてApps Script経由でスプレッドシート/フォームの回答からライブに取得しています。スプレッドシートを更新すると、次回表示時に自動的に反映されます。「MICエアlog」カードはMICエアlogアプリの記録をライブ取得して表示し、公開用カルテ(GitHub Pages)にも反映済みです(セッション/技ごとの本数・成功数・10本ジャンプ滞空秒に対応)。
+  「ウエイトトレーニング」「短期目標」「将来ビジョン」「今年のシーズン目標」「自己分析」「生活習慣・サポート」「マンダラチャート」「MICエアlog」の各カードは、スプレッドシートやフォームの回答からライブに取得しています。元のシートやフォームを更新すると、次回表示時に自動的に反映されます。
 </div>
 
 <script>
@@ -538,6 +538,7 @@ const SEASON_SHEET_URL = "https://docs.google.com/spreadsheets/d/1SQR5Ct28nohCyO
 const STG_API_URL = "https://script.google.com/macros/s/AKfycbx0QMlnk7dC1nJxV0Et-fqSh--Vo06nOchEOZGYVPp-ODE_tmt6BlRLn3pdt_kUxUVU/exec";
 const SEASON_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfkB9Qu3rY3TE66sxQKbU3dbHFiqC6mvbDlheB-ujhIr5HXOQ/viewform";
 const STG_FORM_URL = "https://forms.gle/t8SKiK1soGFctgyf6";
+const STG_FORM_B_URL = "https://docs.google.com/forms/d/e/1FAIpQLScg0Ymjoe1-5se8rm9hq8TXqyYjjsQWRbs36-PVgEiwK_ZUmw/viewform";
 const STG_SHEET_URL = "https://docs.google.com/spreadsheets/d/1LaYW7XDurwSUDFplH9uwcqUTx_u5OsRt3tPeSjKKA_E/edit";
 const MANDALA_API_URL = "https://script.google.com/macros/s/AKfycbxzrgZf1C3vqfGwbeS3hUr1P9U3txbuVfiRBvxWzlAeKdnfIp7QaJ0C1MhE-drLwk31/exec";
 const AIRLOG_API_URL = "https://script.google.com/macros/s/AKfycbyH7nX_nhgJ4z7W_QCLGnZqwLp8GkCdRzof2RaaR3fLK2gKVpeF8P0lATS2uzzKJhP0ag/exec";
@@ -1151,6 +1152,16 @@ function stgChipText(prefix, rec) {
   return label ? prefix + " " + label : prefix;
 }
 
+// 短期目標のフォームは初回設定用(A)と月次更新用(B)の2種類ある。回答が1件も無い選手には
+// 初回のAを、すでに回答がある選手には月次更新のBを案内する。どちらも全選手共通のフォームで、
+// 回答者がフォーム内で自分の名前を選ぶため、選手ビューに出しても他選手の情報は見えない。
+// 取得エラー時は回答件数が分からないため、初回のAを出す。
+function stgFormLink(stg, hasRecords) {
+  const url = hasRecords ? STG_FORM_B_URL : ((stg && stg.formUrl) || STG_FORM_URL);
+  const label = hasRecords ? "今月の目標を記入する →" : "フォームを開く →";
+  return `<a class="mandala-link" href="${url}" target="_blank" rel="noopener">${label}</a>`;
+}
+
 function makeShortTermGoalCard(stg, athleteKey) {
   const card = makeCard("短期目標と振り返り", "blue", "");
   const cbody = card.querySelector(".card-body");
@@ -1189,7 +1200,7 @@ function makeShortTermGoalCard(stg, athleteKey) {
     cbody.innerHTML = `<div class="mandala-empty">まだ回答がありません。</div>`;
     const f = document.createElement("div");
     f.className = "mandala-summary";
-    f.innerHTML = `<span></span><a class="mandala-link" href="${stg.formUrl}" target="_blank" rel="noopener">フォームを開く →</a>`;
+    f.innerHTML = `<span></span>${stgFormLink(stg, false)}`;
     cbody.appendChild(f);
     return card;
   }
@@ -1294,7 +1305,7 @@ function stgRenderOverview(cbody, stg, records, cur, prev) {
   footer.innerHTML =
     '<span>' + (cur.updated ? "更新日 " + escHtml(cur.updated) : "まだ回答がありません") + '</span>' +
     '<span>' +
-      '<a class="mandala-link" href="' + stg.formUrl + '" target="_blank" rel="noopener">フォームを開く →</a>' +
+      stgFormLink(stg, true) +
       (stg.sheetUrl ? '&nbsp;&nbsp;<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
     '</span>';
   cbody.appendChild(footer);
