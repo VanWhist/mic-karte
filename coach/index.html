@@ -335,6 +335,16 @@
     font-weight: 700;
     text-decoration: none;
   }
+  /* 短期目標カードの2つの入口。同じフォームに飛ぶが、「振り返るだけでもいい」と
+     選手に分かるように2つ並べる（2026/08/28 Van様の指示）。 */
+  .stg-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .stg-act {
+    flex: 1; display: block; text-align: center; text-decoration: none;
+    font-size: 12px; font-weight: 700; line-height: 1.35;
+    padding: 10px 6px; border-radius: 10px;
+    border: 1px solid var(--blue-250); background: var(--accent-soft); color: var(--blue-550);
+  }
+  .stg-act .sub { display: block; font-size: 10px; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
   .mandala-empty {
     font-size: 12.5px;
     color: var(--text-muted);
@@ -1257,6 +1267,18 @@ function stgChipText(prefix, rec) {
 // 初回のAを、すでに回答がある選手には月次更新のBを案内する。どちらも全選手共通のフォームで、
 // 回答者がフォーム内で自分の名前を選ぶため、選手ビューに出しても他選手の情報は見えない。
 // 取得エラー時は回答件数が分からないため、初回のAを出す。
+// 回答がある選手に見せる2つの入口。どちらも同じフォーム(v2)に飛ぶが、
+// 「振り返るだけでもいい」ことが選手に伝わるように分けて置く。
+function stgFormActions(stg) {
+  const url = STG_FORM_B_URL;
+  return '<div class="stg-actions">' +
+    '<a class="stg-act" href="' + url + '" target="_blank" rel="noopener">振り返る' +
+      '<span class="sub">目標はそのまま続ける</span></a>' +
+    '<a class="stg-act" href="' + url + '" target="_blank" rel="noopener">新しい目標を設定する' +
+      '<span class="sub">目標を変える・終わりにする</span></a>' +
+  '</div>';
+}
+
 function stgFormLink(stg, hasRecords) {
   const url = hasRecords ? STG_FORM_B_URL : ((stg && stg.formUrl) || STG_FORM_URL);
   const label = hasRecords ? "今月の目標を記入する →" : "フォームを開く →";
@@ -1402,13 +1424,16 @@ function stgRenderOverview(cbody, stg, records, cur, prev) {
     cbody.appendChild(empty);
   }
 
+  const actions = document.createElement("div");
+  actions.innerHTML = stgFormActions(stg);
+  cbody.appendChild(actions.firstChild);
+
   const footer = document.createElement("div");
   footer.className = "mandala-summary";
   footer.innerHTML =
     '<span>' + (cur.updated ? "更新日 " + escHtml(cur.updated) : "まだ回答がありません") + '</span>' +
     '<span>' +
-      stgFormLink(stg, true) +
-      (stg.sheetUrl ? '&nbsp;&nbsp;<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
+      (stg.sheetUrl ? '<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
     '</span>';
   cbody.appendChild(footer);
 }
@@ -1502,13 +1527,16 @@ function stgRenderOverviewV2(cbody, stg, records, cur, prev) {
     });
   }
 
+  const actions = document.createElement("div");
+  actions.innerHTML = stgFormActions(stg);
+  cbody.appendChild(actions.firstChild);
+
   const footer = document.createElement("div");
   footer.className = "mandala-summary";
   footer.innerHTML =
     '<span>' + (cur.updated ? "更新日 " + escHtml(cur.updated) : "") + '</span>' +
     '<span>' +
-      stgFormLink(stg, true) +
-      (stg.sheetUrl ? '&nbsp;&nbsp;<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
+      (stg.sheetUrl ? '<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
     '</span>';
   cbody.appendChild(footer);
 }
