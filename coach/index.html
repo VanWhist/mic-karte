@@ -429,6 +429,7 @@
   /* 今回/前回のヘッダー行 */
   .rec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 11px; }
   .rec-chips { display: flex; align-items: center; gap: 6px; }
+  .rec-chips.wrap { flex-wrap: wrap; row-gap: 5px; }
   .rec-chip { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
   .rec-chip.now { background: var(--accent-soft); color: var(--blue-550); border: 1px solid var(--blue-250); }
   .rec-chip.prev { background: var(--page); color: var(--text-muted); border: 1px solid var(--gridline); }
@@ -536,6 +537,10 @@ const RESOLVER_URL = "https://script.google.com/macros/s/AKfycbyYoTaQErII9Br79BN
 const SEASON_API_URL = "https://script.google.com/macros/s/AKfycbwMiFwmaf-Y0s7Jsu5kSwljHdxKQ4RXj7BVVVjlgNGSQScSMFtKhOMuP_mtNa597TlcMg/exec";
 const SEASON_SHEET_URL = "https://docs.google.com/spreadsheets/d/1SQR5Ct28nohCyOpDWKvJjm8c91esoa5dgxhoB5D4FHA/edit";
 const STG_API_URL = "https://script.google.com/macros/s/AKfycbx0QMlnk7dC1nJxV0Et-fqSh--Vo06nOchEOZGYVPp-ODE_tmt6BlRLn3pdt_kUxUVU/exec";
+// 短期目標フォームB v2 専用API。旧A/B用のSTG_API_URLとは別のWeb Appで、同じトークンを使う。
+// 旧APIには一切手を入れず、カルテ側で両方のrecordsを日付の新しい順にマージして表示する。
+// 空文字にすると v2 を読みに行かず、旧A/Bだけの表示に戻る(ロールバック手段)。
+const STG_V2_API_URL = "https://script.google.com/macros/s/AKfycbwfPE1oh5W5ubuy1wUZEb6Bd-gGgOYwOi6w1E-_RjmQQGpptvh6ajTIFHYARt3D5tgDZQ/exec";
 const SEASON_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfkB9Qu3rY3TE66sxQKbU3dbHFiqC6mvbDlheB-ujhIr5HXOQ/viewform";
 const STG_FORM_URL = "https://forms.gle/t8SKiK1soGFctgyf6";
 const STG_FORM_B_URL = "https://docs.google.com/forms/d/e/1FAIpQLScg0Ymjoe1-5se8rm9hq8TXqyYjjsQWRbs36-PVgEiwK_ZUmw/viewform";
@@ -786,19 +791,53 @@ function loadMandalaData(athleteKey, apiUrl, token) {
 
 // フォームAの回答スプレッドシートに紐づくApps Script Web Appから直接フェッチ
 // （name=athleteKeyで検索。該当行がまだ無ければ全項目nullのJSONが返る＝未回答扱い）
+// レコードの新しさ比較に使う値。timestamp > filledDate > updated の順で見る。
+function stgSortKey(rec) {
+  const raw = (rec && (rec.timestamp || rec.filledDate || rec.updated)) || "";
+  return String(raw).replace(/[^0-9]/g, "");
+}
+
+// 旧A/B API と v2 API の両方を読み、recordsを新しい順にマージする。
+// v2側が落ちても旧A/Bだけで表示できるようにし、逆も同じ(片方でも取れれば表示する)。
 function loadShortTermGoal(athleteKey, apiUrl, token) {
   if (stgCache[athleteKey]) return; // 読み込み中 or 読み込み済み
   stgCache[athleteKey] = { status: "loading" };
-  fetch(apiUrl + "?token=" + encodeURIComponent(token))
-    .then(res => res.json())
-    .then(data => {
-      stgCache[athleteKey] = { status: "loaded", data: data };
+  const q = "?token=" + encodeURIComponent(token);
+  const getJson = function (url) {
+    return fetch(url + q).then(function (res) { return res.json(); });
+  };
+  const pOld = getJson(apiUrl).then(function (d) { return { ok: true, data: d }; })
+                              .catch(function (e) { return { ok: false, error: String(e) }; });
+  const pV2 = STG_V2_API_URL
+    ? getJson(STG_V2_API_URL).then(function (d) { return { ok: true, data: d }; })
+                             .catch(function (e) { return { ok: false, error: String(e) }; })
+    : Promise.resolve({ ok: true, data: null });
+
+  Promise.all([pOld, pV2]).then(function (rs) {
+    const o = rs[0], v = rs[1];
+    if (!o.ok && !v.ok) {
+      stgCache[athleteKey] = { status: "error", error: o.error };
       render();
-    })
-    .catch(err => {
-      stgCache[athleteKey] = { status: "error", error: String(err) };
-      render();
-    });
+      return;
+    }
+    const base = (o.ok && o.data) ? o.data : {};
+    const merged = Object.assign({}, base);
+    const recs = [].concat(
+      (o.ok && o.data && Array.isArray(o.data.records)) ? o.data.records : [],
+      (v.ok && v.data && Array.isArray(v.data.records)) ? v.data.records : []
+    );
+    if (recs.length) {
+      recs.sort(function (a, b) {
+        const ka = stgSortKey(a), kb = stgSortKey(b);
+        if (ka === kb) return 0;
+        return ka < kb ? 1 : -1;
+      });
+      merged.records = recs;
+      if (recs[0] && recs[0].updated) merged.updated = recs[0].updated;
+    }
+    stgCache[athleteKey] = { status: "loaded", data: merged };
+    render();
+  });
 }
 
 // Apps Script Web App から直接フェッチ（トレーニングログアプリと同じ公開APIを利用）
@@ -1111,6 +1150,68 @@ function stgVal(v) {
   return (v === null || v === undefined || v === "") ? null : String(v);
 }
 
+// ===== 短期目標フォームB v2 (source: "B2") =====
+// v2は「課題(main)」と「場所(venues)」を別の軸に分けて持つ。旧A/Bの3カテゴリ構造とは互換性が無いため、
+// 表示は source で切り替える(旧レコードの履歴表示は従来のまま壊さない)。
+const STG_V2_VENUE_TO_AIRLOG = {
+  "ウォータージャンプ": "ウォータージャンプ",
+  "トランポリン": "トランポリン"
+};
+const STG_GOAL_MODE_LABEL = {
+  continue: "同じ目標を続ける",
+  "new": "新しい目標に変える",
+  complete: "今回で終了する",
+  consult: "コーチと相談して決めたい"
+};
+const STG_V2_GOAL_FIELDS = [
+  ["wantToDo", "できるようになりたいこと"],
+  ["practice", "意識・実行すること"],
+  ["criteria", "できたと判断する基準"]
+];
+
+function stgIsV2(rec) {
+  return !!rec && rec.source === "B2";
+}
+function stgGoalHasContent(g) {
+  return !!(g && (stgVal(g.wantToDo) || stgVal(g.practice) || stgVal(g.criteria)));
+}
+
+// 「同じ目標を続ける」を選んだレコードは目標欄が空のまま送信される。
+// その場合は過去にさかのぼって最後に設定された目標を探し、カルテ上で目標が消えないようにする。
+// 戻り値の from が cur 以外なら「継続」表示にする。
+function stgResolveGoal(records, idx) {
+  const rec = records[idx];
+  if (!rec) return { goal: null, from: null };
+  if (stgGoalHasContent(rec.goal)) return { goal: rec.goal, from: rec };
+  if (!stgIsV2(rec) || rec.goalMode !== "continue") return { goal: rec.goal || null, from: null };
+  for (let i = idx + 1; i < records.length; i++) {
+    if (stgGoalHasContent(records[i].goal)) return { goal: records[i].goal, from: records[i] };
+  }
+  return { goal: null, from: null };
+}
+// 重点課題・場所も同じ考え方でさかのぼる(継続時は前回の分類をそのまま引き継ぐ)。
+function stgResolveFocus(records, idx) {
+  const rec = records[idx];
+  if (!rec) return null;
+  function has(f) { return !!(f && (f.main || (f.venues && f.venues.length))); }
+  if (has(rec.focus)) return rec.focus;
+  if (stgIsV2(rec) && rec.goalMode === "continue") {
+    for (let i = idx + 1; i < records.length; i++) {
+      if (has(records[i].focus)) return records[i].focus;
+    }
+  }
+  return rec.focus || null;
+}
+function stgChipsHtml(focus, extraHtml) {
+  const parts = [];
+  if (focus && focus.main) parts.push('<span class="rec-chip now">' + escHtml(focus.main) + '</span>');
+  if (focus) (focus.venues || []).forEach(function (v) {
+    parts.push('<span class="rec-chip prev">' + escHtml(v) + '</span>');
+  });
+  if (extraHtml) parts.push(extraHtml);
+  return parts.length ? '<span class="rec-chips wrap">' + parts.join("") + '</span>' : "";
+}
+
 // "2026/08/01" や "2026/08/01 23:40" から "2026年8月" を作る。取れなければ空文字。
 function stgMonthLabelFrom(str) {
   const m = String(str == null ? "" : str).match(/(\d{4})[\/\-年](\d{1,2})/);
@@ -1123,7 +1224,7 @@ function stgMonthLabelFrom(str) {
 function stgBuildRecords(data) {
   if (!data) return [];
   if (Array.isArray(data.records)) {
-    const rs = data.records.filter(function (r) { return r && r.categories; });
+    const rs = data.records.filter(function (r) { return r && (r.categories || r.source === "B2"); });
     if (rs.length) return rs;
   }
   if (!data.categories && !data.plan && !data.updated) return [];
@@ -1220,6 +1321,7 @@ function makeShortTermGoalCard(stg, athleteKey) {
   if (mode === "history") stgRenderHistory(cbody, records);
   else if (mode === "record") stgRenderRecord(cbody, records[stgView.recIndex]);
   else if (mode === "detail") stgRenderDetail(cbody, stg, records, cur, prev, stgView.cat);
+  else if (stgIsV2(cur)) stgRenderOverviewV2(cbody, stg, records, cur, prev);
   else stgRenderOverview(cbody, stg, records, cur, prev);
 
   return card;
@@ -1304,6 +1406,106 @@ function stgRenderOverview(cbody, stg, records, cur, prev) {
   footer.className = "mandala-summary";
   footer.innerHTML =
     '<span>' + (cur.updated ? "更新日 " + escHtml(cur.updated) : "まだ回答がありません") + '</span>' +
+    '<span>' +
+      stgFormLink(stg, true) +
+      (stg.sheetUrl ? '&nbsp;&nbsp;<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
+    '</span>';
+  cbody.appendChild(footer);
+}
+
+// ---------- 全体（フォームB v2） ----------
+function stgRenderOverviewV2(cbody, stg, records, cur, prev) {
+  const showChips = !!(stgRecLabel(cur) || prev);
+  if (showChips || records.length > 2) {
+    const head = document.createElement("div");
+    head.className = "rec-head";
+    head.innerHTML =
+      (showChips ?
+        '<span class="rec-chips">' +
+          '<span class="rec-chip now">' + escHtml(stgChipText("今回", cur)) + '</span>' +
+          (prev ? '<span class="rec-chip-sep">/</span><span class="rec-chip prev">' + escHtml(stgChipText("前回", prev)) + '</span>' : '') +
+        '</span>' : '<span></span>') +
+      (records.length > 2 ? '<a class="mandala-link" href="javascript:void(0)" onclick="stgGo(\'history\')">これまでの記録 ›</a>' : '<span></span>');
+    cbody.appendChild(head);
+  }
+
+  if (cur.reflection) cbody.appendChild(stgMakeReviewBox(cur.reflection, prev));
+
+  const title = document.createElement("div");
+  title.className = "sec-title";
+  title.textContent = "次の短期目標";
+  cbody.appendChild(title);
+
+  const mode = cur.goalMode || null;
+  if (mode === "complete" || mode === "consult") {
+    const box = document.createElement("div");
+    box.className = "field";
+    box.innerHTML =
+      '<div class="k">目標の扱い</div>' +
+      '<div class="v">' + escHtml(STG_GOAL_MODE_LABEL[mode] || "") +
+      (mode === "complete" ? "（この目標は完了。次の目標はまだ決まっていません）" : "（次の目標はコーチと決めます）") +
+      '</div>';
+    cbody.appendChild(box);
+  } else {
+    const resolved = stgResolveGoal(records, 0);
+    const focus = stgResolveFocus(records, 0);
+    const continued = !!(resolved.from && resolved.from !== cur);
+
+    // 重点課題・場所・継続を同じ行にまとめる（横幅を超えたら折り返す）
+    const chips = stgChipsHtml(
+      focus,
+      continued
+        ? '<span class="rec-chip prev">継続' + (stgRecLabel(resolved.from) ? "（" + escHtml(stgRecLabel(resolved.from)) + "から）" : "") + '</span>'
+        : ""
+    );
+    if (chips) {
+      const head2 = document.createElement("div");
+      head2.className = "rec-head";
+      head2.innerHTML = chips + '<span></span>';
+      cbody.appendChild(head2);
+    }
+
+    if (stgGoalHasContent(resolved.goal)) {
+      STG_V2_GOAL_FIELDS.forEach(function (pair) {
+        const v = stgVal(resolved.goal[pair[0]]);
+        if (!v) return;
+        const f = document.createElement("div");
+        f.className = "field";
+        f.innerHTML = '<div class="k">' + escHtml(pair[1]) + '</div><div class="v">' + escHtml(v) + '</div>';
+        cbody.appendChild(f);
+      });
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "mandala-empty";
+      empty.style.paddingTop = "0";
+      empty.textContent = "まだ目標が書かれていません。";
+      cbody.appendChild(empty);
+    }
+  }
+
+  const common = cur.common || {};
+  const extra = [
+    ["competitionAction", "大会に向けて実行すること"],
+    ["worry", "心配なこと・不安なこと"],
+    ["support", "コーチにサポートしてほしいこと"]
+  ].filter(function (pair) { return !!stgVal(common[pair[0]]); });
+  if (extra.length) {
+    const t2 = document.createElement("div");
+    t2.className = "sec-title";
+    t2.textContent = "そのほか";
+    cbody.appendChild(t2);
+    extra.forEach(function (pair) {
+      const f = document.createElement("div");
+      f.className = "field";
+      f.innerHTML = '<div class="k">' + escHtml(pair[1]) + '</div><div class="v">' + escHtml(stgVal(common[pair[0]])) + '</div>';
+      cbody.appendChild(f);
+    });
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "mandala-summary";
+  footer.innerHTML =
+    '<span>' + (cur.updated ? "更新日 " + escHtml(cur.updated) : "") + '</span>' +
     '<span>' +
       stgFormLink(stg, true) +
       (stg.sheetUrl ? '&nbsp;&nbsp;<a class="mandala-link" href="' + stg.sheetUrl + '" target="_blank" rel="noopener">全回答を見る →</a>' : '') +
@@ -1406,10 +1608,15 @@ function stgRenderHistory(cbody, records) {
     const item = document.createElement("div");
     item.className = "hist-item" + (i === 0 ? " current" : "");
     const badge = i === 0 ? '<span class="hist-badge now">今回</span>' : (i === 1 ? '<span class="hist-badge prev">前回</span>' : '');
-    const summary = STG_CATEGORIES.map(function (cat) {
-      const c = rec.categories ? rec.categories[cat] : null;
-      return c ? stgVal(c.wantToDo) : null;
-    }).filter(Boolean).join(" ／ ");
+    const summary = stgIsV2(rec)
+      ? [
+          (rec.focus && rec.focus.main) || null,
+          stgVal(rec.goal && rec.goal.wantToDo) || (rec.goalMode ? STG_GOAL_MODE_LABEL[rec.goalMode] : null)
+        ].filter(Boolean).join(" ／ ")
+      : STG_CATEGORIES.map(function (cat) {
+          const c = rec.categories ? rec.categories[cat] : null;
+          return c ? stgVal(c.wantToDo) : null;
+        }).filter(Boolean).join(" ／ ");
     item.innerHTML =
       '<div class="m">' + escHtml(stgRecLabel(rec) || "記録") + badge + '</div>' +
       '<div class="s">' + (rec.filledDate ? "記入日 " + escHtml(rec.filledDate) + "<br>" : "") + escHtml(summary || "—") + '</div>';
@@ -1441,6 +1648,41 @@ function stgRenderRecord(cbody, rec) {
         return v ? '<div class="review-row"><div class="k">' + escHtml(pair[1]) + '</div><div class="v">' + escHtml(v) + '</div></div>' : '';
       }).join("");
     cbody.appendChild(box);
+  }
+
+  if (stgIsV2(rec)) {
+    const t = document.createElement("div");
+    t.className = "sec-title";
+    t.textContent = "この回の短期目標";
+    cbody.appendChild(t);
+    if (rec.goalMode) {
+      const f0 = document.createElement("div");
+      f0.className = "field";
+      f0.innerHTML = '<div class="k">目標の扱い</div><div class="v">' + escHtml(STG_GOAL_MODE_LABEL[rec.goalMode] || rec.goalMode) + '</div>';
+      cbody.appendChild(f0);
+    }
+    const chips = stgChipsHtml(rec.focus);
+    if (chips) {
+      const h = document.createElement("div");
+      h.className = "rec-head";
+      h.innerHTML = chips + '<span></span>';
+      cbody.appendChild(h);
+    }
+    STG_V2_GOAL_FIELDS.concat([
+      ["__competitionAction", "大会に向けて実行すること"],
+      ["__worry", "心配なこと・不安なこと"],
+      ["__support", "コーチにサポートしてほしいこと"]
+    ]).forEach(function (pair) {
+      const key = pair[0];
+      const v = key.indexOf("__") === 0
+        ? stgVal(rec.common ? rec.common[key.slice(2)] : null)
+        : stgVal(rec.goal ? rec.goal[key] : null);
+      if (!v) return;
+      const f = document.createElement("div");
+      f.className = "field";
+      f.innerHTML = '<div class="k">' + escHtml(pair[1]) + '</div><div class="v">' + escHtml(v) + '</div>';
+      cbody.appendChild(f);
+    });
   }
 
   STG_CATEGORIES.forEach(function (cat) {
@@ -1707,12 +1949,32 @@ function airLogSessionsStats(records) {
 function getStgCategoriesForAirLog(a, athleteKey) {
   const stg = a.shortTermGoal;
   if (!stg) return null;
+  let data = null;
   if (stg.apiUrl) {
     const cache = stgCache[athleteKey];
-    if (cache && cache.status === "loaded") return cache.data.categories;
-    return null;
+    if (!cache || cache.status !== "loaded") return null;
+    data = cache.data;
+  } else {
+    data = stg;
   }
-  return stg.categories || null;
+  if (!data) return null;
+
+  // フォームB v2: 「重点課題がエア」かつ「取り組む場所にWJ/トランポリンが入っている」場合だけ出す。
+  // v2の目標は技名とは限らないため、ラベルは「今回のエア目標」にする。
+  const records = stgBuildRecords(data);
+  if (records.length && stgIsV2(records[0])) {
+    const focus = stgResolveFocus(records, 0);
+    const goal = stgResolveGoal(records, 0).goal;
+    const want = stgVal(goal && goal.wantToDo);
+    if (!focus || focus.main !== "エア" || !want) return null;
+    const out = {};
+    (focus.venues || []).forEach(function (v) {
+      const label = STG_V2_VENUE_TO_AIRLOG[v];
+      if (label) out[label] = { wantToDo: want, label: "今回のエア目標" };
+    });
+    return Object.keys(out).length ? out : null;
+  }
+  return data.categories || null;
 }
 
 function makeAirLogCard(a, athleteKey) {
@@ -1759,7 +2021,7 @@ function makeAirLogCard(a, athleteKey) {
     if (drillStgCat && drillStgCat.wantToDo) {
       const wantBox = document.createElement("div");
       wantBox.className = "field sub";
-      wantBox.innerHTML = `<div class="k">挑戦したい技(短期目標より)</div><div class="v">${drillStgCat.wantToDo}</div>`;
+      wantBox.innerHTML = `<div class="k">${drillStgCat.label || "挑戦したい技"}(短期目標より)</div><div class="v">${drillStgCat.wantToDo}</div>`;
       cbody.appendChild(wantBox);
     }
 
@@ -1798,7 +2060,7 @@ function makeAirLogCard(a, athleteKey) {
     const tile = document.createElement("div");
     const tileStgCat = stgCategories && stgCategories[label];
     const wantHtml = tileStgCat && tileStgCat.wantToDo
-      ? `<div style="font-size:10.5px;color:var(--blue-450);font-weight:700;margin-bottom:3px;">挑戦したい技: ${tileStgCat.wantToDo}</div>`
+      ? `<div style="font-size:10.5px;color:var(--blue-450);font-weight:700;margin-bottom:3px;">${tileStgCat.label || "挑戦したい技"}: ${tileStgCat.wantToDo}</div>`
       : "";
     if (rows.length) {
       const stats = airLogCatStats(rows);
