@@ -1485,7 +1485,7 @@ function stgRenderOverviewV2(cbody, stg, records, cur, prev) {
 
   const common = cur.common || {};
   const extra = [
-    ["competitionAction", "大会に向けて実行すること"],
+    ["competitionAction", "大会・シーズンに向けて実行すること"],
     ["worry", "心配なこと・不安なこと"],
     ["support", "コーチにサポートしてほしいこと"]
   ].filter(function (pair) { return !!stgVal(common[pair[0]]); });
@@ -1669,7 +1669,7 @@ function stgRenderRecord(cbody, rec) {
       cbody.appendChild(h);
     }
     STG_V2_GOAL_FIELDS.concat([
-      ["__competitionAction", "大会に向けて実行すること"],
+      ["__competitionAction", "大会・シーズンに向けて実行すること"],
       ["__worry", "心配なこと・不安なこと"],
       ["__support", "コーチにサポートしてほしいこと"]
     ]).forEach(function (pair) {
