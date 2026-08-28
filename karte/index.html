@@ -1222,6 +1222,14 @@ function stgChipsHtml(focus, extraHtml) {
   return parts.length ? '<span class="rec-chips wrap">' + parts.join("") + '</span>' : "";
 }
 
+// 「この目標、いつごろ見直す？」をチップ1つで見せる。
+// 未回答（v2の設問追加前の記録）と「決めない」は、出しても情報が増えないので表示しない。
+function stgReviewChip(goal) {
+  const v = stgVal(goal && goal.reviewTiming);
+  if (!v || v === "決めない") return "";
+  return '<span class="rec-chip prev">見直し：' + escHtml(v) + '</span>';
+}
+
 // "2026/08/01" や "2026/08/01 23:40" から "2026年8月" を作る。取れなければ空文字。
 function stgMonthLabelFrom(str) {
   const m = String(str == null ? "" : str).match(/(\d{4})[\/\-年](\d{1,2})/);
@@ -1479,9 +1487,10 @@ function stgRenderOverviewV2(cbody, stg, records, cur, prev) {
     // 重点課題・場所・継続を同じ行にまとめる（横幅を超えたら折り返す）
     const chips = stgChipsHtml(
       focus,
-      continued
+      stgReviewChip(resolved.goal) +
+      (continued
         ? '<span class="rec-chip prev">継続' + (stgRecLabel(resolved.from) ? "（" + escHtml(stgRecLabel(resolved.from)) + "から）" : "") + '</span>'
-        : ""
+        : "")
     );
     if (chips) {
       const head2 = document.createElement("div");
@@ -1689,7 +1698,7 @@ function stgRenderRecord(cbody, rec) {
       f0.innerHTML = '<div class="k">目標の扱い</div><div class="v">' + escHtml(STG_GOAL_MODE_LABEL[rec.goalMode] || rec.goalMode) + '</div>';
       cbody.appendChild(f0);
     }
-    const chips = stgChipsHtml(rec.focus);
+    const chips = stgChipsHtml(rec.focus, stgReviewChip(rec.goal));
     if (chips) {
       const h = document.createElement("div");
       h.className = "rec-head";
