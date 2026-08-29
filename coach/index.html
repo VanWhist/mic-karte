@@ -2014,6 +2014,22 @@ function getStgCategoriesForAirLog(a, athleteKey) {
   return data.categories || null;
 }
 
+// エアlogを「選手専用リンク」(?a=<エアlogの選手ID>)で開く。
+// 選手が他の選手の記録として入力してしまうのを防ぐため。エアlog側は ?a= が付いていると
+// 記録タブが本人固定になり、他の選手のメモも見えなくなる。
+// コーチ画面では付けない(記録タブが特定の選手に固定されてしまうため)。
+// IDはエアlogのAPIが返す名簿から氏名一致で引く。読み込み前や見つからないときは共通URLに落とす
+// (存在しないIDを渡すとエアlog側が「名簿に見つかりません」と出して記録タブを止めるため、
+//  黙って共通URLで開かせる方が実害が小さい)。
+function airLogAppUrlFor(airLog) {
+  const base = (airLog && airLog.appUrl) || AIRLOG_APP_URL;
+  if (VIEW_MODE !== "player" || !airLog || !airLog.apiUrl) return base;
+  const cache = airLogCache[airLog.apiUrl];
+  if (!cache || cache.status !== "loaded") return base;
+  const hit = (cache.athletes || []).filter(function (x) { return x && x.name === airLog.matchName; })[0];
+  return (hit && hit.id) ? base + "?a=" + encodeURIComponent(hit.id) : base;
+}
+
 function makeAirLogCard(a, athleteKey) {
   const card = makeCard("MICエアlog", "blue", "");
   const cbody = card.querySelector(".card-body");
@@ -2039,7 +2055,7 @@ function makeAirLogCard(a, athleteKey) {
     cbody.appendChild(summary);
     const footer = document.createElement("div");
     footer.className = "mandala-summary";
-    footer.innerHTML = `<span></span><a class="mandala-link" href="${airLog.appUrl}" target="_blank" rel="noopener">アプリを開く →</a>`;
+    footer.innerHTML = `<span></span><a class="mandala-link" href="${airLogAppUrlFor(airLog)}" target="_blank" rel="noopener">アプリを開く →</a>`;
     cbody.appendChild(footer);
     return card;
   }
@@ -2085,7 +2101,7 @@ function makeAirLogCard(a, athleteKey) {
 
     const footer = document.createElement("div");
     footer.className = "mandala-summary";
-    footer.innerHTML = `<span></span><a class="mandala-link" href="${airLog.appUrl}" target="_blank" rel="noopener">アプリで全履歴を見る →</a>`;
+    footer.innerHTML = `<span></span><a class="mandala-link" href="${airLogAppUrlFor(airLog)}" target="_blank" rel="noopener">アプリで全履歴を見る →</a>`;
     cbody.appendChild(footer);
     return card;
   }
@@ -2119,7 +2135,7 @@ function makeAirLogCard(a, athleteKey) {
 
   const footer = document.createElement("div");
   footer.className = "mandala-summary";
-  footer.innerHTML = `<span></span><a class="mandala-link" href="${airLog.appUrl}" target="_blank" rel="noopener">アプリを開く →</a>`;
+  footer.innerHTML = `<span></span><a class="mandala-link" href="${airLogAppUrlFor(airLog)}" target="_blank" rel="noopener">アプリを開く →</a>`;
   cbody.appendChild(footer);
 
   return card;
