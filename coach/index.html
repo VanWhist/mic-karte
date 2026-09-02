@@ -178,6 +178,7 @@
     opacity: 0.6;
   }
   .goal-tile.muted { background: var(--page); opacity: 0.7; }
+  a.goal-tile { display: block; text-decoration: none; color: inherit; }
 
   /* self-assessment bars */
   .bars { display: flex; flex-direction: column; gap: 8px; }
@@ -1068,6 +1069,8 @@ function render() {
 
   // MICエアlog card (live fetch, water jump / trampoline records) — カード内に短期目標のWJ/トランポリン「挑戦したい技」を表示するため、短期目標カードのstgCacheが埋まった後に配置
   body.appendChild(makeAirLogCard(a, current));
+  // トランポリン エアトレーニング（全員共通の教程アプリへの入口。エアlogの隣に置く）
+  body.appendChild(makeTrampolineCard());
   body.appendChild(makeCoachNotesCard(a, current));
 
   // Weight training card (live fetch from the training log app's Apps Script API)
@@ -2012,6 +2015,33 @@ function getStgCategoriesForAirLog(a, athleteKey) {
     return Object.keys(out).length ? out : null;
   }
   return data.categories || null;
+}
+
+// ============================================================
+// トランポリン エアトレーニング（2026/09/03追加）
+// ------------------------------------------------------------
+// SAJ統一指導教程を技ごとに引けるアプリ（全員共通・個人データなし）への入口。
+// カルテの中に資料は持たず、章ごとのリンクだけを置く。章のIDと技数は
+// アプリ側 data/training-data.json の sessions と合わせる（章を足したらここも直す）。
+const TRAMP_APP_URL = "https://vanwhist.github.io/trampoline-air-training/";
+const TRAMP_CHAPTERS = [
+  { id: "tramp-basic",        label: "トランポリン基礎",       n: "47技" },
+  { id: "tramp-sequence",     label: "連続技・バッジテスト",   n: "5項目" },
+  { id: "tramp-intermediate", label: "トランポリン中級",       n: "10技" },
+  { id: "tramp-advanced",     label: "トランポリン応用",       n: "13技" },
+  { id: "tramp-common",       label: "種目共通基礎編",         n: "67項目" },
+  { id: "tramp-mogul",        label: "種目特化 モーグル基礎",  n: "14項目" }
+];
+function makeTrampolineCard() {
+  const tiles = TRAMP_CHAPTERS.map(function (c) {
+    return '<a class="goal-tile clickable" href="' + TRAMP_APP_URL + '#/session/' + c.id + '" target="_blank" rel="noopener">' +
+      '<div class="k">' + escHtml(c.n) + '</div><div class="v">' + escHtml(c.label) + '</div></a>';
+  }).join("");
+  return makeCard("トランポリン エアトレーニング", "blue",
+    '<div class="mandala-empty" style="padding-top:0;">全日本スキー・スノーボード連盟の統一指導教程を、技ごとに動画つきで引けます。技名をタップすると、その技のところから動画が始まります。</div>' +
+    '<div class="goal-grid">' + tiles + '</div>' +
+    '<div class="mandala-summary"><span>技名・雪上の動きで検索できます</span>' +
+    '<a class="mandala-link" href="' + TRAMP_APP_URL + '" target="_blank" rel="noopener">アプリを開く →</a></div>');
 }
 
 // エアlogを「選手専用リンク」(?a=<エアlogの選手ID>)で開く。
