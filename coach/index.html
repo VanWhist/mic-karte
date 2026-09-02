@@ -1071,6 +1071,8 @@ function render() {
   body.appendChild(makeAirLogCard(a, current));
   // トランポリン エアトレーニング（全員共通の教程アプリへの入口。エアlogの隣に置く）
   body.appendChild(makeTrampolineCard());
+  // MIC豆知識(全員共通の資料室。一覧はlibrary/items.jsonから取得)
+  body.appendChild(makeLibraryCard());
   body.appendChild(makeCoachNotesCard(a, current));
 
   // Weight training card (live fetch from the training log app's Apps Script API)
@@ -2042,6 +2044,33 @@ function makeTrampolineCard() {
     '<div class="goal-grid">' + tiles + '</div>' +
     '<div class="mandala-summary"><span>技名・雪上の動きで検索できます</span>' +
     '<a class="mandala-link" href="' + TRAMP_APP_URL + '" target="_blank" rel="noopener">アプリを開く →</a></div>');
+}
+
+// MIC豆知識(MIC資料室)。全員共通。一覧は資料室の items.json から読む(カルテには資料本体も一覧も持たない)。
+// 資料の追加・差し替えは mic-karte/library/ 側だけで完結させる。
+const LIBRARY_URL = "https://vanwhist.github.io/mic-karte/library/";
+function makeLibraryCard() {
+  const card = makeCard("MIC豆知識", "blue",
+    '<div class="mandala-empty" style="padding-top:0;">エアのしくみを、練習で見えている現象から説明する短い読み物です。タップするとPDFが開きます。</div>' +
+    '<div class="goal-grid" style="grid-template-columns:1fr;" id="library-list"><div class="mandala-empty">読み込み中…</div></div>' +
+    '<div class="mandala-summary"><span>新しい号はここに増えていきます</span>' +
+    '<a class="mandala-link" href="' + LIBRARY_URL + '" target="_blank" rel="noopener">資料室を開く →</a></div>');
+  const listEl = card.querySelector("#library-list");
+  fetch(LIBRARY_URL + "items.json?t=" + Math.floor(Date.now() / 600000), { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (d) {
+      const items = (d.items || []).filter(function (x) { return x && x.published !== false; });
+      if (!items.length) { listEl.innerHTML = '<div class="mandala-empty">まだ資料がありません。</div>'; return; }
+      listEl.innerHTML = items.map(function (x) {
+        return '<a class="goal-tile clickable" href="' + LIBRARY_URL + escHtml(x.file) + '" target="_blank" rel="noopener">' +
+          '<div class="k">' + escHtml(x.no) + (x.pages ? ' ・ ' + escHtml(x.pages) + 'ページ' : '') + '</div>' +
+          '<div class="v">' + escHtml(x.title) + '</div></a>';
+      }).join("");
+    })
+    .catch(function () {
+      listEl.innerHTML = '<div class="mandala-empty">一覧を読み込めませんでした。「資料室を開く」から見られます。</div>';
+    });
+  return card;
 }
 
 // エアlogを「選手専用リンク」(?a=<エアlogの選手ID>)で開く。
