@@ -1,0 +1,10 @@
+{
+  "updated": "2026-09-02",
+  "items": [
+    { "id": "no1", "no": "No.1", "title": "なぜ抱えると速く回るのか", "subtitle": "エアの回転スピードのしくみ", "pages": 5, "file": "pdf/MIC_mamechishiki_No1.pdf", "published": true },
+    { "id": "no2", "no": "No.2", "title": "なぜ台を踏むのか", "subtitle": "高さと回転が決まる、リップまでの一瞬", "pages": 6, "file": "pdf/MIC_mamechishiki_No2.pdf", "published": true },
+    { "id": "no3", "no": "No.3", "title": "「台に負けない」ってどういうこと？", "subtitle": "トランジションで体が重くなる理由", "pages": 6, "file": "pdf/MIC_mamechishiki_No3.pdf", "published": true },
+    { "id": "no4", "no": "No.4", "title": "台のアールが変わると、踏み切りも変わる？", "subtitle": "線の中の「いちばん強いところ」の話", "pages": 6, "file": "pdf/MIC_mamechishiki_No4.pdf", "published": true },
+    { "id": "no5", "no": "No.5", "title": "なぜ、スタートを下げるのか", "subtitle": "着地の話", "pages": 9, "file": "pdf/MIC_mamechishiki_No5.pdf", "published": true }
+  ]
+}
