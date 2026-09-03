@@ -1,10 +1,12 @@
 {
-  "updated": "2026-09-02",
+  "updated": "2026-09-03",
+  "intro": "エアの流れの順に並べています。番号の順に読まなくて大丈夫です。",
   "items": [
-    { "id": "no1", "no": "No.1", "title": "なぜ抱えると速く回るのか", "subtitle": "エアの回転スピードのしくみ", "pages": 5, "file": "pdf/MIC_mamechishiki_No1.pdf", "published": true },
-    { "id": "no2", "no": "No.2", "title": "なぜ台を踏むのか", "subtitle": "高さと回転が決まる、リップまでの一瞬", "pages": 6, "file": "pdf/MIC_mamechishiki_No2.pdf", "published": true },
-    { "id": "no3", "no": "No.3", "title": "「台に負けない」ってどういうこと？", "subtitle": "トランジションで体が重くなる理由", "pages": 6, "file": "pdf/MIC_mamechishiki_No3.pdf", "published": true },
-    { "id": "no4", "no": "No.4", "title": "台のアールが変わると、踏み切りも変わる？", "subtitle": "線の中の「いちばん強いところ」の話", "pages": 6, "file": "pdf/MIC_mamechishiki_No4.pdf", "published": true },
-    { "id": "no5", "no": "No.5", "title": "なぜ、スタートを下げるのか", "subtitle": "着地の話", "pages": 9, "file": "pdf/MIC_mamechishiki_No5.pdf", "published": true }
+    { "id": "no3", "no": "No.3", "step": 1, "stage": "台に入る前", "title": "「台に負けない」ってどういうこと？", "subtitle": "トランジションで体が重くなる理由", "line": "速く入るほど、台から強く押される。潰れずに支えられるかが、押すより先にある", "pages": 6, "file": "pdf/MIC_mamechishiki_No3.pdf", "published": true, "revised": "2026.9", "revisedNote": "No.2の改訂に合わせて、No.2をさす一文を直しました" },
+    { "id": "no4", "no": "No.4", "step": 2, "stage": "台の上", "title": "台のアールが変わると、踏み切りも変わる？", "subtitle": "線の中の「いちばん強いところ」の話", "line": "アールが変わると、台から受ける力の出方が変わる", "pages": 6, "file": "pdf/MIC_mamechishiki_No4.pdf", "published": true },
+    { "id": "no2", "no": "No.2", "step": 3, "stage": "踏み切り", "title": "なぜ台を踏むのか", "subtitle": "高さと回転が決まる、リップまでの一瞬", "line": "押した分だけ返ってくる。リップまで押し続けるのが線蹴り", "pages": 6, "file": "pdf/MIC_mamechishiki_No2.pdf", "published": true, "revised": "2026.9", "revisedNote": "「押さなければ何も返ってこない」を書き直しました。「蹴る」という言葉自体は悪くない、も追加" },
+    { "id": "no1", "no": "No.1", "step": 4, "stage": "空中", "title": "なぜ抱えると速く回るのか", "subtitle": "エアの回転スピードのしくみ", "line": "回転のもとは踏み切りで決まり、回る速さは空中の形で変わる", "pages": 5, "file": "pdf/MIC_mamechishiki_No1.pdf", "published": true },
+    { "id": "no5", "no": "No.5", "step": 5, "stage": "着地", "title": "なぜ、スタートを下げるのか", "subtitle": "着地の話", "line": "着地の衝撃は本数で積み重なる。痛いときは、言う", "pages": 9, "file": "pdf/MIC_mamechishiki_No5.pdf", "published": true },
+    { "id": "sp-training", "no": "特別編", "group": "雪の外で", "title": "トレーニングは、季節で入れ替わらない", "subtitle": "3つのねらいと、比重の話", "line": "トレーニングの3つのねらいは一年中全部ある。動くのは比重だけ", "pages": 8, "file": "pdf/MIC_mamechishiki_SP_training.pdf", "published": true }
   ]
 }

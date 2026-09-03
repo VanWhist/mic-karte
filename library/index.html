@@ -64,6 +64,12 @@
   .item .k { font-size: 10.5px; color: var(--blue-450); font-weight: 700; margin-bottom: 3px; }
   .item .v { font-size: 13.5px; font-weight: 700; line-height: 1.45; }
   .item .s { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin-top: 2px; }
+  .stage { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--text-secondary); margin: 6px 0 -2px; }
+  .stage .n { width: 16px; height: 16px; border-radius: 50%; background: var(--blue-450); color: #fff; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+  .group { font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 10px 0 -2px; padding-top: 10px; border-top: 1px solid var(--gridline); }
+  .item .line { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin-top: 3px; }
+  .item .rev { display: inline-block; font-size: 9.5px; font-weight: 700; color: #b25a00; background: #fff3e6; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  .item .revnote { font-size: 10.5px; color: #8a5a2b; line-height: 1.45; margin-top: 3px; }
   .empty { font-size: 12.5px; color: var(--text-muted); padding: 6px 0; }
   .foot { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 12px; }
   .foot a { color: var(--blue-550); }
@@ -94,11 +100,21 @@
     .then(function (d) {
       var items = (d.items || []).filter(function (x) { return x && x.published !== false; });
       if (!items.length) { list.innerHTML = '<div class="empty">まだ資料がありません。</div>'; return; }
+      if (d.intro) { var lead = document.querySelector(".lead"); if (lead) lead.textContent = lead.textContent + " " + d.intro; }
+      var lastGroup = null;
       list.innerHTML = items.map(function (x) {
-        return '<a class="item" href="' + esc(x.file) + '" target="_blank" rel="noopener">' +
-          '<div class="k">' + esc(x.no) + (x.pages ? ' ・ ' + esc(x.pages) + 'ページ' : '') + '</div>' +
+        var head = "";
+        if (x.group) {
+          if (x.group !== lastGroup) { head = '<div class="group">' + esc(x.group) + '</div>'; lastGroup = x.group; }
+        } else if (x.stage) {
+          head = '<div class="stage">' + (x.step ? '<span class="n">' + esc(x.step) + '</span>' : '') + esc(x.stage) + '</div>';
+        }
+        return head + '<a class="item" href="' + esc(x.file) + '" target="_blank" rel="noopener">' +
+          '<div class="k">' + esc(x.no) + (x.pages ? ' ・ ' + esc(x.pages) + 'ページ' : '') +
+          (x.revised ? '<span class="rev">' + esc(x.revised) + ' 改訂</span>' : '') + '</div>' +
           '<div class="v">' + esc(x.title) + '</div>' +
-          (x.subtitle ? '<div class="s">' + esc(x.subtitle) + '</div>' : '') +
+          (x.line ? '<div class="line">' + esc(x.line) + '</div>' : (x.subtitle ? '<div class="s">' + esc(x.subtitle) + '</div>' : '')) +
+          (x.revisedNote ? '<div class="revnote">' + esc(x.revisedNote) + '</div>' : '') +
           '</a>';
       }).join("");
       if (d.updated) updated.textContent = "更新：" + d.updated;
