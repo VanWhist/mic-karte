@@ -179,6 +179,14 @@
   }
   .goal-tile.muted { background: var(--page); opacity: 0.7; }
   a.goal-tile { display: block; text-decoration: none; color: inherit; }
+  /* MIC豆知識カード：エアの流れ順の地図表示 */
+  .lib-stage { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--text-secondary); margin: 8px 0 4px; }
+  .lib-stage:first-child { margin-top: 2px; }
+  .lib-stage .n { width: 16px; height: 16px; border-radius: 50%; background: var(--blue-450); color: #fff; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+  .lib-group { font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--gridline); }
+  .goal-tile .line { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin-top: 3px; }
+  .goal-tile .rev { display: inline-block; font-size: 9.5px; font-weight: 700; color: #b25a00; background: #fff3e6; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  .goal-tile .revnote { font-size: 10.5px; color: #8a5a2b; line-height: 1.45; margin-top: 3px; }
 
   /* self-assessment bars */
   .bars { display: flex; flex-direction: column; gap: 8px; }
@@ -2051,20 +2059,36 @@ function makeTrampolineCard() {
 const LIBRARY_URL = "https://vanwhist.github.io/mic-karte/library/";
 function makeLibraryCard() {
   const card = makeCard("MIC豆知識", "blue",
-    '<div class="mandala-empty" style="padding-top:0;">エアのしくみを、練習で見えている現象から説明する短い読み物です。タップするとPDFが開きます。</div>' +
-    '<div class="goal-grid" style="grid-template-columns:1fr;" id="library-list"><div class="mandala-empty">読み込み中…</div></div>' +
+    '<div class="mandala-empty" style="padding-top:0;" id="library-intro">エアのしくみを、練習で見えている現象から説明する短い読み物です。タップするとPDFが開きます。</div>' +
+    '<div id="library-list"><div class="mandala-empty">読み込み中…</div></div>' +
     '<div class="mandala-summary"><span>新しい号はここに増えていきます</span>' +
     '<a class="mandala-link" href="' + LIBRARY_URL + '" target="_blank" rel="noopener">資料室を開く →</a></div>');
   const listEl = card.querySelector("#library-list");
+  const introEl = card.querySelector("#library-intro");
   fetch(LIBRARY_URL + "items.json?t=" + Math.floor(Date.now() / 600000), { cache: "no-store" })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function (d) {
       const items = (d.items || []).filter(function (x) { return x && x.published !== false; });
       if (!items.length) { listEl.innerHTML = '<div class="mandala-empty">まだ資料がありません。</div>'; return; }
+      if (d.intro) introEl.textContent = introEl.textContent + " " + d.intro;
+      // items.json の並び順がそのまま「読む順番」。stage が付いた号は段階ラベル付きで、
+      // group が付いた号（特別編など）は区切り線の下にまとめて出す。
+      let lastGroup = null;
       listEl.innerHTML = items.map(function (x) {
-        return '<a class="goal-tile clickable" href="' + LIBRARY_URL + escHtml(x.file) + '" target="_blank" rel="noopener">' +
-          '<div class="k">' + escHtml(x.no) + (x.pages ? ' ・ ' + escHtml(x.pages) + 'ページ' : '') + '</div>' +
-          '<div class="v">' + escHtml(x.title) + '</div></a>';
+        let head = "";
+        if (x.group) {
+          if (x.group !== lastGroup) { head = '<div class="lib-group">' + escHtml(x.group) + '</div>'; lastGroup = x.group; }
+        } else if (x.stage) {
+          head = '<div class="lib-stage">' + (x.step ? '<span class="n">' + escHtml(x.step) + '</span>' : '') + escHtml(x.stage) + '</div>';
+        }
+        return head +
+          '<a class="goal-tile clickable" href="' + LIBRARY_URL + escHtml(x.file) + '" target="_blank" rel="noopener">' +
+          '<div class="k">' + escHtml(x.no) + (x.pages ? ' ・ ' + escHtml(x.pages) + 'ページ' : '') +
+          (x.revised ? '<span class="rev">' + escHtml(x.revised) + ' 改訂</span>' : '') + '</div>' +
+          '<div class="v">' + escHtml(x.title) + '</div>' +
+          (x.line ? '<div class="line">' + escHtml(x.line) + '</div>' : '') +
+          (x.revisedNote ? '<div class="revnote">' + escHtml(x.revisedNote) + '</div>' : '') +
+          '</a>';
       }).join("");
     })
     .catch(function () {
