@@ -523,6 +523,34 @@
     color: #8a6400;
     line-height: 1.6;
   }
+
+  /* 現在地カード(2026/09/21追加)。短期目標の進捗を、コーチが決めた数え方でエアlogから数える。
+     GENZAICHI に設定がある選手だけに出る。 */
+  .gz-head { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 2px; }
+  .gz-big { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; }
+  .gz-big small { font-size: 13px; font-weight: 700; margin-left: 2px; color: var(--text-secondary); }
+  .gz-sub { font-size: 12px; color: var(--text-secondary); }
+  .gz-slots { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin: 10px 0 4px; }
+  .gz-slot { aspect-ratio: 1; border-radius: 50%; border: 2px dashed #c9d3de; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+  .gz-slot.on { border: 2px solid var(--blue-450); background: var(--blue-450); color: #fff; }
+  .gz-scale { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-bottom: 10px; }
+  .gz-box { background: var(--page); border-radius: 10px; padding: 9px 11px; margin-top: 8px; }
+  .gz-box .k { font-size: 10.5px; font-weight: 700; color: var(--blue-550); margin-bottom: 4px; }
+  .gz-box .v { font-size: 12.5px; line-height: 1.6; }
+  .gz-by { font-size: 10.5px; color: var(--text-muted); font-weight: 600; margin-left: 4px; }
+  .gz-steps { display: grid; gap: 6px; margin-top: 4px; }
+  .gz-step { display: grid; grid-template-columns: 52px 1fr; gap: 8px; font-size: 12.5px; line-height: 1.5; padding: 6px 8px; border-radius: 8px; }
+  .gz-step .w { font-size: 10.5px; font-weight: 700; color: var(--text-muted); padding-top: 1px; }
+  .gz-step.now { background: var(--accent-soft); outline: 1.5px solid var(--blue-450); }
+  .gz-step.now .w { color: var(--blue-550); }
+  .gz-step.goal { background: var(--gold-soft); }
+  .gz-step.goal .w { color: var(--gold-text); }
+  .gz-log { margin-top: 4px; }
+  .gz-log .row { display: grid; grid-template-columns: 44px 1fr 64px; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; }
+  .gz-log .bar { height: 8px; border-radius: 999px; background: #e3e5ea; overflow: hidden; }
+  .gz-log .bar i { display: block; height: 100%; background: var(--blue-450); }
+  .gz-log .n { text-align: right; color: var(--text-secondary); font-weight: 600; }
+  .gz-note { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -587,6 +615,33 @@ const TRAINING_APPS = {
     appUrl: "https://vanwhist.github.io/hamada-seima-training-log/"
   }
 };
+
+// 現在地カード(2026/09/21追加)。短期目標に対して「いまどこにいるか」を出す。
+// 数え方・段階・順番はコーチが決めたもの(ここに書く)。数はエアlogから自動で数える。
+//   trickId / category : エアlogのどの技・どの場所を数えるか
+//   countFrom          : この日付以降の記録だけを数える(数え方を決めた翌日から)
+//   target             : この本数たまったら目標を見直す
+// matchNameで引く。ここに無い選手にはカードを出さない。
+const GENZAICHI = {
+  "浜田誠真": {
+    title: "フルツイストの現在地",
+    trickId: "inv_bf",
+    trickLabel: "バックフル",
+    category: "water",
+    countFrom: "2026-09-22",
+    target: 10,
+    decidedBy: "城コーチ・9/21",
+    goal: "フルツイストを安定してかけきる（10本中8本成功）",
+    why: "今シーズン、大会の2エアで使う予定の技",
+    rule: "<b>ループ軸が入っていない</b> ＋ <b>360°捻り切っている</b>。両方そろったものだけ成功。着地できても、ループ軸入り・360°に届かないものは失敗。",
+    steps: [
+      { w: "いま", t: "半捻りで、<b>A ループ軸を入れない</b>・<b>C 捻りを止めない（右足重心で横回転）</b>を同時に。できたらフル1回転に戻す", s: "now" },
+      { w: "つぎ", t: "フルに戻して、<b>B 上半身を先に入れない</b>。フルがトータル10本回れたら目標を見直す", s: "" },
+      { w: "今季", t: "大会の2エアでフルツイストを使う（B級優勝、A級へ）", s: "goal" }
+    ]
+  }
+};
+
 
 let ATHLETES = {};
 // "player": トークンが選手本人に解決された(選手専用モード) / "coach": それ以外(コーチ用・全選手表示)。
@@ -1043,6 +1098,9 @@ function render() {
   // 2026/08〜: 独立していた「前回の振り返り(フォームB)」カードをこのカードに統合し、
   // 今回/前回の2件を比較表示する。それより古い分は「これまでの記録」から遡る)
   body.appendChild(makeShortTermGoalCard(a.shortTermGoal, current));
+  // 現在地カード(GENZAICHIに設定がある選手だけ。短期目標のすぐ下)
+  const genzaichiCard = makeGenzaichiCard(a);
+  if (genzaichiCard) body.appendChild(genzaichiCard);
 
   // Self-assessment card
   const selfCard = makeCard("自己分析(1〜5段階評価)", "blue", "");
@@ -2057,6 +2115,79 @@ function makeTrampolineCard() {
 // MIC豆知識(MIC資料室)。全員共通。一覧は資料室の items.json から読む(カルテには資料本体も一覧も持たない)。
 // 資料の追加・差し替えは mic-karte/library/ 側だけで完結させる。
 const LIBRARY_URL = "https://vanwhist.github.io/mic-karte/library/";
+// 現在地カード。GENZAICHI に設定がある選手だけ。エアlogのキャッシュ(loadAirLog)を共有する。
+function makeGenzaichiCard(a) {
+  const airLog = a && a.airLog;
+  const cfg = airLog ? GENZAICHI[airLog.matchName] : null;
+  if (!cfg) return null;
+  const card = makeCard(escHtml(cfg.title), "blue", "");
+  const cbody = card.querySelector(".card-body");
+  loadAirLog(airLog.apiUrl);
+  const cache = airLogCache[airLog.apiUrl];
+  if (!cache || cache.status === "loading") {
+    cbody.innerHTML = '<div class="mandala-empty">読み込み中...</div>';
+    return card;
+  }
+  if (cache.status === "error") {
+    cbody.innerHTML = '<div class="mandala-empty">エアlogを読み込めませんでした</div>';
+    return card;
+  }
+  // 数える: countFrom 以降・指定の場所・指定の技の成功と本数(日ごと)
+  const byDate = {};
+  (cache.records || []).forEach(function (r) {
+    if ((r.athleteName || "").trim() !== airLog.matchName) return;
+    if (r.category !== cfg.category) return;
+    if (!r.date || r.date < cfg.countFrom) return;
+    (r.rows || []).forEach(function (x) {
+      if (x.trickId !== cfg.trickId) return;
+      const d = byDate[r.date] || (byDate[r.date] = { s: 0, n: 0 });
+      const sc = Number(x.success) || 0, fl = Number(x.fail) || 0;
+      d.s += sc; d.n += sc + fl;
+    });
+  });
+  const days = Object.keys(byDate).sort();
+  let total = 0;
+  days.forEach(function (d) { total += byDate[d].s; });
+  const shown = Math.min(total, cfg.target);
+  const left = Math.max(0, cfg.target - total);
+  const md = function (iso) { return (+iso.slice(5, 7)) + "/" + (+iso.slice(8, 10)); };
+
+  let html = '';
+  html += '<div class="gz-head"><span class="gz-big">' + (left > 0 ? 'あと' + left + '<small>本</small>' : '10<small>本 達成</small>') + '</span>' +
+          '<span class="gz-sub">' + (left > 0 ? '目標を見直すまで' : '目標を見直すタイミングです') + '</span></div>';
+  html += '<div class="gz-slots">';
+  for (let i = 0; i < cfg.target; i++) html += '<div class="gz-slot' + (i < shown ? ' on' : '') + '">' + (i + 1) + '</div>';
+  html += '</div>';
+  html += '<div class="gz-scale"><span>' + md(cfg.countFrom) + 'から数える</span><span>ウォーター・' + escHtml(cfg.trickLabel) + 'の成功</span></div>';
+
+  html += '<div class="gz-box"><div class="k">成功の数え方<span class="gz-by">' + escHtml(cfg.decidedBy) + '</span></div><div class="v">' + cfg.rule + '</div></div>';
+
+  html += '<div class="gz-box"><div class="k">めざす道すじ<span class="gz-by">' + escHtml(cfg.decidedBy) + '</span></div><div class="gz-steps">';
+  cfg.steps.forEach(function (st) {
+    html += '<div class="gz-step ' + st.s + '"><span class="w">' + escHtml(st.w) + '</span><span>' + st.t + '</span></div>';
+  });
+  html += '</div></div>';
+
+  html += '<div class="gz-box"><div class="k">' + md(cfg.countFrom) + 'からの記録</div>';
+  if (!days.length) {
+    html += '<div class="v" style="color:var(--text-muted)">まだ記録がありません。エアlogに入れると、ここに出ます。</div>';
+  } else {
+    html += '<div class="gz-log">';
+    days.forEach(function (d) {
+      const v = byDate[d];
+      const w = v.n ? Math.round(v.s / v.n * 100) : 0;
+      html += '<div class="row"><span style="font-weight:700">' + md(d) + '</span><span class="bar"><i style="width:' + w + '%"></i></span><span class="n">' + v.s + ' / ' + v.n + '本</span></div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="gz-note">短期目標：' + escHtml(cfg.goal) + '。' + escHtml(cfg.why) + '。<br>' +
+          '数はエアlogの「成功」欄から数えています。' + md(cfg.countFrom) + 'より前の記録は数え方がちがうので入れていません。</div>';
+  cbody.innerHTML = html;
+  return card;
+}
+
 function makeLibraryCard() {
   const card = makeCard("MIC豆知識", "blue",
     '<div class="mandala-empty" style="padding-top:0;" id="library-intro">エアのしくみを、練習で見えている現象から説明する短い読み物です。タップするとPDFが開きます。</div>' +
