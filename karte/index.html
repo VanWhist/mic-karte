@@ -184,6 +184,19 @@
   .lib-stage { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--text-secondary); margin: 8px 0 4px; }
   .lib-stage:first-child { margin-top: 2px; }
   .lib-stage .n { width: 16px; height: 16px; border-radius: 50%; background: var(--blue-450); color: #fff; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+  .lib-sub { font-size: 10.5px; font-weight: 700; color: var(--blue-450); margin: 6px 0 4px 22px; display: flex; align-items: center; gap: 6px; }
+  .lib-sub::before { content: ""; width: 10px; height: 1px; background: var(--blue-450); }
+  .goal-tile.lib-in { margin-left: 22px; }
+  .goal-tile.lib-in + .goal-tile.lib-in { margin-top: 6px; }
+  /* MIC豆知識：号を画面いっぱいに重ねて開く（2026-10-06） */
+  body.mame-open { overflow: hidden; }
+  .mame-ov { position: fixed; inset: 0; z-index: 9999; background: #fff; display: flex; flex-direction: column; }
+  .mame-ov[hidden] { display: none; }
+  .mame-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px 8px; background: #14213d; color: #fff; }
+  .mame-bar .mame-close { flex: 0 0 auto; border: none; border-radius: 8px; background: rgba(255,255,255,.16); color: #fff; font: 700 13px/1 -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif; padding: 9px 12px; cursor: pointer; }
+  .mame-bar .mame-title { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mame-bar .mame-newtab { flex: 0 0 auto; color: #c9d8ef; font-size: 11px; text-decoration: none; }
+  .mame-frame { flex: 1 1 auto; width: 100%; border: 0; display: block; background: #fff; }
   .lib-group { font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--gridline); }
   .goal-tile .line { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin-top: 3px; }
   .goal-tile .rev { display: inline-block; font-size: 9.5px; font-weight: 700; color: #b25a00; background: #fff3e6; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
@@ -2116,6 +2129,12 @@ function makeTrampolineCard() {
 // MIC豆知識(MIC資料室)。全員共通。一覧は資料室の items.json から読む(カルテには資料本体も一覧も持たない)。
 // 資料の追加・差し替えは mic-karte/library/ 側だけで完結させる。
 const LIBRARY_URL = "https://vanwhist.github.io/mic-karte/library/";
+// 2026-10-06：MIC版の号（ビューア付きHTML）は公開の library/ ではなく、Cloudflare Worker（mic-mame-member）から
+// カルテのトークン付きで取る。一覧に30分有効の署名付きURLが付いてくるので、それを画面いっぱいの枠で開く。
+// Worker がまだ無い・一覧が無いときは、これまでの資料室（library/items.json・PDF）に戻す（切り替え期間用）。
+const MAME_WORKER_URL = "https://mic-mame-member.yuyumogul.workers.dev";
+let mameListPromise = null;   // 一覧は1ページにつき1回だけ取る（期限が近づいたら取り直す）
+let mameListExpires = 0;
 // 現在地カード。GENZAICHI に設定がある選手だけ。エアlogのキャッシュ(loadAirLog)を共有する。
 function makeGenzaichiCard(a) {
   const airLog = a && a.airLog;
@@ -2189,44 +2208,167 @@ function makeGenzaichiCard(a) {
   return card;
 }
 
+// MIC豆知識の一覧を Worker から取る。戻り値：{ mode: "member", data } / { mode: "legacy" } / { mode: "error", message }
+function fetchMameList(force) {
+  if (!force && mameListPromise && Date.now() < mameListExpires - 60000) return mameListPromise;
+  mameListExpires = 0;
+  mameListPromise = (async function () {
+    if (!VIEW_TOKEN) return { mode: "error", message: "専用のURLで開いたときだけ読めます。" };
+    let res;
+    try {
+      res = await fetch(MAME_WORKER_URL + "/list?token=" + encodeURIComponent(VIEW_TOKEN), { cache: "no-store" });
+    } catch (e) {
+      return { mode: "legacy" };   // Worker にまだ届かない（未設定）→ 資料室に戻す
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (res.ok && data && Array.isArray(data.items)) {
+      mameListExpires = Number(data.expiresAt) || (Date.now() + 25 * 60000);
+      return { mode: "member", data: data };
+    }
+    const err = data && data.error;
+    if (err === "invalid token" || err === "missing token") {
+      return { mode: "error", message: "このリンクでは読めません。お手数ですが担当コーチにご確認ください。" };
+    }
+    if (err === "resolver unavailable") {
+      return { mode: "error", message: "いま一覧を読み込めませんでした。少し時間をおいて開き直してください。" };
+    }
+    return { mode: "legacy" };     // 一覧（manifest.json）がまだ無い等 → 資料室に戻す
+  })();
+  return mameListPromise;
+}
+
+// 一覧（items）をエアの流れの地図として描く。openFn があれば HTML の号として重ねて開く、なければ資料室の PDF へのリンク
+function renderMameMap(items, hrefOf, member) {
+  let lastGroup = null, lastStage = null, lastSub = null;
+  return items.map(function (x, i) {
+    let head = "";
+    if (x.group) {
+      if (x.group !== lastGroup) { head = '<div class="lib-group">' + escHtml(x.group) + '</div>'; lastGroup = x.group; }
+      lastStage = null; lastSub = null;
+    } else if (x.stage) {
+      if (x.stage !== lastStage) {
+        head = '<div class="lib-stage">' + (x.step ? '<span class="n">' + escHtml(x.step) + '</span>' : '') + escHtml(x.stage) + '</div>';
+        lastStage = x.stage; lastSub = null;
+      }
+    }
+    if (x.sub && x.sub !== lastSub) { head += '<div class="lib-sub">' + escHtml(x.sub) + '</div>'; }
+    lastSub = x.sub || null;
+    const href = hrefOf(x);
+    const attrs = member
+      ? ' href="' + escHtml(href) + '" data-mame="' + i + '"'
+      : ' href="' + escHtml(href) + '" target="_blank" rel="noopener"';
+    return head +
+      '<a class="goal-tile clickable' + (x.sub ? ' lib-in' : '') + '"' + attrs + '>' +
+      '<div class="k">' + escHtml(x.no) + (!member && x.pages ? ' ・ ' + escHtml(x.pages) + 'ページ' : '') +
+      (x.revised ? '<span class="rev">' + escHtml(x.revised) + ' 改訂</span>' : '') + '</div>' +
+      '<div class="v">' + escHtml(x.title) + '</div>' +
+      (x.line ? '<div class="line">' + escHtml(x.line) + '</div>' : '') +
+      (x.revisedNote ? '<div class="revnote">' + escHtml(x.revisedNote) + '</div>' : '') +
+      '</a>';
+  }).join("");
+}
+
 function makeLibraryCard() {
   const card = makeCard("MIC豆知識", "blue",
-    '<div class="mandala-empty" style="padding-top:0;" id="library-intro">エアのしくみを、練習で見えている現象から説明する短い読み物です。タップするとPDFが開きます。</div>' +
+    '<div class="mandala-empty" style="padding-top:0;" id="library-intro">エアのしくみを、練習で見えている現象から説明する短い読み物です。</div>' +
     '<div id="library-list"><div class="mandala-empty">読み込み中…</div></div>' +
-    '<div class="mandala-summary"><span>新しい号はここに増えていきます</span>' +
-    '<a class="mandala-link" href="' + LIBRARY_URL + '" target="_blank" rel="noopener">資料室を開く →</a></div>');
+    '<div class="mandala-summary" id="library-foot"><span>新しい号はここに増えていきます</span></div>');
   const listEl = card.querySelector("#library-list");
   const introEl = card.querySelector("#library-intro");
-  fetch(LIBRARY_URL + "items.json?t=" + Math.floor(Date.now() / 600000), { cache: "no-store" })
-    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function (d) {
-      const items = (d.items || []).filter(function (x) { return x && x.published !== false; });
+  const footEl = card.querySelector("#library-foot");
+
+  fetchMameList(false).then(function (r) {
+    if (r.mode === "member") {
+      const items = r.data.items.filter(function (x) { return x && x.url; });
       if (!items.length) { listEl.innerHTML = '<div class="mandala-empty">まだ資料がありません。</div>'; return; }
-      if (d.intro) introEl.textContent = introEl.textContent + " " + d.intro;
-      // items.json の並び順がそのまま「読む順番」。stage が付いた号は段階ラベル付きで、
-      // group が付いた号（特別編など）は区切り線の下にまとめて出す。
-      let lastGroup = null;
-      listEl.innerHTML = items.map(function (x) {
-        let head = "";
-        if (x.group) {
-          if (x.group !== lastGroup) { head = '<div class="lib-group">' + escHtml(x.group) + '</div>'; lastGroup = x.group; }
-        } else if (x.stage) {
-          head = '<div class="lib-stage">' + (x.step ? '<span class="n">' + escHtml(x.step) + '</span>' : '') + escHtml(x.stage) + '</div>';
-        }
-        return head +
-          '<a class="goal-tile clickable" href="' + LIBRARY_URL + escHtml(x.file) + '" target="_blank" rel="noopener">' +
-          '<div class="k">' + escHtml(x.no) + (x.pages ? ' ・ ' + escHtml(x.pages) + 'ページ' : '') +
-          (x.revised ? '<span class="rev">' + escHtml(x.revised) + ' 改訂</span>' : '') + '</div>' +
-          '<div class="v">' + escHtml(x.title) + '</div>' +
-          (x.line ? '<div class="line">' + escHtml(x.line) + '</div>' : '') +
-          (x.revisedNote ? '<div class="revnote">' + escHtml(x.revisedNote) + '</div>' : '') +
-          '</a>';
-      }).join("");
-    })
-    .catch(function () {
-      listEl.innerHTML = '<div class="mandala-empty">一覧を読み込めませんでした。「資料室を開く」から見られます。</div>';
-    });
+      introEl.textContent = introEl.textContent + " タップすると、この画面の上に開きます。" + (r.data.intro ? " " + r.data.intro : "");
+      listEl.innerHTML = renderMameMap(items, function (x) { return x.url; }, true);
+      listEl.addEventListener("click", function (ev) {
+        const a = ev.target.closest && ev.target.closest("a[data-mame]");
+        if (!a) return;
+        ev.preventDefault();
+        openMameItem(items[Number(a.getAttribute("data-mame"))]);
+      });
+      return;
+    }
+    if (r.mode === "error") {
+      listEl.innerHTML = '<div class="mandala-empty">' + escHtml(r.message) + '</div>';
+      return;
+    }
+    // legacy：これまでの資料室（PDF）
+    footEl.insertAdjacentHTML("beforeend", '<a class="mandala-link" href="' + LIBRARY_URL + '" target="_blank" rel="noopener">資料室を開く →</a>');
+    fetch(LIBRARY_URL + "items.json?t=" + Math.floor(Date.now() / 600000), { cache: "no-store" })
+      .then(function (r2) { if (!r2.ok) throw new Error(r2.status); return r2.json(); })
+      .then(function (d) {
+        const items = (d.items || []).filter(function (x) { return x && x.published !== false; });
+        if (!items.length) { listEl.innerHTML = '<div class="mandala-empty">まだ資料がありません。</div>'; return; }
+        introEl.textContent = introEl.textContent + " タップするとPDFが開きます。" + (d.intro ? " " + d.intro : "");
+        listEl.innerHTML = renderMameMap(items, function (x) { return LIBRARY_URL + x.file; }, false);
+      })
+      .catch(function () {
+        listEl.innerHTML = '<div class="mandala-empty">一覧を読み込めませんでした。「資料室を開く」から見られます。</div>';
+      });
+  });
   return card;
+}
+
+// ---- MIC豆知識：号を画面いっぱいに重ねて開く ----
+// iPhone の「戻る」（左端スワイプ）で閉じられるよう、開くときに履歴を1つ積む。閉じたら iframe を消す（3Dのメモリを返す）。
+let mameOverlay = null, mameHistoryPushed = false;
+function ensureMameOverlay() {
+  if (mameOverlay) return mameOverlay;
+  const ov = document.createElement("div");
+  ov.className = "mame-ov";
+  ov.hidden = true;
+  ov.setAttribute("role", "dialog");
+  ov.setAttribute("aria-modal", "true");
+  ov.innerHTML = '<div class="mame-bar"><button type="button" class="mame-close">✕ 閉じる</button>' +
+    '<div class="mame-title"></div><a class="mame-newtab" target="_blank" rel="noopener">別のタブで開く</a></div>';
+  // 「閉じる」は履歴を戻さずにその場で閉じる（号の中でリンクや目次をたどると、iframe の中の移動も
+  // 履歴に積まれるため、history.back() では号の前のページに戻るだけになることがある）。
+  // 積んだ履歴は残し、次に開くときに使い回す（余分に積まない）。
+  ov.querySelector(".mame-close").addEventListener("click", function () { closeMameOverlay(); });
+  document.body.appendChild(ov);
+  window.addEventListener("popstate", function () {
+    mameHistoryPushed = false;
+    if (mameOverlay && !mameOverlay.hidden) closeMameOverlay();
+  });
+  mameOverlay = ov;
+  return ov;
+}
+async function openMameItem(item) {
+  if (!item) return;
+  // 署名付きURLの期限（30分）が近いときは一覧を取り直して、同じ号の新しいURLを使う
+  if (Date.now() > mameListExpires - 60000) {
+    const r = await fetchMameList(true);
+    if (r.mode === "member") {
+      const fresh = r.data.items.filter(function (x) { return x.id === item.id; })[0];
+      if (fresh) item = fresh;
+    }
+  }
+  const ov = ensureMameOverlay();
+  const old = ov.querySelector("iframe");
+  if (old) old.remove();
+  const fr = document.createElement("iframe");
+  fr.className = "mame-frame";
+  fr.setAttribute("title", item.title || "MIC豆知識");
+  fr.setAttribute("referrerpolicy", "no-referrer");
+  fr.setAttribute("allow", "fullscreen");
+  fr.src = item.url;
+  ov.appendChild(fr);
+  ov.querySelector(".mame-title").textContent = (item.no ? item.no + "　" : "") + (item.title || "");
+  ov.querySelector(".mame-newtab").href = item.url;
+  ov.hidden = false;
+  document.body.classList.add("mame-open");
+  if (!mameHistoryPushed) { history.pushState({ mame: 1 }, ""); mameHistoryPushed = true; }
+}
+function closeMameOverlay() {
+  if (!mameOverlay) return;
+  const fr = mameOverlay.querySelector("iframe");
+  if (fr) { fr.src = "about:blank"; fr.remove(); }
+  mameOverlay.hidden = true;
+  document.body.classList.remove("mame-open");
 }
 
 // エアlogを「選手専用リンク」(?a=<エアlogの選手ID>)で開く。
