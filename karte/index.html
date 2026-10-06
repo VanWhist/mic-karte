@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
 <title>MIC選手カルテ</title>
 <style>
   :root {
@@ -3083,6 +3084,12 @@ async function initApp() {
   VIEW_TOKEN = urlToken; // コンディション管理APIにそのまま渡す
   let singlePerson = null;
 
+  // 2026-10-06：トークンなしでは何も読まない（以前はトークンなし＝コーチ用として全選手を表示していた）。
+  // コーチ用はコーチ名簿のトークン付きURL（/coach/?token=…）で開き、そのトークンを付けて全選手の一覧を取る。
+  if (!urlToken) {
+    renderFatalError("このページを開くには、専用のURL（最後に ?token=… が付いたもの）が必要です。<br>選手の方は自分専用のカルテのURLから、コーチの方はコーチ用のURLから開いてください。");
+    return;
+  }
   try {
     if (urlToken) {
       const res = await fetch(RESOLVER_URL + "?token=" + encodeURIComponent(urlToken));
@@ -3105,8 +3112,12 @@ async function initApp() {
       document.getElementById("draftBanner").textContent =
         "このページは" + singlePerson.name + "選手専用です。マンダラチャート・短期目標・シーズン目標などはスプレッドシート/フォームの回答からライブに反映されます。";
     } else {
-      const res = await fetch(RESOLVER_URL + "?list=athletes");
+      const res = await fetch(RESOLVER_URL + "?list=athletes&token=" + encodeURIComponent(urlToken));
       const data = await res.json();
+      if (data.error) {
+        renderFatalError("このリンクでは全選手のカルテを開けません。お手数ですが担当コーチにご確認ください。");
+        return;
+      }
       if (!data.athletes || !data.athletes.length) {
         renderFatalError("選手データを取得できませんでした。しばらくしてから再度お試しください。");
         return;
