@@ -58,9 +58,16 @@
     border-radius: 10px;
     padding: 3px;
     gap: 2px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
   }
+  .segmented::-webkit-scrollbar { display: none; }
   .segmented button {
-    flex: 1;
+    flex: 1 0 auto;
+    white-space: nowrap;
+    scroll-snap-align: center;
     border: none;
     background: transparent;
     padding: 8px 6px;
@@ -204,8 +211,10 @@
 
   /* self-assessment bars */
   .bars { display: flex; flex-direction: column; gap: 8px; }
-  .bar-row { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; }
-  .bar-row .name { font-size: 11px; color: var(--text-secondary); text-align: right; white-space: nowrap; }
+  .bar-row { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 8px; }
+  .bar-none { font-size: 11px; color: var(--text-muted); line-height: 18px; padding-left: 8px; }
+  /* 項目名が長くても（例「コーディネーション能力」）バーに重ならないよう、はみ出す分は「…」にする */
+  .bar-row .name { font-size: 11px; color: var(--text-secondary); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .bar-track { position: relative; height: 16px; background: var(--page); border-radius: 4px; }
   .bar-fill { position: absolute; left: 0; top: 0; height: 16px; border-radius: 4px; display: flex; align-items: center; }
   .bar-fill span { color: #fff; font-size: 10px; font-weight: 700; margin-left: auto; margin-right: 5px; }
@@ -590,10 +599,9 @@
 //   - URLに ?token=<選手のカルテトークン> が付いている場合: その選手1名分のみのATHLETESを作り、
 //     選手切り替えタブを隠す(選手専用カルテと同じ見え方)。全選手共通シート(シーズンシート/
 //     フォームAシート)へのリンクはこのモードでは出さない(8-3の教訓通り)。
-//   - トークンが無い場合(コーチ用アプリとしてのアクセス、例: /coach/): 在籍中の全選手を
-//     まとめて取得し、従来通り選手切り替えタブ付きで全員分を表示する。
-//   - トークンが指定されていて、それがコーチ用トークンとして解決された場合も同様に全選手表示に
-//     フォールバックする(将来コーチごとの個別URLを使う場合の下地。今は未使用)。
+//   - トークンが無い場合: 何も読まずに「専用のURLが必要」の案内だけを出す(2026-10-06〜)。
+//   - トークンがコーチ名簿のもの(type=coach)に解決された場合: そのトークンを付けて在籍中の全選手を
+//     まとめて取得し、選手切り替えタブ付きで全員分を表示する(/coach/?token=…)。
 const RESOLVER_URL = "https://script.google.com/macros/s/AKfycbyYoTaQErII9Br79BNErORlL3ewacb9h3PPW3Vof6XTF43mtDayCkCY3Gbn_Whk_1ZblA/exec";
 const SEASON_API_URL = "https://script.google.com/macros/s/AKfycbwMiFwmaf-Y0s7Jsu5kSwljHdxKQ4RXj7BVVVjlgNGSQScSMFtKhOMuP_mtNa597TlcMg/exec";
 const SEASON_SHEET_URL = "https://docs.google.com/spreadsheets/d/1SQR5Ct28nohCyOpDWKvJjm8c91esoa5dgxhoB5D4FHA/edit";
@@ -703,7 +711,7 @@ function buildAthleteEntry(person, showSharedSheetUrls) {
     airLog: {
       apiUrl: AIRLOG_API_URL,
       appUrl: AIRLOG_APP_URL,
-      matchName: person.matchName || person.name
+      matchName: String(person.matchName || person.name || "").trim()
     }
   };
 }
@@ -766,10 +774,19 @@ function renderSelector() {
       stgReviewOpen = false;
       airLogDrill = null;
       visionExpanded = { goal: false, ultimate: false };
+      competeExpanded = false;
+      conditionCoachOpen = null;
       render();
+      window.scrollTo({ top: 0, behavior: "auto" });
     };
     el.appendChild(btn);
   });
+  // 選手が多いと横スクロールになるので、いま選んでいる選手が見える位置まで送る
+  const active = el.querySelector("button.active");
+  if (active && el.scrollWidth > el.clientWidth) {
+    const left = active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2;
+    el.scrollLeft = Math.max(0, left);
+  }
 }
 
 window.toggleVision = function(key) {
@@ -851,6 +868,7 @@ function loadSeasonData(athleteKey, apiUrl, token) {
   fetch(apiUrl + "?token=" + encodeURIComponent(token))
     .then(res => res.json())
     .then(data => {
+      if (!data || data.error) throw new Error((data && data.error) || "empty");
       seasonCache[athleteKey] = { status: "loaded", data: data };
       render();
     })
@@ -868,6 +886,7 @@ function loadMandalaData(athleteKey, apiUrl, token) {
   fetch(apiUrl + "?token=" + encodeURIComponent(token))
     .then(res => res.json())
     .then(data => {
+      if (!data || data.error) throw new Error((data && data.error) || "empty");
       mandalaCache[athleteKey] = { status: "loaded", data: data };
       render();
     })
@@ -935,6 +954,7 @@ function loadTraining(athleteKey, apiUrl) {
   fetch(apiUrl)
     .then(res => res.json())
     .then(data => {
+      if (!data || data.error) throw new Error((data && data.error) || "empty");
       trainingCache[athleteKey] = { status: "loaded", records: data.records || [] };
       render();
     })
@@ -953,6 +973,7 @@ function loadAirLog(apiUrl) {
   fetch(apiUrl)
     .then(res => res.json())
     .then(data => {
+      if (!data || data.error || !Array.isArray(data.records)) throw new Error((data && data.error) || "empty");
       airLogCache[apiUrl] = {
         status: "loaded",
         records: data.records || [],
@@ -1048,9 +1069,9 @@ function renderSeasonPlaceholder(cbody, seasonState, seasonApi, athleteKey) {
   }
   if (seasonState.status === "error") {
     cbody.innerHTML = `
-      <div class="mandala-empty">データを取得できませんでした（${seasonState.error}）。</div>
+      <div class="mandala-empty">データを取得できませんでした（${escHtml(seasonState.error)}）。</div>
       <div class="mandala-summary">
-        <a class="mandala-link" href="javascript:void(0)" onclick="retrySeason('${athleteKey}')">再読み込み →</a>
+        <a class="mandala-link" href="javascript:void(0)" onclick="retrySeason('${escHtml(escAttrJs(athleteKey))}')">再読み込み →</a>
         ${seasonApi && seasonApi.sheetUrl ? `<a class="mandala-link" href="${seasonApi.sheetUrl}" target="_blank" rel="noopener">シートを見る →</a>` : ""}
       </div>
     `;
@@ -1064,7 +1085,11 @@ function render() {
   const a = ATHLETES[current];
   const seasonState = getSeasonState(a, current);
   const seasonUpdated = seasonState && seasonState.status === "loaded" ? seasonState.data.updated : null;
-  document.getElementById("updatedRow").textContent = "中長期目標 更新日: " + (seasonUpdated || "まだシーズン開始シートの回答がありません");
+  const updatedText = seasonUpdated ? "中長期目標 更新日: " + seasonUpdated
+    : (seasonState && seasonState.status === "loading") ? "中長期目標 更新日: 読み込み中…"
+    : (seasonState && seasonState.status === "error") ? "中長期目標 更新日: 取得できませんでした"
+    : "中長期目標 更新日: まだシーズン開始シートの回答がありません";
+  document.getElementById("updatedRow").textContent = updatedText;
 
   const body = document.getElementById("appBody");
   body.innerHTML = "";
@@ -1093,7 +1118,7 @@ function render() {
       Object.entries(seasonData).forEach(([k, v]) => {
         const tile = document.createElement("div");
         tile.className = "goal-tile";
-        tile.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+        tile.innerHTML = `<div class="k">${escHtml(k)}</div><div class="v">${escHtml(v)}</div>`;
         seasonGrid.appendChild(tile);
       });
       seasonCardBody.appendChild(seasonGrid);
@@ -1125,12 +1150,13 @@ function render() {
       const barsWrap = document.createElement("div");
       barsWrap.className = "bars";
       selfAssessment.forEach(d => {
+        const val = Number(d.value);
         const row = document.createElement("div");
         row.className = "bar-row";
         row.innerHTML = `
-          <div class="name">${d.name}${d.focus ? '<span class="focus-chip">★</span>' : ''}</div>
+          <div class="name" title="${escHtml(d.name)}">${escHtml(d.name)}${d.focus ? '<span class="focus-chip">★</span>' : ''}</div>
           <div class="bar-track">
-            <div class="bar-fill" style="width:${(d.value/5*100)}%; background:${stepByValue[d.value]};"><span>${d.value}</span></div>
+            ${(val >= 1 && val <= 5) ? `<div class="bar-fill" style="width:${(val/5*100)}%; background:${stepByValue[val]};"><span>${val}</span></div>` : `<span class="bar-none">未回答</span>`}
           </div>
         `;
         barsWrap.appendChild(row);
@@ -1138,7 +1164,7 @@ function render() {
       const focusNames = selfAssessment.filter(d => d.focus).map(d => d.name).join("・");
       const note = document.createElement("div");
       note.className = "focus-note";
-      note.innerHTML = `<span class="focus-chip">★</span> 今年特に伸ばしたい項目: ${focusNames}`;
+      note.innerHTML = `<span class="focus-chip">★</span> 今年特に伸ばしたい項目: ${escHtml(focusNames || "（未選択）")}`;
       selfBody.appendChild(barsWrap);
       selfBody.appendChild(note);
     } else {
@@ -1172,7 +1198,7 @@ function render() {
         Object.entries(life).forEach(([k, v]) => {
           const tile = document.createElement("div");
           tile.className = "life-tile";
-          tile.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+          tile.innerHTML = `<div class="k">${escHtml(k)}</div><div class="v">${escHtml(v)}</div>`;
           lifeGrid.appendChild(tile);
         });
         scBody.appendChild(lifeGrid);
@@ -1181,14 +1207,14 @@ function render() {
         Object.entries(support).forEach(([k, v]) => {
           const f = document.createElement("div");
           f.className = "field";
-          f.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+          f.innerHTML = `<div class="k">${escHtml(k)}</div><div class="v">${escHtml(v)}</div>`;
           scBody.appendChild(f);
         });
       }
       if (message) {
         const msg = document.createElement("div");
         msg.className = "message-box";
-        msg.innerHTML = `<div class="k">自分へのメッセージ</div>${message}`;
+        msg.innerHTML = `<div class="k">自分へのメッセージ</div>${escHtml(message)}`;
         scBody.appendChild(msg);
       }
     } else {
@@ -1402,7 +1428,7 @@ function makeShortTermGoalCard(stg, athleteKey) {
       cbody.innerHTML = `
         <div class="mandala-empty">データを取得できませんでした（${escHtml(cache.error)}）。</div>
         <div class="mandala-summary">
-          <a class="mandala-link" href="javascript:void(0)" onclick="retryStg('${athleteKey}')">再読み込み →</a>
+          <a class="mandala-link" href="javascript:void(0)" onclick="retryStg('${escHtml(escAttrJs(athleteKey))}')">再読み込み →</a>
           <a class="mandala-link" href="${stg.formUrl}" target="_blank" rel="noopener">フォームを開く →</a>
         </div>
       `;
@@ -1905,7 +1931,7 @@ function makeTrainingCard(a, athleteKey) {
         const f = document.createElement("div");
         f.className = "field";
         f.innerHTML = `
-          <div class="k">${date}${g.note ? "・" + g.note : ""}</div>
+          <div class="k">${escHtml(date)}${g.note ? "・" + escHtml(g.note) : ""}</div>
           <div class="v">${setsText}${topEpley > 0 ? `<br><span style="color:var(--text-muted);font-size:11.5px;">推定1RM ${topEpley}kg</span>` : ""}</div>
         `;
         cbody.appendChild(f);
@@ -2134,6 +2160,7 @@ const LIBRARY_URL = "https://vanwhist.github.io/mic-karte/library/";
 // Worker がまだ無い・一覧が無いときは、これまでの資料室（library/items.json・PDF）に戻す（切り替え期間用）。
 const MAME_WORKER_URL = "https://mic-mame-member.yuyumogul.workers.dev";
 let mameListPromise = null;   // 一覧は1ページにつき1回だけ取る（期限が近づいたら取り直す）
+let legacyItemsPromise = null; // 資料室の items.json も1回だけ取る
 let mameListExpires = 0;
 // 現在地カード。GENZAICHI に設定がある選手だけ。エアlogのキャッシュ(loadAirLog)を共有する。
 function makeGenzaichiCard(a) {
@@ -2145,7 +2172,7 @@ function makeGenzaichiCard(a) {
   loadAirLog(airLog.apiUrl);
   const cache = airLogCache[airLog.apiUrl];
   if (!cache || cache.status === "loading") {
-    cbody.innerHTML = '<div class="mandala-empty">読み込み中...</div>';
+    cbody.innerHTML = '<div class="mandala-empty">読み込み中…</div>';
     return card;
   }
   if (cache.status === "error") {
@@ -2173,7 +2200,7 @@ function makeGenzaichiCard(a) {
   const md = function (iso) { return (+iso.slice(5, 7)) + "/" + (+iso.slice(8, 10)); };
 
   let html = '';
-  html += '<div class="gz-head"><span class="gz-big">' + (left > 0 ? 'あと' + left + '<small>本</small>' : '10<small>本 達成</small>') + '</span>' +
+  html += '<div class="gz-head"><span class="gz-big">' + (left > 0 ? 'あと' + left + '<small>本</small>' : cfg.target + '<small>本 達成</small>') + '</span>' +
           '<span class="gz-sub">' + (left > 0 ? '目標を見直すまで' : '目標を見直すタイミングです') + '</span></div>';
   html += '<div class="gz-slots">';
   for (let i = 0; i < cfg.target; i++) html += '<div class="gz-slot' + (i < shown ? ' on' : '') + '">' + (i + 1) + '</div>';
@@ -2211,13 +2238,15 @@ function makeGenzaichiCard(a) {
 // MIC豆知識の一覧を Worker から取る。戻り値：{ mode: "member", data } / { mode: "legacy" } / { mode: "error", message }
 function fetchMameList(force) {
   if (!force && mameListPromise && Date.now() < mameListExpires - 60000) return mameListPromise;
-  mameListExpires = 0;
+  // 取得中にほかのAPIの完了で render() が走っても、同じ要求を使い回す（二重に取りに行かない）
+  mameListExpires = Infinity;
   mameListPromise = (async function () {
-    if (!VIEW_TOKEN) return { mode: "error", message: "専用のURLで開いたときだけ読めます。" };
+    if (!VIEW_TOKEN) { mameListExpires = Date.now() + 3 * 60000; return { mode: "error", message: "専用のURLで開いたときだけ読めます。" }; }
     let res;
     try {
       res = await fetch(MAME_WORKER_URL + "/list?token=" + encodeURIComponent(VIEW_TOKEN), { cache: "no-store" });
     } catch (e) {
+      mameListExpires = Date.now() + 3 * 60000;
       return { mode: "legacy" };   // Worker にまだ届かない（未設定）→ 資料室に戻す
     }
     let data = null;
@@ -2226,6 +2255,7 @@ function fetchMameList(force) {
       mameListExpires = Number(data.expiresAt) || (Date.now() + 25 * 60000);
       return { mode: "member", data: data };
     }
+    mameListExpires = Date.now() + 3 * 60000;   // 失敗・未設定は3分だけ覚えて、render()のたびに取りに行かない
     const err = data && data.error;
     if (err === "invalid token" || err === "missing token") {
       return { mode: "error", message: "このリンクでは読めません。お手数ですが担当コーチにご確認ください。" };
@@ -2298,8 +2328,12 @@ function makeLibraryCard() {
     }
     // legacy：これまでの資料室（PDF）
     footEl.insertAdjacentHTML("beforeend", '<a class="mandala-link" href="' + LIBRARY_URL + '" target="_blank" rel="noopener">資料室を開く →</a>');
-    fetch(LIBRARY_URL + "items.json?t=" + Math.floor(Date.now() / 600000), { cache: "no-store" })
-      .then(function (r2) { if (!r2.ok) throw new Error(r2.status); return r2.json(); })
+    if (!legacyItemsPromise) {
+      legacyItemsPromise = fetch(LIBRARY_URL + "items.json?t=" + Math.floor(Date.now() / 600000), { cache: "no-store" })
+        .then(function (r2) { if (!r2.ok) throw new Error(r2.status); return r2.json(); });
+      legacyItemsPromise.catch(function () { legacyItemsPromise = null; });
+    }
+    legacyItemsPromise
       .then(function (d) {
         const items = (d.items || []).filter(function (x) { return x && x.published !== false; });
         if (!items.length) { listEl.innerHTML = '<div class="mandala-empty">まだ資料がありません。</div>'; return; }
@@ -2343,7 +2377,7 @@ async function openMameItem(item) {
   if (Date.now() > mameListExpires - 60000) {
     const r = await fetchMameList(true);
     if (r.mode === "member") {
-      const fresh = r.data.items.filter(function (x) { return x.id === item.id; })[0];
+      const fresh = r.data.items.filter(function (x) { return x.file && x.file === item.file; })[0];
       if (fresh) item = fresh;
     }
   }
@@ -2383,7 +2417,7 @@ function airLogAppUrlFor(airLog) {
   if (VIEW_MODE !== "player" || !airLog || !airLog.apiUrl) return base;
   const cache = airLogCache[airLog.apiUrl];
   if (!cache || cache.status !== "loaded") return base;
-  const hit = (cache.athletes || []).filter(function (x) { return x && x.name === airLog.matchName; })[0];
+  const hit = (cache.athletes || []).filter(function (x) { return x && String(x.name || "").trim() === airLog.matchName; })[0];
   return (hit && hit.id) ? base + "?a=" + encodeURIComponent(hit.id) : base;
 }
 
@@ -2401,7 +2435,7 @@ function makeAirLogCard(a, athleteKey) {
   const cache = airLogCache[airLog.apiUrl];
 
   if (!cache || cache.status === "loading") {
-    cbody.innerHTML = `<div class="mandala-empty">読み込み中...</div>`;
+    cbody.innerHTML = `<div class="mandala-empty">読み込み中…</div>`;
     return card;
   }
   if (cache.status === "error") {
@@ -2431,7 +2465,7 @@ function makeAirLogCard(a, athleteKey) {
     if (drillStgCat && drillStgCat.wantToDo) {
       const wantBox = document.createElement("div");
       wantBox.className = "field sub";
-      wantBox.innerHTML = `<div class="k">${drillStgCat.label || "挑戦したい技"}(短期目標より)</div><div class="v">${drillStgCat.wantToDo}</div>`;
+      wantBox.innerHTML = `<div class="k">${escHtml(drillStgCat.label || "挑戦したい技")}(短期目標より)</div><div class="v">${escHtml(drillStgCat.wantToDo)}</div>`;
       cbody.appendChild(wantBox);
     }
 
@@ -2444,14 +2478,14 @@ function makeAirLogCard(a, athleteKey) {
         sess.className = "field";
         const parts = Object.keys(s.tricks).map(t => {
           const ts = s.tricks[t];
-          let str = ts.hasSuccess ? `${t}: ${ts.success}/${ts.total}本` : `${t}: ${ts.total}本`;
+          let str = ts.hasSuccess ? `${escHtml(t)}: ${ts.success}/${ts.total}本` : `${escHtml(t)}: ${ts.total}本`;
           if (ts.kakari > 0) str += `(かかり${ts.kakari}/${ts.total})`;
           return str;
         });
         if (s.airtimeSec != null) parts.push(`10本ジャンプ: ${s.airtimeSec}秒`);
         const trickLines = parts.length ? parts.join("<br>") : "(記録内容なし)";
-        const noteLine = s.notes.length ? `<div style="margin-top:4px;color:var(--text-muted);font-size:11px;">${s.notes.join(" / ")}</div>` : "";
-        sess.innerHTML = `<div class="k">${s.date}${s.facility ? " ・ " + s.facility : ""}</div><div class="v">${trickLines}${noteLine}</div>`;
+        const noteLine = s.notes.length ? `<div style="margin-top:4px;color:var(--text-muted);font-size:11px;">${s.notes.map(escHtml).join(" / ")}</div>` : "";
+        sess.innerHTML = `<div class="k">${escHtml(s.date)}${s.facility ? " ・ " + escHtml(s.facility) : ""}</div><div class="v">${trickLines}${noteLine}</div>`;
         cbody.appendChild(sess);
       });
     }
@@ -2470,7 +2504,7 @@ function makeAirLogCard(a, athleteKey) {
     const tile = document.createElement("div");
     const tileStgCat = stgCategories && stgCategories[label];
     const wantHtml = tileStgCat && tileStgCat.wantToDo
-      ? `<div style="font-size:10.5px;color:var(--blue-450);font-weight:700;margin-bottom:3px;">${tileStgCat.label || "挑戦したい技"}: ${tileStgCat.wantToDo}</div>`
+      ? `<div style="font-size:10.5px;color:var(--blue-450);font-weight:700;margin-bottom:3px;">${escHtml(tileStgCat.label || "挑戦したい技")}: ${escHtml(tileStgCat.wantToDo)}</div>`
       : "";
     if (rows.length) {
       const stats = airLogCatStats(rows);
@@ -2536,14 +2570,14 @@ function makeCoachNotesCard(a, athleteKey) {
   loadAirLog(airLog.apiUrl);
   const cache = airLogCache[airLog.apiUrl];
   if (!cache || cache.status === "loading") {
-    cbody.innerHTML = '<div class="mandala-empty">読み込み中...</div>';
+    cbody.innerHTML = '<div class="mandala-empty">読み込み中…</div>';
     return card;
   }
   if (cache.status === "error") {
     cbody.innerHTML = '<div class="mandala-empty">読み込みに失敗しました</div>';
     return card;
   }
-  const athleteRec = (cache.athletes || []).find(function (x) { return x.name === airLog.matchName; });
+  const athleteRec = (cache.athletes || []).find(function (x) { return x && String(x.name || "").trim() === airLog.matchName; });
   const athleteId = athleteRec ? athleteRec.id : "";
   const notes = (cache.coachNotes || []).filter(function (n) { return athleteId && n.athleteId === athleteId; });
 
@@ -2643,6 +2677,9 @@ function submitCoachNote(athleteKey, athleteId) {
   const statusEl = document.getElementById("coachNoteStatus_" + athleteKey);
   const text = (input && input.value ? input.value : "").trim();
   if (!text) return;
+  const btn = input && input.parentElement ? input.parentElement.querySelector(".coachnote-btn") : null;
+  if (btn && btn.disabled) return;          // 送信中の二度押しは無視する
+  if (btn) btn.disabled = true;
   if (statusEl) statusEl.textContent = "送信中...";
   const source = VIEW_MODE === "player" ? "athlete" : "coach";
   fetch(apiUrl, { method: "POST", body: JSON.stringify({ type: "addCoachNote", athleteId: athleteId, source: source, kind: "share", text: text }) })
@@ -2653,6 +2690,7 @@ function submitCoachNote(athleteKey, athleteId) {
       render();
     })
     .catch(function () {
+      if (btn) btn.disabled = false;
       if (statusEl) statusEl.textContent = "送信に失敗しました。もう一度お試しください。";
     });
 }
@@ -2706,14 +2744,14 @@ function makeVisionCard(a, seasonState, athleteKey) {
   goalField.className = "field clickable";
   goalField.innerHTML = `
     <div class="k">3〜5年後の目標 <span class="chev">${goalOpen ? '▾' : '▸'}</span></div>
-    <div class="v">${v.goal}</div>
+    <div class="v">${escHtml(v.goal)}</div>
   `;
   goalField.onclick = () => toggleVision('goal');
   cbody.appendChild(goalField);
   if (goalOpen) {
     const sub = document.createElement("div");
     sub.className = "field sub";
-    sub.innerHTML = `<div class="k">その理由</div><div class="v">${v.reason}</div>`;
+    sub.innerHTML = `<div class="k">その理由</div><div class="v">${escHtml(v.reason)}</div>`;
     cbody.appendChild(sub);
   }
 
@@ -2723,7 +2761,7 @@ function makeVisionCard(a, seasonState, athleteKey) {
   ultField.className = "field clickable";
   ultField.innerHTML = `
     <div class="k">競技人生の最終到達点 <span class="chev">${ultOpen ? '▾' : '▸'}</span></div>
-    <div class="v">${v.ultimate}</div>
+    <div class="v">${escHtml(v.ultimate)}</div>
   `;
   ultField.onclick = () => toggleVision('ultimate');
   cbody.appendChild(ultField);
@@ -2731,9 +2769,9 @@ function makeVisionCard(a, seasonState, athleteKey) {
     const sub = document.createElement("div");
     sub.className = "field sub";
     sub.innerHTML = `
-      <div class="k">目標達成のために必要なこと</div><div class="v">${v.needed}</div>
-      <div class="k" style="margin-top:8px;">達成できたとき、自分はどんな気持ちか</div><div class="v">${v.selfFeeling}</div>
-      <div class="k" style="margin-top:8px;">達成したとき、周りはどんな気持ちか</div><div class="v">${v.othersFeeling}</div>
+      <div class="k">目標達成のために必要なこと</div><div class="v">${escHtml(v.needed)}</div>
+      <div class="k" style="margin-top:8px;">達成できたとき、自分はどんな気持ちか</div><div class="v">${escHtml(v.selfFeeling)}</div>
+      <div class="k" style="margin-top:8px;">達成したとき、周りはどんな気持ちか</div><div class="v">${escHtml(v.othersFeeling)}</div>
     `;
     cbody.appendChild(sub);
   }
@@ -2745,8 +2783,8 @@ function makeVisionCard(a, seasonState, athleteKey) {
     trickField.className = "field";
     trickField.innerHTML = `
       <div class="k">大会使用予定技</div>
-      <div class="v" style="margin-bottom:6px;"><span style="color:var(--text-muted);">今シーズン：</span>1エア ${v.seasonAir1 || "―"}　2エア ${v.seasonAir2 || "―"}</div>
-      <div class="v"><span style="color:var(--text-muted);">来シーズン：</span>1エア ${v.nextSeasonAir1 || "―"}　2エア ${v.nextSeasonAir2 || "―"}</div>
+      <div class="v" style="margin-bottom:6px;"><span style="color:var(--text-muted);">今シーズン：</span>1エア ${escHtml(v.seasonAir1 || "―")}　2エア ${escHtml(v.seasonAir2 || "―")}</div>
+      <div class="v"><span style="color:var(--text-muted);">来シーズン：</span>1エア ${escHtml(v.nextSeasonAir1 || "―")}　2エア ${escHtml(v.nextSeasonAir2 || "―")}</div>
     `;
     cbody.appendChild(trickField);
   }
@@ -2772,7 +2810,7 @@ function makeCompeteCard(a, seasonState, athleteKey) {
   field.className = "field clickable";
   field.innerHTML = `
     <div class="k">モーグルを始めたきっかけ <span class="chev">${open ? '▾' : '▸'}</span></div>
-    <div class="v">${c.reason}</div>
+    <div class="v">${escHtml(c.reason)}</div>
   `;
   field.onclick = () => toggleCompete();
   cbody.appendChild(field);
@@ -2780,11 +2818,11 @@ function makeCompeteCard(a, seasonState, athleteKey) {
     const sub = document.createElement("div");
     sub.className = "field sub";
     sub.innerHTML = `
-      <div class="k">いつから始めたか</div><div class="v">${c.since}</div>
-      <div class="k" style="margin-top:8px;">モーグルのどんなところが好きか</div><div class="v">${c.like}</div>
-      <div class="k" style="margin-top:8px;">尊敬している選手</div><div class="v">${c.respect}</div>
-      <div class="k" style="margin-top:8px;">自分の強み</div><div class="v">${c.strength}</div>
-      <div class="k" style="margin-top:8px;">今、一番の課題</div><div class="v">${c.challenge}</div>
+      <div class="k">いつから始めたか</div><div class="v">${escHtml(c.since)}</div>
+      <div class="k" style="margin-top:8px;">モーグルのどんなところが好きか</div><div class="v">${escHtml(c.like)}</div>
+      <div class="k" style="margin-top:8px;">尊敬している選手</div><div class="v">${escHtml(c.respect)}</div>
+      <div class="k" style="margin-top:8px;">自分の強み</div><div class="v">${escHtml(c.strength)}</div>
+      <div class="k" style="margin-top:8px;">今、一番の課題</div><div class="v">${escHtml(c.challenge)}</div>
     `;
     cbody.appendChild(sub);
   }
@@ -2803,7 +2841,7 @@ function mandalaSourceLink(m, label) {
     return `<a class="mandala-link" href="${m.sheetUrl}" target="_blank" rel="noopener">${label} →</a>`;
   }
   if (m && m.photoNote) {
-    return `<span style="color:var(--text-muted); font-weight:400; font-size:11.5px;">${m.photoNote}</span>`;
+    return `<span style="color:var(--text-muted); font-weight:400; font-size:11.5px;">${escHtml(m.photoNote)}</span>`;
   }
   return "";
 }
@@ -2818,9 +2856,9 @@ function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
   }
   if (mandalaState && mandalaState.status === "error") {
     cbody.innerHTML = `
-      <div class="mandala-empty">データを取得できませんでした（${mandalaState.error}）。</div>
+      <div class="mandala-empty">データを取得できませんでした（${escHtml(mandalaState.error)}）。</div>
       <div class="mandala-summary">
-        <a class="mandala-link" href="javascript:void(0)" onclick="retryMandala('${athleteKey}')">再読み込み →</a>
+        <a class="mandala-link" href="javascript:void(0)" onclick="retryMandala('${escHtml(escAttrJs(athleteKey))}')">再読み込み →</a>
         ${mandalaSourceLink(mandalaApi, "シートを開く")}
       </div>
     `;
@@ -2838,6 +2876,7 @@ function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
     return card;
   }
 
+  if (!Array.isArray(m.grid)) m.grid = [];
   const drillCell = mandalaDrill ? m.grid.find(c => c && c.name === mandalaDrill) : null;
 
   if (drillCell) {
@@ -2863,9 +2902,9 @@ function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
     grid.className = "mandala-3x3";
     cells9.forEach(v => {
       if (v === "__CENTER__") {
-        grid.innerHTML += `<div class="mandala-cell center sub"><div class="g">${drillCell.name}</div></div>`;
+        grid.innerHTML += `<div class="mandala-cell center sub"><div class="g">${escHtml(drillCell.name)}</div></div>`;
       } else if (v) {
-        grid.innerHTML += `<div class="mandala-cell action filled"><div class="a">${v}</div></div>`;
+        grid.innerHTML += `<div class="mandala-cell action filled"><div class="a">${escHtml(v)}</div></div>`;
       } else {
         grid.innerHTML += `<div class="mandala-cell action"><div class="a muted">（未記入）</div></div>`;
       }
@@ -2887,8 +2926,8 @@ function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
   grid.className = "mandala-3x3";
   let doneTotal = 0, cellTotal = 0;
   m.grid.forEach(cell => {
-    if (cell === null) {
-      grid.innerHTML += `<div class="mandala-cell center"><div class="g">${m.goal}</div></div>`;
+    if (cell == null || !cell.name) {
+      grid.innerHTML += `<div class="mandala-cell center"><div class="g">${escHtml(m.goal)}</div></div>`;
       return;
     }
     const done = countDone(cell.actions);
@@ -2896,8 +2935,8 @@ function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
     cellTotal += 8;
     const started = done > 0;
     grid.innerHTML += `
-      <div class="mandala-cell elem clickable ${started ? 'started' : ''}" onclick="selectMandalaElement('${cell.name}')">
-        <div class="n">${cell.name}</div>
+      <div class="mandala-cell elem clickable ${started ? 'started' : ''}" onclick="selectMandalaElement('${escHtml(escAttrJs(cell.name))}')">
+        <div class="n">${escHtml(cell.name)}</div>
         <div class="p">${done}/8${started ? '' : '・未着手'}</div>
       </div>
     `;
@@ -2907,7 +2946,7 @@ function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
   const summary = document.createElement("div");
   summary.className = "mandala-summary";
   summary.innerHTML = `
-    <span>行動レベル ${doneTotal}/${cellTotal}マス記入済み・更新日 ${m.updated}</span>
+    <span>行動レベル ${doneTotal}/${cellTotal}マス記入済み${m.updated ? "・更新日 " + escHtml(m.updated) : ""}</span>
     ${mandalaSourceLink(mandalaApi, "全81マスを見る")}
   `;
   cbody.appendChild(summary);
@@ -3233,7 +3272,7 @@ async function initApp() {
     return;
   }
   try {
-    if (urlToken) {
+    {
       const res = await fetch(RESOLVER_URL + "?token=" + encodeURIComponent(urlToken));
       const data = await res.json();
       if (data.error) {
@@ -3271,7 +3310,7 @@ async function initApp() {
     }
     render();
   } catch (err) {
-    renderFatalError("データの取得に失敗しました。時間をおいて再度お試しください（" + err + "）。");
+    renderFatalError("データの取得に失敗しました。時間をおいて再度お試しください（" + escHtml(err) + "）。");
   }
 }
 
