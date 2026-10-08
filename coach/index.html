@@ -1100,7 +1100,6 @@ function render() {
   const conditionCard = (VIEW_MODE === "coach") ? makeConditionCoachCard() : makeConditionAthleteCard();
   if (conditionCard) body.appendChild(conditionCard);
   // コーチ用で選手ごとの詳細を開いている間は、他のカードを出さずに詳細だけを見せる
-  if (VIEW_MODE === "coach" && conditionCoachOpen) return;
 
   // 競技についてカード (2026/07/26追加)
   body.appendChild(makeCompeteCard(a, seasonState, current));
@@ -3194,59 +3193,28 @@ function makeConditionCoachCard() {
   const rows = data.athletes.slice();
   const appUrl = CONDITION_APP_URL + "?token=" + token;
 
-  // ---- 詳細（行をタップした状態）----
-  if (conditionCoachOpen) {
-    const r = rows.filter(x => x.name === conditionCoachOpen)[0];
-    if (r) {
-      const j = condJudge(r);
-      const html =
-        `<button class="cond-back" onclick="window.condBackToList()">← 一覧に戻る</button>
-         <div class="cond-banner ${j.key}"><div class="lb">${escHtml(j.label)}</div><div class="ex">${escHtml(j.why)}</div></div>
-         <div class="cond-kv">
-           <div class="b"><div class="k">疲労感（最新）</div><div class="v">${r.latestFatigue == null ? "—" : escHtml(String(r.latestFatigue)) + ' <small>/ 5</small>'}</div></div>
-           <div class="b"><div class="k">疲労感（7日平均）</div><div class="v">${r.avgFatigue == null ? "—" : escHtml(String(r.avgFatigue)) + ' <small>/ 5</small>'}</div></div>
-           <div class="b"><div class="k">ケガ・違和感</div><div class="v">${r.hasInjury ? "記録あり" : "記録なし"}</div></div>
-           <div class="b"><div class="k">記録の状況</div><div class="v">${escHtml(String(r.recentRecordCount || 0))}<small> 日 / 7日</small></div></div>
-         </div>
-         <div class="mandala-summary"><span>最終記録：${escHtml(condFreshText(r.daysSinceLastRecord))}${r.lastRecordDate ? "（" + escHtml(condMD(r.lastRecordDate)) + "）" : ""}</span></div>
-         <div class="mandala-empty" style="padding-top:2px;">この画面に出るのはこの4項目だけです。睡眠・気分・自由メモ・部位などの詳細と、月経に関する情報は含まれません。</div>
-         <a class="cond-cta secondary" href="${appUrl}" target="_blank" rel="noopener">コンディション管理（コーチ画面）を開く →</a>`;
-      return makeCard("コンディション／" + escHtml(r.name), "green", html);
-    }
-    conditionCoachOpen = null; // 選手が見つからない場合は一覧へ戻す
+  // 2026-10-08：コーチ用でも、カードに出すのは「いま選んでいる選手」1人分だけ。
+  // 全員の状態は選手タブの色の点で見る（一覧はコンディション管理アプリのコーチ画面で見る）。
+  const curName = String(current || "").trim();
+  const r = rows.filter(x => String(x.name || "").trim() === curName)[0];
+  if (!r) {
+    return makeCard("コンディション", "green",
+      `<div class="mandala-empty">この選手は、MICコンディション管理の対象に入っていません。</div>
+       <a class="cond-cta secondary" href="${appUrl}" target="_blank" rel="noopener">コンディション管理（コーチ画面）を開く →</a>`);
   }
-
-  // ---- 一覧 ----
-  const order = { red: 0, amber: 1, gray: 2, green: 3 };
-  rows.sort((a, b) => order[condJudge(a).key] - order[condJudge(b).key]);
-
-  let html = `<div class="cond-legend">
-      <span><i style="background:#1f9d55"></i>通常確認</span>
-      <span><i style="background:#e08a00"></i>確認あり</span>
-      <span><i style="background:#d64545"></i>優先確認</span>
-      <span><i style="background:#9aa0a8"></i>記録不足</span>
-    </div>`;
-  rows.forEach(r => {
-    const j = condJudge(r);
-    const bits = [];
-    if (r.latestFatigue != null) bits.push("疲労 最新" + r.latestFatigue + (r.avgFatigue != null ? " / 7日平均" + r.avgFatigue : ""));
-    else if (r.avgFatigue != null) bits.push("疲労 7日平均" + r.avgFatigue);
-    if (r.hasInjury) bits.push("違和感あり");
-    const nameAttr = escHtml(escAttrJs(r.name));
-    html += `<button class="cond-row" onclick="window.condOpenAthlete('${nameAttr}')">
-        <span class="sig ${j.key}">${escHtml(j.label)}</span>
-        <span class="mid">
-          <span class="nm">${escHtml(r.name)}</span>
-          <span class="l1">${escHtml(bits.length ? bits.join("　/　") : "記録がありません")}</span>
-          <span class="l2">${escHtml(condFreshText(r.daysSinceLastRecord) + "　・　直近7日 " + (r.recentRecordCount || 0) + "日")}</span>
-        </span>
-        <span class="chev">›</span>
-      </button>`;
-  });
-  html += `<div class="mandala-empty" style="padding-top:10px;">色は体調の判定ではなく、<b>今日どの選手から声をかけるか</b>の目安です。練習の可否は判定しません。</div>`;
-  html += `<a class="cond-cta secondary" href="${appUrl}" target="_blank" rel="noopener">コンディション管理（コーチ画面）を開く →</a>`;
-
-  return makeCard("コンディション（在籍" + rows.length + "名）", "green", html);
+  const j = condJudge(r);
+  const html =
+    `<div class="cond-banner ${j.key}"><div class="lb">${escHtml(j.label)}</div><div class="ex">${escHtml(j.why)}</div></div>
+     <div class="cond-kv">
+       <div class="b"><div class="k">疲労感（最新）</div><div class="v">${r.latestFatigue == null ? "—" : escHtml(String(r.latestFatigue)) + ' <small>/ 5</small>'}</div></div>
+       <div class="b"><div class="k">疲労感（7日平均）</div><div class="v">${r.avgFatigue == null ? "—" : escHtml(String(r.avgFatigue)) + ' <small>/ 5</small>'}</div></div>
+       <div class="b"><div class="k">ケガ・違和感</div><div class="v">${r.hasInjury ? "記録あり" : "記録なし"}</div></div>
+       <div class="b"><div class="k">記録の状況</div><div class="v">${escHtml(String(r.recentRecordCount || 0))}<small> 日 / 7日</small></div></div>
+     </div>
+     <div class="mandala-summary"><span>最終記録：${escHtml(condFreshText(r.daysSinceLastRecord))}${r.lastRecordDate ? "（" + escHtml(condMD(r.lastRecordDate)) + "）" : ""}</span></div>
+     <div class="mandala-empty" style="padding-top:2px;">色は体調の判定ではなく、<b>今日どの選手から声をかけるか</b>の目安です。ここに出るのはこの4項目だけで、睡眠・気分・自由メモ・部位などの詳細と、月経に関する情報は含まれません。</div>
+     <a class="cond-cta secondary" href="${appUrl}" target="_blank" rel="noopener">コンディション管理（コーチ画面）を開く →</a>`;
+  return makeCard("コンディション", "green", html);
 }
 
 // トークン解決に失敗した場合(無効なリンク)や、リゾルバ自体への通信が失敗した場合に
