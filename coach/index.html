@@ -52,6 +52,25 @@
     margin: 0 0 10px;
     letter-spacing: 0.01em;
   }
+  /* 大会リザルト（mic-results）への入口（2026-10-14）。カルテの外の公開サイトなので別のタブで開く。
+     カルテの URL にはトークンが付くので、同じ github.io のサイトへ参照元として渡さない（noreferrer） */
+  .header-links {
+    display: flex;
+    justify-content: center;
+    margin: -2px 0 10px;
+  }
+  .header-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--blue-550);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
   .segmented {
     display: flex;
     background: var(--page);
@@ -580,6 +599,9 @@
 
 <div class="app-header">
   <p class="app-title">MIC選手カルテ</p>
+  <div class="header-links">
+    <a class="header-link" href="https://vanwhist.github.io/mic-results/" target="_blank" rel="noopener noreferrer">大会リザルト ↗</a>
+  </div>
   <div class="segmented" id="selector"></div>
   <div class="updated-row" id="updatedRow"></div>
 </div>
