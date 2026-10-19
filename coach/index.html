@@ -226,6 +226,8 @@
   .lib-group { font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--gridline); }
   .goal-tile .line { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin-top: 3px; }
   .goal-tile .rev { display: inline-block; font-size: 9.5px; font-weight: 700; color: #b25a00; background: #fff3e6; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  /* MIC豆知識：深掘り編などのラベル（manifest の label。2026-10-19） */
+  .goal-tile .deep { display: inline-block; font-size: 10px; font-weight: 700; color: #5b3aa8; background: #efe9fb; border-radius: 6px; padding: 1px 7px; margin: 1px 0 3px; line-height: 1.5; }
   .goal-tile .revnote { font-size: 10.5px; color: #8a5a2b; line-height: 1.45; margin-top: 3px; }
 
   /* self-assessment bars */
@@ -2313,6 +2315,7 @@ function renderMameMap(items, hrefOf, member) {
       '<a class="goal-tile clickable' + (x.sub ? ' lib-in' : '') + '"' + attrs + '>' +
       '<div class="k">' + escHtml(x.no) + (!member && x.pages ? ' ・ ' + escHtml(x.pages) + 'ページ' : '') +
       (x.revised ? '<span class="rev">' + escHtml(x.revised) + ' 改訂</span>' : '') + '</div>' +
+      (x.label ? '<div class="deep">' + escHtml(x.label) + '</div>' : '') +
       '<div class="v">' + escHtml(x.title) + '</div>' +
       (x.line ? '<div class="line">' + escHtml(x.line) + '</div>' : '') +
       (x.revisedNote ? '<div class="revnote">' + escHtml(x.revisedNote) + '</div>' : '') +
