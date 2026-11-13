@@ -398,6 +398,21 @@
     border: 1px solid var(--blue-250); background: var(--accent-soft); color: var(--blue-550);
   }
   .stg-act .sub { display: block; font-size: 10px; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
+  /* 大会の目標とふり返りカード（2026/11/13追加） */
+  .tk-ev { padding: 10px 0 6px; border-top: 1px solid var(--gridline); }
+  .tk-ev:first-child { border-top: none; padding-top: 0; }
+  .tk-title { font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.45; }
+  .tk-meta { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 6px; }
+  .tk-sec { font-size: 10.5px; font-weight: 700; color: var(--gold-text); margin: 8px 0 2px; letter-spacing: 0.04em; }
+  .tk-ev .field { padding: 6px 0; }
+  .tk-ev .field .v { font-size: 13.5px; }
+  .tk-done { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
+  .tk-done.ok { background: var(--green-soft); color: #1f7a45; }
+  .tk-done.part { background: var(--accent-soft); color: var(--blue-550); }
+  .tk-done.no { background: var(--page); color: var(--text-secondary); border: 1px solid var(--gridline); }
+  .tk-links { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; font-size: 12.5px; }
+  .tk-more { display: block; text-align: center; font-size: 12px; font-weight: 700; color: var(--blue-450);
+    padding: 8px 0 2px; border-top: 1px solid var(--gridline); text-decoration: none; }
   .mandala-empty {
     font-size: 12.5px;
     color: var(--text-muted);
@@ -637,6 +652,16 @@ const STG_V2_API_URL = "https://script.google.com/macros/s/AKfycbwfPE1oh5W5ubuy1
 const SEASON_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfkB9Qu3rY3TE66sxQKbU3dbHFiqC6mvbDlheB-ujhIr5HXOQ/viewform";
 const STG_FORM_URL = "https://forms.gle/t8SKiK1soGFctgyf6";
 const STG_FORM_B_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdOgdFlMam7lDnQUM9xNCRvh6yYfjGNzqRYLe9S7yOmvJhJcg/viewform";
+// 大会の目標シート（2026/11/13追加）。1つのフォームで大会前・大会後に分岐する。
+// APIは名簿リゾルバでトークンを本人の名前に変える（選手トークン＝本人／コーチトークン＝&athlete=で選んだ選手）。
+// TAIKAI_API_URL を空文字にすると、大会カードを出さない（ロールバック手段）。
+const TAIKAI_API_URL = "https://script.google.com/macros/s/AKfycbzh4T_L_E7hBO2ko4spYcUNN6rbC3S-sp1l-B_fX9RRgXwJh4td8HwlrETynDZ945c2/exec";
+const TAIKAI_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfz2wWA12gXhB7grtyRtBYBqDGjJ_yl86mBz6QxvbpEwEGKZA/viewform";
+const TAIKAI_FORM_ENTRY = {
+  name: "entry.75656351", event: "entry.598630360", otherName: "entry.1963345819",
+  otherDate: "entry.989030673", when: "entry.1954437554"
+};
+const TAIKAI_OTHER_EVENT = "リストにない大会";
 const STG_SHEET_URL = "https://docs.google.com/spreadsheets/d/1LaYW7XDurwSUDFplH9uwcqUTx_u5OsRt3tPeSjKKA_E/edit";
 const MANDALA_API_URL = "https://script.google.com/macros/s/AKfycbxzrgZf1C3vqfGwbeS3hUr1P9U3txbuVfiRBvxWzlAeKdnfIp7QaJ0C1MhE-drLwk31/exec";
 const AIRLOG_API_URL = "https://script.google.com/macros/s/AKfycbyH7nX_nhgJ4z7W_QCLGnZqwLp8GkCdRzof2RaaR3fLK2gKVpeF8P0lATS2uzzKJhP0ag/exec";
@@ -718,7 +743,7 @@ function buildAthleteEntry(person, showSharedSheetUrls) {
       apiUrl: STG_API_URL,
       token: person.stgApiToken,
       updated: null,
-      formUrl: STG_FORM_URL,
+      formUrl: STG_FORM_B_URL, // 2026/11/13〜 回答0件の選手もv2へ（フォームAは受付停止）
       sheetUrl: showSharedSheetUrls ? STG_SHEET_URL : null,
       categories: {
         "ウォータージャンプ": null,
@@ -1163,6 +1188,9 @@ function render() {
   // 現在地カード(GENZAICHIに設定がある選手だけ。短期目標のすぐ下)
   const genzaichiCard = makeGenzaichiCard(a);
   if (genzaichiCard) body.appendChild(genzaichiCard);
+  // 大会の目標とふり返り(2026/11/13追加)。APIが失敗したときはカードごと出さない
+  const taikaiCard = makeTaikaiCard(current);
+  if (taikaiCard) body.appendChild(taikaiCard);
 
   // Self-assessment card
   const selfCard = makeCard("自己分析(1〜5段階評価)", "blue", "");
@@ -1422,8 +1450,8 @@ function stgFormActions(stg) {
 }
 
 function stgFormLink(stg, hasRecords) {
-  const url = hasRecords ? STG_FORM_B_URL : ((stg && stg.formUrl) || STG_FORM_URL);
-  const label = hasRecords ? "今月の目標を記入する →" : "フォームを開く →";
+  const url = STG_FORM_B_URL; // 2026/11/13〜 フォームAは使わない
+  const label = "短期の目標を記入する →";
   return `<a class="mandala-link" href="${url}" target="_blank" rel="noopener">${label}</a>`;
 }
 
@@ -2979,6 +3007,131 @@ function makeMandalaCard(m, mandalaState, mandalaApi, athleteKey) {
   hint.textContent = "各要素をタップすると、その8マスの内容を見られます";
   cbody.appendChild(hint);
 
+  return card;
+}
+
+// ============================================================
+// 大会の目標とふり返りカード(2026/11/13追加)
+// ------------------------------------------------------------
+// 大会前に「自分で確かめること」を1つ決め、大会後にそれができたかをふり返る。
+// 大会ごとに1件（大会前と大会後はAPI側で1件にまとめてある）。日付の新しい順。
+// 結果（順位など）と自分の目標は別の行に分けて出す。
+const taikaiCache = {}; // athlete名 -> { status, data }
+let taikaiShowAll = false;
+const TAIKAI_SHOW = 3;
+
+function loadTaikai(athleteKey) {
+  if (taikaiCache[athleteKey]) return;
+  taikaiCache[athleteKey] = { status: "loading" };
+  let url = TAIKAI_API_URL + "?token=" + encodeURIComponent(VIEW_TOKEN || "");
+  if (VIEW_MODE === "coach") url += "&athlete=" + encodeURIComponent(athleteKey);
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (!data || data.error || !Array.isArray(data.events)) throw new Error((data && data.error) || "empty");
+      taikaiCache[athleteKey] = { status: "loaded", data: data };
+      render();
+    })
+    .catch(err => {
+      taikaiCache[athleteKey] = { status: "error", error: String(err) };
+      render();
+    });
+}
+window.taikaiToggleAll = function() {
+  taikaiShowAll = !taikaiShowAll;
+  render();
+};
+
+function taikaiFormUrl(athleteKey, ev, when) {
+  const E = TAIKAI_FORM_ENTRY;
+  const q = ["usp=pp_url", E.name + "=" + encodeURIComponent(athleteKey)];
+  if (ev) {
+    if (ev.other) {
+      q.push(E.event + "=" + encodeURIComponent(TAIKAI_OTHER_EVENT));
+      q.push(E.otherName + "=" + encodeURIComponent(ev.eventName || ""));
+      if (ev.date) q.push(E.otherDate + "=" + encodeURIComponent(ev.date));
+    } else {
+      q.push(E.event + "=" + encodeURIComponent(ev.eventName || ""));
+    }
+  }
+  if (when) q.push(E.when + "=" + encodeURIComponent(when));
+  return TAIKAI_FORM_URL + "?" + q.join("&");
+}
+
+function taikaiDateLabel(ymd) {
+  const m = String(ymd || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? Number(m[2]) + "/" + Number(m[3]) : "";
+}
+
+function taikaiDoneHtml(v) {
+  const cls = v === "できた" ? "ok" : v === "少しできた" ? "part" : "no";
+  return '<span class="tk-done ' + cls + '">' + escHtml(v) + '</span>';
+}
+
+function taikaiField(k, vHtml) {
+  return '<div class="field"><div class="k">' + escHtml(k) + '</div><div class="v">' + vHtml + '</div></div>';
+}
+
+function taikaiEventHtml(ev, athleteKey) {
+  const pre = ev.pre, post = ev.post;
+  const chips = [];
+  if (ev.other && ev.date) chips.push('<span class="rec-chip prev">' + escHtml(taikaiDateLabel(ev.date)) + '</span>');
+  if (pre && !post) chips.push('<span class="rec-chip now">ふり返りはまだ</span>');
+  if (!pre && post) chips.push('<span class="rec-chip prev">大会前のシートなし</span>');
+  let h = '<div class="tk-ev"><div class="tk-title">' + escHtml(ev.eventName || "") + '</div>';
+  if (chips.length) h += '<div class="tk-meta">' + chips.join("") + '</div>';
+
+  if (pre) {
+    h += '<div class="tk-sec">大会の前</div>';
+    if (pre.selfCheck) h += taikaiField("自分で確かめること", escHtml(pre.selfCheck));
+    if (pre.resultGoal) h += taikaiField("結果の目標", escHtml(pre.resultGoal));
+    if (pre.ifThen) h += taikaiField("もし〜なら、〜する", escHtml(pre.ifThen));
+  }
+  const links = [];
+  if (post) {
+    h += '<div class="tk-sec">大会のあと</div>';
+    h += taikaiField("結果", post.result ? escHtml(post.result) : '<span style="color:var(--text-muted)">（未記入）</span>');
+    if (post.selfCheckDone) h += taikaiField("自分の目標", taikaiDoneHtml(post.selfCheckDone));
+    if (post.wentWell) h += taikaiField("うまくいったこと・うまくいかなかったこと", escHtml(post.wentWell));
+    if (post.cause) h += taikaiField("うまくいかなかった原因に近いもの", escHtml(post.cause));
+    if (post.nextPractice) h += taikaiField("次の練習の目標", escHtml(post.nextPractice));
+    if (post.shortTerm) h += taikaiField("今の短期の目標", escHtml(post.shortTerm));
+    if (post.shortTerm === "変える" || post.shortTerm === "まだ短期の目標がない") {
+      links.push('<a class="mandala-link" href="' + STG_FORM_B_URL + '" target="_blank" rel="noopener">短期の目標フォームを開く →</a>');
+    }
+  } else if (pre) {
+    links.push('<a class="mandala-link" href="' + escHtml(taikaiFormUrl(athleteKey, ev, "大会のあと")) + '" target="_blank" rel="noopener">大会のあとに、ふり返りを書く →</a>');
+  }
+  if (links.length) h += '<div class="tk-links">' + links.join("") + '</div>';
+  return h + '</div>';
+}
+
+function makeTaikaiCard(athleteKey) {
+  if (!TAIKAI_API_URL) return null;
+  loadTaikai(athleteKey);
+  const cache = taikaiCache[athleteKey];
+  if (cache && cache.status === "error") return null; // 取れなかったときはカードを出さない（ほかのカードには影響しない）
+  const card = makeCard("大会の目標とふり返り", "gold", "");
+  const cbody = card.querySelector(".card-body");
+  if (!cache || cache.status === "loading") {
+    cbody.innerHTML = '<div class="mandala-empty">読み込み中…</div>';
+    return card;
+  }
+  const events = cache.data.events || [];
+  const openForm = '<a class="mandala-link" href="' + escHtml(taikaiFormUrl(athleteKey, null, null)) + '" target="_blank" rel="noopener">大会の目標シートを開く →</a>';
+  if (!events.length) {
+    cbody.innerHTML = '<div class="mandala-empty">まだ大会の目標シートの記入がありません。大会の前に「自分で確かめること」を1つ決めて書きます。</div>' +
+      '<div class="mandala-summary"><span></span>' + openForm + '</div>';
+    return card;
+  }
+  const shown = taikaiShowAll ? events : events.slice(0, TAIKAI_SHOW);
+  let h = shown.map(ev => taikaiEventHtml(ev, athleteKey)).join("");
+  if (events.length > TAIKAI_SHOW) {
+    h += '<a class="tk-more" href="javascript:void(0)" onclick="taikaiToggleAll()">' +
+      (taikaiShowAll ? "新しい" + TAIKAI_SHOW + "件だけ表示する" : "これまでの大会をすべて見る（ほか" + (events.length - TAIKAI_SHOW) + "件）") + '</a>';
+  }
+  h += '<div class="mandala-summary"><span>' + (cache.data.updated ? "更新 " + escHtml(cache.data.updated) : "") + '</span>' + openForm + '</div>';
+  cbody.innerHTML = h;
   return card;
 }
 
