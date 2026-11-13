@@ -223,6 +223,18 @@
   .mame-bar .mame-title { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mame-bar .mame-newtab { flex: 0 0 auto; color: #c9d8ef; font-size: 11px; text-decoration: none; }
   .mame-frame { flex: 1 1 auto; width: 100%; border: 0; display: block; background: #fff; }
+  /* MIC豆知識：区切りごとにたたむ（2026-11-13） */
+  .lib-sec { border-top: 1px solid var(--gridline); }
+  .lib-sec:first-child { border-top: none; }
+  .lib-sec > summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 11px 2px; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .lib-sec > summary::-webkit-details-marker { display: none; }
+  .lib-sec > summary .nm { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+  .lib-sec > summary .ct { font-size: 11px; color: var(--text-muted); }
+  .lib-sec > summary .nw { font-size: 9.5px; font-weight: 700; color: #b25a00; background: #fff3e6; border-radius: 6px; padding: 1px 6px; }
+  .lib-sec > summary .cv { margin-left: auto; font-size: 12px; color: var(--blue-450); transition: transform 0.15s ease; }
+  .lib-sec[open] > summary .cv { transform: rotate(180deg); }
+  .lib-sec .lib-body { padding: 0 0 10px; }
+  .lib-sec .lib-body > .goal-tile:not(.lib-in) + .goal-tile:not(.lib-in) { margin-top: 6px; }
   .lib-group { font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--gridline); }
   .goal-tile .line { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin-top: 3px; }
   .goal-tile .rev { display: inline-block; font-size: 9.5px; font-weight: 700; color: #b25a00; background: #fff3e6; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
@@ -2319,6 +2331,42 @@ function fetchMameList(force) {
   return mameListPromise;
 }
 
+// 2026-11-13：号が増えてカードが縦に長くなったため、区切り（manifest の group。group なし＝エアの流れ）ごとに
+// たたんで出す。見出しに件数と「新」（added が21日以内の号がある区切り）を出す。開いた中は今までどおりの地図。
+// 開いている区切りは render() で描き直しても保つ。
+const MAME_AIR_SECTION = "エアのしくみ";
+const MAME_NEW_DAYS = 21;
+const mameSecOpen = {};
+function mameIsNew(x) {
+  const m = String((x && x.added) || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return false;
+  const t = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  return (Date.now() - t) / 86400000 <= MAME_NEW_DAYS;
+}
+function renderMameSections(items, hrefOf, member) {
+  const secs = [], byName = {};
+  items.forEach(function (x, i) {
+    const name = x.group || MAME_AIR_SECTION;
+    let sec = byName[name];
+    if (!sec) { sec = byName[name] = { name: name, items: [] }; secs.push(sec); }
+    const c = Object.assign({}, x, { __i: i });
+    delete c.group; // 区切りの見出しは summary に出すので、地図の中では出さない
+    sec.items.push(c);
+  });
+  return secs.map(function (sec) {
+    const hasNew = sec.items.some(mameIsNew);
+    return '<details class="lib-sec" data-sec="' + escHtml(sec.name) + '"' + (mameSecOpen[sec.name] ? ' open' : '') + '>' +
+      '<summary><span class="nm">' + escHtml(sec.name) + '</span><span class="ct">' + sec.items.length + '件</span>' +
+      (hasNew ? '<span class="nw">新</span>' : '') + '<span class="cv">▼</span></summary>' +
+      '<div class="lib-body">' + renderMameMap(sec.items, hrefOf, member) + '</div></details>';
+  }).join("");
+}
+function bindMameSections(listEl) {
+  listEl.querySelectorAll("details.lib-sec").forEach(function (d) {
+    d.addEventListener("toggle", function () { mameSecOpen[d.getAttribute("data-sec")] = d.open; });
+  });
+}
+
 // 一覧（items）をエアの流れの地図として描く。openFn があれば HTML の号として重ねて開く、なければ資料室の PDF へのリンク
 function renderMameMap(items, hrefOf, member) {
   let lastGroup = null, lastStage = null, lastSub = null;
@@ -2337,7 +2385,7 @@ function renderMameMap(items, hrefOf, member) {
     lastSub = x.sub || null;
     const href = hrefOf(x);
     const attrs = member
-      ? ' href="' + escHtml(href) + '" data-mame="' + i + '"'
+      ? ' href="' + escHtml(href) + '" data-mame="' + (x.__i !== undefined ? x.__i : i) + '"'
       : ' href="' + escHtml(href) + '" target="_blank" rel="noopener"';
     return head +
       '<a class="goal-tile clickable' + (x.sub ? ' lib-in' : '') + '"' + attrs + '>' +
@@ -2353,7 +2401,7 @@ function renderMameMap(items, hrefOf, member) {
 
 function makeLibraryCard() {
   const card = makeCard("MIC豆知識", "blue",
-    '<div class="mandala-empty" style="padding-top:0;" id="library-intro">エアのしくみを、練習で見えている現象から説明する短い読み物です。</div>' +
+    '<div class="mandala-empty" style="padding-top:0;" id="library-intro">エアのしくみや目標の立て方を、短く説明する読み物です。</div>' +
     '<div id="library-list"><div class="mandala-empty">読み込み中…</div></div>' +
     '<div class="mandala-summary" id="library-foot"><span>新しい号はここに増えていきます</span></div>');
   const listEl = card.querySelector("#library-list");
@@ -2364,8 +2412,9 @@ function makeLibraryCard() {
     if (r.mode === "member") {
       const items = r.data.items.filter(function (x) { return x && x.url; });
       if (!items.length) { listEl.innerHTML = '<div class="mandala-empty">まだ資料がありません。</div>'; return; }
-      introEl.textContent = introEl.textContent + " タップすると、この画面の上に開きます。" + (r.data.intro ? " " + r.data.intro : "");
-      listEl.innerHTML = renderMameMap(items, function (x) { return x.url; }, true);
+      introEl.textContent = introEl.textContent + " 見出しをタップすると一覧が開き、号をタップするとこの画面の上に開きます。" + (r.data.intro ? " " + r.data.intro : "");
+      listEl.innerHTML = renderMameSections(items, function (x) { return x.url; }, true);
+      bindMameSections(listEl);
       listEl.addEventListener("click", function (ev) {
         const a = ev.target.closest && ev.target.closest("a[data-mame]");
         if (!a) return;
@@ -2390,7 +2439,8 @@ function makeLibraryCard() {
         const items = (d.items || []).filter(function (x) { return x && x.published !== false; });
         if (!items.length) { listEl.innerHTML = '<div class="mandala-empty">まだ資料がありません。</div>'; return; }
         introEl.textContent = introEl.textContent + " タップするとPDFが開きます。" + (d.intro ? " " + d.intro : "");
-        listEl.innerHTML = renderMameMap(items, function (x) { return LIBRARY_URL + x.file; }, false);
+        listEl.innerHTML = renderMameSections(items, function (x) { return LIBRARY_URL + x.file; }, false);
+        bindMameSections(listEl);
       })
       .catch(function () {
         listEl.innerHTML = '<div class="mandala-empty">一覧を読み込めませんでした。「資料室を開く」から見られます。</div>';
